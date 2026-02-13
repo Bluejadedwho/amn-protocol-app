@@ -1346,13 +1346,13 @@
 
 
     const firebaseConfig = {
-      apiKey: "AIzaSyAtORnHiL5tdDQ1OkRdQhj2PsaW6GzQ3yE",
-      authDomain: "pioneer-program.firebaseapp.com",
-      projectId: "pioneer-program",
-      storageBucket: "pioneer-program.firebasestorage.app",
-      messagingSenderId: "773361494367",
-      appId: "1:773361494367:web:15aee1471b181413d1eeea"
-    };
+  apiKey: "AIzaSyAtoRnHiL5tdDQ1OkRdQhj2PsaW6GzQ3yE",
+  authDomain: "pioneer-program.firebaseapp.com",
+  projectId: "pioneer-program",
+  storageBucket: "pioneer-program.firebasestorage.app",
+  messagingSenderId: "773361494367",
+  appId: "1:773361494367:web:15aee1471b181413d1eeea"
+};
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
@@ -1386,7 +1386,7 @@
       if (outBtn) outBtn.style.display = signedIn ? "block" : "none";
     }
 
-    async function beginSignIn() {
+    async async function beginSignIn() {
       // iOS Safari and "Add to Home Screen" PWAs are unreliable with popups.
       // Use redirect there; use popup elsewhere for better UX.
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -1403,6 +1403,7 @@
         console.warn("Popup sign-in failed; trying redirect.", e?.code || e);
         await signInWithRedirect(auth, provider);
       }
+    }
     }
 
     async function beginSignOut() {
