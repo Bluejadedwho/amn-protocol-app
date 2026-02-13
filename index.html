@@ -1407,7 +1407,7 @@
     }
 
     // Handle redirect completion (if we used signInWithRedirect).
-    getRedirectResult(auth).catch(() => {});
+    getRedirectResult(auth).then(() => {}).catch((e) => { console.warn('Redirect sign-in not completed:', e?.code || e); });
 
     window.beginSignIn = beginSignIn;
     window.beginSignOut = beginSignOut;
@@ -1664,37 +1664,7 @@
     }
 
     // --- PDF EXPORT (range + dense table + notes appendix) ---
-    
-    // Convenience: fetch last N days of logs for a patient (used by Trends + export helpers)
-    async function fetchPatientLogs(patientId, days = 30) {
-      try {
-        const db = getFirestore();
-        const end = new Date();
-        const start = new Date();
-        start.setDate(end.getDate() - (Number(days) || 30));
-
-        const startKey = start.toISOString().slice(0, 10);
-        const endKey = end.toISOString().slice(0, 10);
-
-        const logsRef = collection(db, userProfilePath(patientId, "logs"));
-        const q = query(
-          logsRef,
-          where("date", ">=", startKey),
-          where("date", "<=", endKey),
-          orderBy("date", "desc")
-        );
-
-        const snap = await getDocs(q);
-        const out = [];
-        snap.forEach((docSnap) => out.push({ id: docSnap.id, ...docSnap.data() }));
-        return out;
-      } catch (err) {
-        console.error("fetchPatientLogs error:", err);
-        return [];
-      }
-    }
-
-async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
+    async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
       const logsRef = collection(db, ...userProfilePath(patientId, "logs"));
       const q = query(
         logsRef,
@@ -2290,7 +2260,7 @@ async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "des
         const global = ordered.map(l => _mapBaselineTo15(l.baseline_rating));
         const energy = ordered.map(l => _num(l.energy_capacity));
         const pain = ordered.map(l => _getPainSeverity(l));
-        const sleep = ordered.map(l => _num((l.symptom_drift || {}).sleep_quality));
+        const sleep = ordered.map(l => _num(l.sleep_quality));
         const gaitEffort = ordered.map(l => _getSymptom(l, "gait_effort"));
         const legStiffness = ordered.map(l => _getSymptom(l, "leg_stiffness"));
         const brainFog = ordered.map(l => _getSymptom(l, "brain_fog"));
