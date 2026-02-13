@@ -759,6 +759,23 @@
         <p class="title-sub">A Structured Approach to Axonal Preservation<br>and Exploratory Myelin Support</p>
       </div>
 
+      <div class="card" id="auth-card" style="margin-top:10px; margin-bottom:20px;">
+        <h3 style="margin-top:0;">Account</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <div style="font-size:0.9rem; color:var(--text-secondary); line-height:1.4;">
+            <div id="auth-status" style="color:white; font-weight:700;">Not signed in</div>
+            <div id="auth-email" style="margin-top:4px;"></div>
+          </div>
+          <div style="flex:1;"></div>
+        </div>
+        <button type="button" class="lab-save-btn" id="auth-signin-btn" onclick="window.beginSignIn()" style="margin-top:12px;">Sign in with Google</button>
+        <button type="button" class="mini-btn" id="auth-signout-btn" onclick="window.beginSignOut()" style="margin-top:12px; display:none;">Sign out</button>
+        <div style="margin-top:10px; font-size:0.8rem; color:rgba(255,255,255,0.6); line-height:1.4;">
+          Data is stored per signed-in account. If you want both devices to share the same data, sign in with the same Google account on both.
+        </div>
+      </div>
+
+
       <div class="profile-select">
         <button class="card-btn" onclick="window.selectProfile('patrick')">
           <h2>The Pilot</h2>
@@ -1320,8 +1337,13 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import {
       getFirestore, doc, setDoc, serverTimestamp, enableIndexedDbPersistence,
-      collection, query, orderBy, limit, getDocs
+      collection, query, where, orderBy, limit, getDocs
     } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+    import {
+      getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+      onAuthStateChanged, signOut, setPersistence, browserLocalPersistence
+    } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
 
     const firebaseConfig = {
       apiKey: "AIzaSyAtORnHiL5tdDQ1OkRdQhj2PsaW6GzQ3yE",
@@ -1339,7 +1361,74 @@
       console.warn("Firestore persistence not enabled:", err?.code || err);
     });
 
+    
     // ---------------------------
+    // AUTH (Google Sign-In)
+    // ---------------------------
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    // Keep sign-in between sessions if possible.
+    setPersistence(auth, browserLocalPersistence).catch(() => {});
+
+    // Global-ish auth state for the rest of the module.
+    let AUTH_UID = null;
+    let AUTH_EMAIL = null;
+
+    function setAuthUI(signedIn) {
+      const badge = document.getElementById("auth-status");
+      const emailEl = document.getElementById("auth-email");
+      const inBtn = document.getElementById("auth-signin-btn");
+      const outBtn = document.getElementById("auth-signout-btn");
+      if (badge) badge.textContent = signedIn ? "Signed in" : "Not signed in";
+      if (emailEl) emailEl.textContent = signedIn ? (AUTH_EMAIL || "") : "";
+      if (inBtn) inBtn.style.display = signedIn ? "none" : "block";
+      if (outBtn) outBtn.style.display = signedIn ? "block" : "none";
+    }
+
+    async function beginSignIn() {
+      // Popup works on desktop, but can be blocked on iOS/PWA. Redirect is more reliable there.
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (e) {
+        console.warn("Popup sign-in failed; trying redirect.", e?.code || e);
+        await signInWithRedirect(auth, provider);
+      }
+    }
+
+    async function beginSignOut() {
+      await signOut(auth);
+    }
+
+    // Handle redirect completion (if we used signInWithRedirect).
+    getRedirectResult(auth).catch(() => {});
+
+    window.beginSignIn = beginSignIn;
+    window.beginSignOut = beginSignOut;
+
+    // Firestore path helpers: everything lives under users/{uid}/{profile}/...
+    function requireAuthUid() {
+      if (!AUTH_UID) throw new Error("Not signed in.");
+      return AUTH_UID;
+    }
+    function userProfilePath(profile, ...rest) {
+      const uid = requireAuthUid();
+      return ["users", uid, profile, ...rest];
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        AUTH_UID = user.uid;
+        AUTH_EMAIL = user.email || null;
+        setAuthUI(true);
+      } else {
+        AUTH_UID = null;
+        AUTH_EMAIL = null;
+        setAuthUI(false);
+      }
+    });
+
+// ---------------------------
     // Helpers
     // ---------------------------
     function localDateStr(d = new Date()) {
@@ -1559,9 +1648,8 @@
       };
     }
 
-    async function saveUserLog(userId, data) {
-      const ref = doc(db, "users", userId, "logs", data.date);
-      const payload = {
+    async function saveUserLog(profile, data) {
+      const ref = doc(db, ...userProfilePath(profile, "logs", data.date));const payload = {
         ...data,
         updatedAt: serverTimestamp(),
         clientUpdatedAt: new Date().toISOString()
@@ -1571,7 +1659,7 @@
 
     // --- PDF EXPORT (range + dense table + notes appendix) ---
     async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
-      const logsRef = collection(db, "users", patientId, "logs");
+      const logsRef = collection(db, ...userProfilePath(patientId, "logs"));
       const q = query(
         logsRef,
         where("date", ">=", startDate),
@@ -1942,7 +2030,7 @@
       try {
         const payload = collectFunctionalTestPayload();
         const id = `${payload.test_date}_${Date.now()}`;
-        const ref = doc(db, "users", "patrick", "tests", id);
+        const ref = doc(db, ...userProfilePath("patrick", "tests", id));
         await setDoc(ref, { ...payload, createdAt: serverTimestamp(), clientCreatedAt: new Date().toISOString() }, { merge: true });
         btns.forEach(b => { try { b.textContent = "SAVED ✓"; } catch(e){} });
         setTimeout(() => btns.forEach(b => { try { b.disabled = false; b.textContent = "SAVE FUNCTIONAL TEST"; } catch(e){} }), 1400);
