@@ -1386,7 +1386,7 @@
       if (outBtn) outBtn.style.display = signedIn ? "block" : "none";
     }
 
-    async async function beginSignIn() {
+    async function beginSignIn() {
       // iOS Safari and "Add to Home Screen" PWAs are unreliable with popups.
       // Use redirect there; use popup elsewhere for better UX.
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -1403,7 +1403,6 @@
         console.warn("Popup sign-in failed; trying redirect.", e?.code || e);
         await signInWithRedirect(auth, provider);
       }
-    }
     }
 
     async function beginSignOut() {
@@ -1675,6 +1674,19 @@
         where("date", ">=", startDate),
         where("date", "<=", endDate),
         orderBy("date", dir)
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(d => d.data());
+    }
+
+
+    // Fetch last N logs (default 30), ordered by date desc.
+    async function fetchPatientLogs(patientId, days = 30) {
+      const logsRef = collection(db, ...userProfilePath(patientId, "logs"));
+      const q = query(
+        logsRef,
+        orderBy("date", "desc"),
+        limit(days)
       );
       const snapshot = await getDocs(q);
       return snapshot.docs.map(d => d.data());
@@ -2264,11 +2276,11 @@
         const global = ordered.map(l => _mapBaselineTo15(l.baseline_rating));
         const energy = ordered.map(l => _num(l.energy_capacity));
         const pain = ordered.map(l => _getPainSeverity(l));
-        const sleep = ordered.map(l => _num(l.sleep_quality));
+        const sleep = ordered.map(l => _getSymptom(l, "sleep_quality"));
         const gaitEffort = ordered.map(l => _getSymptom(l, "gait_effort"));
         const legStiffness = ordered.map(l => _getSymptom(l, "leg_stiffness"));
         const brainFog = ordered.map(l => _getSymptom(l, "brain_fog"));
-        const neuroFatigue = ordered.map(l => _getSymptom(l, "neuro_fatigue"));
+        const neuroFatigue = ordered.map(l => _getSymptom(l, "neurologic_fatigue"));
 
         // Charts
         _buildLineChart("chart-global", labels, global, 1, 5, "Global baseline (1–5)");
@@ -2293,7 +2305,7 @@ window.renderTrendsDetails = async function() {
       const host = el("trends-details-content");
       if (!host) return;
 
-      const logs = await window.fetchPatientLogs("patrick"); // pilot history (same collection used in Trends)
+      const logs = await fetchPatientLogs("patrick", 365); // pilot history (same collection used in Trends)
       const rows = [];
 
       function pushMetric(key, label, getter) {
@@ -2317,20 +2329,20 @@ window.renderTrendsDetails = async function() {
       }
 
       // These keys match the saved pilot log schema in this build (snake_case).
-      pushMetric("baseline_rating", "Global Baseline Rating (1–5)", l => l.baseline_rating);
+      pushMetric("baseline_rating", "Global Baseline Rating (1–5)", l => _mapBaselineTo15(l.baseline_rating));
       pushMetric("energy_capacity", "Energy / Capacity (0–10)", l => l.energy_capacity);
-      pushMetric("pain_impact", "Pain Impact (0–10)", l => l.pain_impact);
-      pushMetric("sleep_quality", "Sleep Quality (0–10)", l => l.sleep_quality);
+      pushMetric("pain_impact", "Pain Impact (0–10)", l => (l.pain_impact ? l.pain_impact.severity : null));
+      pushMetric("sleep_quality", "Sleep Quality (0–10)", l => (l.symptom_drift ? l.symptom_drift.sleep_quality : null));
 
       // Symptom Drift sliders
-      pushMetric("brain_fog", "Brain Fog (0–10)", l => l.brain_fog);
-      pushMetric("gait_effort", "Gait Effort (0–10)", l => l.gait_effort);
-      pushMetric("gait_initiation", "Gait initiation effort (0–10)", l => l.gait_initiation);
-      pushMetric("sustained_walking", "Sustained walking effort (0–10)", l => l.sustained_walking);
-      pushMetric("neurologic_fatigue", "Neurologic fatigue (0–10)", l => l.neurologic_fatigue);
-      pushMetric("leg_stiffness", "Leg Stiffness (0–10)", l => l.leg_stiffness);
-      pushMetric("post_rest_stiffness", "Post-rest stiffness (0–10)", l => l.post_rest_stiffness);
-      pushMetric("symptom_volatility", "Symptom volatility (0–10)", l => l.symptom_volatility);
+      pushMetric("brain_fog", "Brain Fog (0–10)", l => (l.symptom_drift ? l.symptom_drift.brain_fog : null));
+      pushMetric("gait_effort", "Gait Effort (0–10)", l => (l.symptom_drift ? l.symptom_drift.gait_effort : null));
+      pushMetric("gait_initiation", "Gait initiation effort (0–10)", l => (l.symptom_drift ? l.symptom_drift.gait_initiation : null));
+      pushMetric("sustained_walking", "Sustained walking effort (0–10)", l => (l.symptom_drift ? l.symptom_drift.sustained_walking : null));
+      pushMetric("neurologic_fatigue", "Neurologic fatigue (0–10)", l => (l.symptom_drift ? l.symptom_drift.neurologic_fatigue : null));
+      pushMetric("leg_stiffness", "Leg Stiffness (0–10)", l => (l.symptom_drift ? l.symptom_drift.leg_stiffness : null));
+      pushMetric("post_rest_stiffness", "Post-rest stiffness (0–10)", l => (l.symptom_drift ? l.symptom_drift.post_rest_stiffness : null));
+      pushMetric("symptom_volatility", "Symptom volatility (0–10)", l => (l.symptom_drift ? l.symptom_drift.symptom_volatility : null));
 
       if (rows.length === 0) {
         host.innerHTML = '<div class="muted">No numeric trend data found yet. Add a few daily logs first.</div>';
