@@ -115,22 +115,6 @@
     }
     .enter-btn:active { transform: scale(0.95); }
 
-    /* New Black Button Style */
-    .black-btn {
-      background: #000000;
-      color: #ffffff;
-      border: 1px solid #333;
-      padding: 14px 20px;
-      border-radius: 12px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      margin-top: 15px;
-      width: 100%;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .black-btn:active { background: #1a1a1a; }
-
     header { margin-bottom: 20px; display: flex; align-items: center; }
 
     .back-btn {
@@ -158,7 +142,7 @@
 
     .logo-area {
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 30px;
       margin-top: 10px;
       display: flex;
       flex-direction: column;
@@ -177,7 +161,7 @@
       margin-right: auto;
     }
 
-    .profile-select { display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; margin-top: 25px; }
+    .profile-select { display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; }
 
     .card-btn {
       background: var(--card-bg);
@@ -198,12 +182,11 @@
       background-color: var(--card-bg);
       border: 1px solid #333;
       border-radius: 16px;
-      margin-top: 0;
+      margin-top: 20px;
       overflow: hidden;
       transition: all 0.3s ease;
-      width: 100%;
     }
-    details.lab-folder { border: 1px solid var(--lab-purple); margin-top: 20px; }
+    details.lab-folder { border: 1px solid var(--lab-purple); }
 
     summary {
       padding: 18px 15px;
@@ -386,54 +369,7 @@
       margin-top: 10px;
     }
 
-    /* Standardized Modal Styles (Shared for Overview, Export, Dev) */
-    .app-modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.85); /* Darker backdrop */
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 12000; /* High Z-Index */
-      padding: 18px;
-      backdrop-filter: blur(4px);
-    }
-    .app-modal .modal-card {
-      width: 100%;
-      max-width: 720px;
-      background: #101010;
-      border: 1px solid #333;
-      border-radius: 16px;
-      padding: 18px;
-      max-height: 85vh;
-      overflow-y: auto;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.8);
-      display: flex;
-      flex-direction: column;
-    }
-    .app-modal .modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 15px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #222;
-    }
-    .app-modal .modal-title { font-size: 1.1rem; font-weight: 800; color: white; }
-    .app-modal .modal-close {
-      background: #333;
-      border: none;
-      color: white;
-      border-radius: 8px;
-      padding: 6px 12px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.85rem;
-    }
-    .app-modal .modal-body { color: #ccc; line-height: 1.6; font-size: 0.95rem; }
-    .app-modal .modal-body p { margin-bottom: 12px; }
-
-    /* Splash overview modal specific (Legacy styling override) */
+    /* Splash overview modal */
     .read-overview-btn {
       margin-top: 12px;
       background: transparent;
@@ -446,8 +382,59 @@
       width: 100%;
       max-width: 320px;
     }
+    .read-overview-btn:hover { border-color: rgba(255,255,255,0.45); }
 
-    /* Helper classes */
+    #overview-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 11000;
+      padding: 18px;
+    }
+    #overview-modal .modal-card {
+      width: 100%;
+      max-width: 720px;
+      background: rgba(16,16,16,0.95);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 18px 18px 14px;
+      max-height: 82vh;
+      overflow: hidden;
+      box-shadow: 0 12px 35px rgba(0,0,0,0.55);
+    }
+    #overview-modal .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    #overview-modal .modal-title { font-size: 1.05rem; font-weight: 800; letter-spacing: 0.02em; }
+    #overview-modal .modal-close {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.85);
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    #overview-modal .modal-body {
+      overflow: auto;
+      max-height: calc(82vh - 64px);
+      padding-right: 6px;
+    }
+    #overview-modal .modal-body p {
+      color: rgba(255,255,255,0.82);
+      line-height: 1.6;
+      margin: 10px 0;
+      font-size: 0.96rem;
+    }
+
+    /* Deterministic hidden */
     .hidden { display: none !important; }
     .view { display: block; }
     .view:not(.active) { display: none; }
@@ -460,9 +447,67 @@
       opacity: 0.6;
       z-index: 9999;
     }
+
+    /* Export modal (range picker) */
+    #export-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 12000;
+      padding: 18px;
+    }
+    #export-modal .modal-card {
+      width: 100%;
+      max-width: 540px;
+      background: rgba(16,16,16,0.95);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 12px 35px rgba(0,0,0,0.55);
+    }
+    #export-modal .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    #export-modal .modal-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+    #export-modal .modal-close {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.85);
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    #export-modal .modal-body {
+      margin-top: 10px;
+    }
+    #export-modal .row2 {
+      display: flex;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    #export-modal .row2 .input-group { flex: 1; }
+    #export-modal .helper {
+      color: rgba(255,255,255,0.65);
+      font-size: 0.85rem;
+      line-height: 1.4;
+      margin-top: 8px;
+    }
+    #export-run-btn { margin-top: 14px; }
   
-    #trends-charts-pane canvas{ width:100% !important; height:220px !important; display:block; }
-  </style>
+#trends-charts-pane canvas{ width:100% !important; height:220px !important; display:block; }
+</style>
 
   <script>
     function byId(id){ return document.getElementById(id); }
@@ -518,24 +563,9 @@
       if (typeof window.renderTrends === "function") window.renderTrends();
     };
 
-    // --- MODAL MANAGEMENT ---
-    window.closeAllModals = function() {
-        ['overview-modal', 'export-modal', 'dev-modal'].forEach(id => {
-            const m = byId(id);
-            if(m) m.style.display = 'none';
-        });
-    };
-
     window.toggleOverview = function(show) {
-      window.closeAllModals();
       const m = byId('overview-modal');
-      if(m && show) m.style.display = 'flex';
-    };
-
-    window.openDevModal = function() {
-        window.closeAllModals();
-        const m = byId('dev-modal');
-        if(m) m.style.display = 'flex';
+      if(m) m.style.display = show ? 'flex' : 'none';
     };
 
     // ---------------------------
@@ -548,11 +578,14 @@
       return `${y}-${m}-${day}`;
     }
 
+    // Normalize date input into YYYY-MM-DD (helps when browsers return MM/DD/YYYY for <input type="date">).
     function normalizeDateInput(val){
       if(!val) return '';
       const s = String(val).trim();
       if(!s) return '';
+      // Already ISO
       if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      // MM/DD/YYYY or DD/MM/YYYY (we assume MM/DD based on your UI)
       const m1 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
       if(m1){
         const mm = String(m1[1]).padStart(2,'0');
@@ -560,13 +593,14 @@
         const yyyy = m1[3];
         return `${yyyy}-${mm}-${dd}`;
       }
+      // Try Date parsing as a fallback
       const d = new Date(s);
       if(!isNaN(d.getTime())) return toISODate(d);
       return '';
     }
 
     window.openExportModal = function(target){
-      window.closeAllModals();
+      // target: { patientId: 'patrick'|'nieve', label: 'Pilot'|'Passenger' }
       window.__EXPORT_TARGET = target;
       const modal = byId('export-modal');
       const title = byId('export-title');
@@ -577,7 +611,8 @@
       if(title) title.textContent = `Export ${target?.label || 'History'} (PDF)`;
       const today = new Date();
       const startD = new Date();
-      startD.setDate(today.getDate() - 29); 
+      startD.setDate(today.getDate() - 29); // inclusive 30-day window
+      // Always reset defaults on open so prior attempts don't leave stale dates.
       if(start) start.value = toISODate(startD);
       if(end) end.value = toISODate(today);
       if(order && !order.value) order.value = 'desc';
@@ -600,6 +635,7 @@
       if(!start || !end){ alert('Please select a start and end date.'); return; }
       if(start > end){ alert('Start date must be on or before end date.'); return; }
 
+      // Delegate to module-export function if available.
       if(typeof window.__EXPORT_RUN !== 'function'){
         alert('Export is not ready yet (export module not loaded).');
         return;
@@ -647,6 +683,7 @@
       form.reset();
       const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML = '';
       const pos = document.getElementById('p-positive-events'); if (pos) pos.innerHTML = '';
+      // refresh slider labels
       Array.from(form.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
       window.scrollTo(0,0);
     };
@@ -663,29 +700,31 @@
     <button id="read-overview-btn" class="read-overview-btn" type="button" onclick="window.toggleOverview(true)">Why this protocol exists</button>
   </div>
 
-  <div id="overview-modal" class="app-modal" role="dialog" aria-modal="true">
+  <div id="overview-modal" role="dialog" aria-modal="true" aria-labelledby="overview-title">
     <div class="modal-card">
       <div class="modal-header">
-        <div class="modal-title">What this protocol is</div>
-        <button type="button" class="modal-close" onclick="window.closeAllModals()">Close</button>
+        <div class="modal-title" id="overview-title">What this protocol is</div>
+        <button type="button" class="modal-close" id="overview-close" onclick="window.toggleOverview(false)">Close</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" id="overview-content">
         <p><strong>Purpose.</strong> This protocol is a structured way to test whether function in adrenomyeloneuropathy can be made more stable and reliable by reducing biological stress on vulnerable pathways.</p>
         <p><strong>What it is not.</strong> It does not claim a cure, reversal of established damage, or forced regeneration. The working target is <em>margin</em>: preserving what remains and reducing secondary injury.</p>
-        <p><strong>Why this is different.</strong> Many treatments primarily reduce symptoms downstream without changing the underlying strain. This approach focuses on environment optimization: oxidative load, metabolic reliability, inflammatory pressure, and hydration.</p>
-        <p><strong>How we know whether it helps.</strong> The app tracks repeatable functional tests and symptom domains over time. Trends matter more than single days.</p>
+        <p><strong>Why this is different from typical symptom-only care.</strong> Many neurological treatments primarily reduce symptoms downstream (often via CNS suppression) without changing the underlying strain on the system. This approach focuses on environment optimization: oxidative load, metabolic reliability, inflammatory pressure, hydration and electrolytes, and other destabilizing factors that can narrow conduction safety margin.</p>
+        <p><strong>How we know whether it helps.</strong> The app tracks repeatable functional tests and symptom domains over time, with confounder overlays (sleep, illness, missed doses, hydration/electrolytes, nutrition adequacy, stress). Trends matter more than single days.</p>
+        <p><strong>What success looks like.</strong> Stability over time, fewer setbacks, preserved capacity, and modest but real functional gains. In neurology, stopping progression and achieving even mild functional improvement is a meaningful outcome.</p>
       </div>
     </div>
   </div>
 
-  <div id="export-modal" class="app-modal" role="dialog" aria-modal="true">
+  <!-- Export Modal (PDF Range Picker) -->
+  <div id="export-modal" role="dialog" aria-modal="true" aria-labelledby="export-title">
     <div class="modal-card">
       <div class="modal-header">
         <div class="modal-title" id="export-title">Export History (PDF)</div>
-        <button type="button" class="modal-close" onclick="window.closeAllModals()">Close</button>
+        <button type="button" class="modal-close" onclick="window.closeExportModal()">Close</button>
       </div>
       <div class="modal-body">
-        <div class="row2" style="display:flex; gap:12px;">
+        <div class="row2">
           <div class="input-group">
             <label>Start date</label>
             <input type="date" id="export-start">
@@ -703,106 +742,11 @@
             <option value="asc">Oldest first</option>
           </select>
         </div>
-        <div class="helper" style="margin-top:8px; font-size:0.85rem; color:#888;">Defaults to the last 30 days.</div>
+
+        <div class="helper">Defaults to the last 30 days. You can export any custom range.</div>
+
         <button type="button" class="lab-save-btn" id="export-run-btn" onclick="window.runExportFromModal()">Generate PDF</button>
       </div>
-    </div>
-  </div>
-
-  <div id="dev-modal" class="app-modal" role="dialog" aria-modal="true">
-    <div class="modal-card">
-        <div class="modal-header">
-            <div class="modal-title">Protocol Development</div>
-            <button type="button" class="modal-close" onclick="window.closeAllModals()">Close</button>
-        </div>
-        <div class="modal-body">
-            <h3 style="margin-top:0; color:white; font-size:1.1rem; line-height:1.4;">PROTOCOL DEVELOPMENT AND VALIDATION PROCESS</h3>
-            
-            <p>This project was not assembled casually. It represents a structured, multi-layered effort conducted over an extended period of time to address a condition where large-scale translational research remains limited and long-term human trials are scarce.</p>
-            
-            <p>The following steps were required to responsibly construct this system:</p>
-
-            <hr style="border-color:#333; margin: 20px 0;">
-
-            <h4 style="color:var(--accent-color); margin-bottom:10px;">1. Independent Literature Review</h4>
-            <ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
-                <li style="margin-bottom:6px;">Analysis of peer-reviewed research related to axonal degeneration and myelin biology.</li>
-                <li style="margin-bottom:6px;">Review of mechanistic research relevant to very long-chain fatty acid metabolism.</li>
-                <li style="margin-bottom:6px;">Research into the biology of the adult nervous system, including its structural limitations, regenerative constraints, and the realistic potential for functional recovery or structural repair.</li>
-                <li>Evaluation of translational limits between animal models and human data.</li>
-            </ul>
-
-            <hr style="border-color:#333; margin: 20px 0;">
-
-            <h4 style="color:var(--accent-color); margin-bottom:10px;">2. Mechanism Mapping</h4>
-            <ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
-                <li style="margin-bottom:6px;">Identification of oxidative stress pathways.</li>
-                <li style="margin-bottom:6px;">Examination of lipid metabolism and VLCFA accumulation mechanisms.</li>
-                <li style="margin-bottom:6px;">Structured mapping of dual-mechanism intervention logic.</li>
-                <li>Clear separation between preservation strategies and exploratory structural support.</li>
-            </ul>
-
-            <hr style="border-color:#333; margin: 20px 0;">
-
-            <h4 style="color:var(--accent-color); margin-bottom:10px;">3. Supplier Identification and Process Transparency Review</h4>
-            <ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
-                <li style="margin-bottom:6px;">Determination of botanical source material (Acer truncatum).</li>
-                <li style="margin-bottom:6px;">Research to identify a biotech supplier with documented production standards and process transparency.</li>
-                <li style="margin-bottom:6px;">Direct communication with the manufacturer.</li>
-                <li style="margin-bottom:6px;">Review of extraction methodology.</li>
-                <li style="margin-bottom:6px;">Clarification of ethanol versus alternative solvent use.</li>
-                <li>Review of available process documentation for internal consistency.</li>
-            </ul>
-
-            <hr style="border-color:#333; margin: 20px 0;">
-
-            <h4 style="color:var(--accent-color); margin-bottom:10px;">4. Third-Party Laboratory Testing Plan</h4>
-            <ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
-                <li style="margin-bottom:6px;">Fatty acid profile confirmation.</li>
-                <li style="margin-bottom:6px;">Purity testing.</li>
-                <li style="margin-bottom:6px;">Heavy metal testing (ICP-MS).</li>
-                <li style="margin-bottom:6px;">Residual solvent analysis.</li>
-                <li>Independent third-party verification prior to use.</li>
-            </ul>
-
-            <hr style="border-color:#333; margin: 20px 0;">
-
-            <h4 style="color:var(--accent-color); margin-bottom:10px;">5. Cost Modeling and Practical Feasibility</h4>
-            <ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
-                <li style="margin-bottom:6px;">Estimating the cost of each step required to conduct this project responsibly, including sourcing, logistics, and laboratory verification.</li>
-                <li style="margin-bottom:6px;">Comparing retail versus direct sourcing pathways.</li>
-                <li style="margin-bottom:6px;">Determining that direct sourcing of a near-pure form of nervonic acid from a biotech supplier was the most financially realistic approach.</li>
-                <li>Concluding that even with independent lab validation and due diligence, this route provided significantly greater long-term feasibility.</li>
-            </ul>
-
-            <hr style="border-color:#333; margin: 20px 0;">
-
-            <h4 style="color:var(--accent-color); margin-bottom:10px;">6. Legal and Regulatory Review</h4>
-            <ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
-                <li style="margin-bottom:6px;">Consultation regarding representation of company status.</li>
-                <li style="margin-bottom:6px;">Clarification on import classification.</li>
-                <li style="margin-bottom:6px;">Evaluation of potential border documentation issues.</li>
-                <li>Review of labeling and disclosure practices.</li>
-            </ul>
-
-            <hr style="border-color:#333; margin: 20px 0;">
-
-            <h4 style="color:var(--accent-color); margin-bottom:10px;">7. Data Infrastructure Development</h4>
-            <ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
-                <li style="margin-bottom:6px;">Custom protocol tracking interface.</li>
-                <li style="margin-bottom:6px;">Pilot and Passenger separation logic within the tracking system.</li>
-                <li style="margin-bottom:6px;">Structured PDF export system for documentation and longitudinal pattern analysis.</li>
-                <li>Cloud storage independent of browser persistence.</li>
-            </ul>
-
-            <hr style="border-color:#333; margin: 20px 0;">
-
-            <p>The Pilot is the primary subject (myself), who implements the full protocol first and confirms tolerability and safety metrics over time. The Passenger is my daughter, for whom any future use would be prophylactic and contingent on demonstrated safety in the Pilot phase. No crossover occurs without stability confirmation.</p>
-            
-            <p>This system exists to apply structured, translation-focused reasoning in an area where large-scale human research remains limited.</p>
-            
-            <p>It is structured, controlled, and documented.</p>
-        </div>
     </div>
   </div>
 
@@ -815,7 +759,35 @@
         <p class="title-sub">A Structured Approach to Axonal Preservation<br>and Exploratory Myelin Support</p>
       </div>
 
-      <details style="margin-bottom: 0;">
+      <div class="card" id="auth-card" style="margin-top:10px; margin-bottom:20px;">
+        <h3 style="margin-top:0;">Account</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <div style="font-size:0.9rem; color:var(--text-secondary); line-height:1.4;">
+            <div id="auth-status" style="color:white; font-weight:700;">Not signed in</div>
+            <div id="auth-email" style="margin-top:4px;"></div>
+          </div>
+          <div style="flex:1;"></div>
+        </div>
+        <button type="button" class="lab-save-btn" id="auth-signin-btn" onclick="window.beginSignIn()" style="margin-top:12px;">Sign in with Google</button>
+        <button type="button" class="mini-btn" id="auth-signout-btn" onclick="window.beginSignOut()" style="margin-top:12px; display:none;">Sign out</button>
+        <div style="margin-top:10px; font-size:0.8rem; color:rgba(255,255,255,0.6); line-height:1.4;">
+          Data is stored per signed-in account. If you want both devices to share the same data, sign in with the same Google account on both.
+        </div>
+      </div>
+
+
+      <div class="profile-select">
+        <button class="card-btn" onclick="window.selectProfile('patrick')">
+          <h2>The Pilot</h2>
+          <p>Patrick • Safety & Margin Protocol</p>
+        </button>
+        <button class="card-btn" onclick="window.selectProfile('nieve')">
+          <h2>The Passenger</h2>
+          <p>Nieve • Prophylactic Protocol</p>
+        </button>
+      </div>
+
+      <details>
         <summary>
           <div class="summary-text">Protocol Context<br>& References</div>
         </summary>
@@ -850,21 +822,9 @@
           </a>
         </div>
       </details>
-
-      <button class="black-btn" onclick="window.openDevModal()">Protocol Development & Validation</button>
-
-      <div class="profile-select">
-        <button class="card-btn" onclick="window.selectProfile('patrick')">
-          <h2>The Pilot</h2>
-          <p>Patrick • Safety & Margin Protocol</p>
-        </button>
-        <button class="card-btn" onclick="window.selectProfile('nieve')">
-          <h2>The Passenger</h2>
-          <p>Nieve • Prophylactic Protocol</p>
-        </button>
-      </div>
     </section>
 
+    <!-- PILOT VIEW (FULL TRACKING RESTORED) -->
     <section id="patrick-view" class="view hidden">
       <header>
         <button class="back-btn" onclick="window.goBack()">← Back</button>
@@ -880,6 +840,7 @@
 
       <form id="patrick-form">
 
+
         <details style="margin-bottom: 20px; margin-top: 0;">
           <summary>
             <div class="summary-text">
@@ -889,23 +850,36 @@
           <div class="folder-content">
             <a href="https://elastic-amn-protocol.netlify.app/docs/amn-family-overview.pdf" class="report-link" target="_blank" rel="noopener">
               <span class="report-icon">🧑‍👩‍👧‍👦</span>
-              <div><div>AMN Protocol – Family Overview</div></div>
+              <div>
+                <div>AMN Protocol – Family Overview</div>
+                <div class="report-sub">Plain-language overview</div>
+              </div>
             </a>
             <a href="https://elastic-amn-protocol.netlify.app/docs/amn-clinical-reference.pdf" class="report-link" target="_blank" rel="noopener">
               <span class="report-icon">🩺</span>
-              <div><div>AMN Protocol – Clinical Reference</div></div>
+              <div>
+                <div>AMN Protocol – Clinical Reference</div>
+                <div class="report-sub">Technical reference</div>
+              </div>
             </a>
             <a href="https://elastic-amn-protocol.netlify.app/docs/functional-recovery-amn.pdf" class="report-link" target="_blank" rel="noopener">
               <span class="report-icon">🧠</span>
-              <div><div>Functional Framework</div></div>
+              <div>
+                <div>A Phenotype-Specific Framework for Functional Change in AMN</div>
+                <div class="report-sub">Case framework</div>
+              </div>
             </a>
             <a href="https://elastic-amn-diagrams.netlify.app/" class="report-link" target="_blank" rel="noopener">
               <span class="report-icon">🔍</span>
-              <div><div>Logic Tool</div></div>
+              <div>
+                <div>Functional Outcome Interpretation</div>
+                <div class="report-sub">Interactive logic tool</div>
+              </div>
             </a>
           </div>
         </details>
 
+        <!-- Labs folder (kept) -->
         <details class="lab-folder" style="margin-bottom: 20px; margin-top: 0;">
           <summary>
             <div class="summary-text" style="color:#BF5AF2;">
@@ -1000,6 +974,7 @@
           </div>
         </div>
 
+
         <div class="card">
           <h3>Fast Markers</h3>
           <label class="checkbox-row"><span>Near-fall or balance scare</span><input type="checkbox" id="p-fast-nearfall"></label>
@@ -1057,6 +1032,7 @@
           <textarea id="p-wins" rows="2" placeholder="Example: Less stiffness on first stand. Walk felt smoother. Only up once overnight."></textarea>
         </div>
 
+
         <div class="card">
           <h3>Positive events (optional)</h3>
           <p style="color:var(--text-secondary); margin-top:8px; font-size:0.9rem; line-height:1.5;">
@@ -1076,10 +1052,30 @@
             <p style="color:#9a9a9f; font-size:0.85rem; line-height:1.45; margin: 0 0 14px 0;">
               Optional objective anchors. Use the same setup each time for comparability.
             </p>
+
+            <details style="margin-top: 0;">
+              <summary>
+                <div class="summary-text" style="color: var(--text-secondary); font-weight:700;">
+                  Protocol Reminders
+                </div>
+              </summary>
+              <div class="folder-content">
+                <p style="margin:0; color:#9a9a9f; font-size:0.85rem; line-height:1.5;">
+                  <strong>6-Minute Walk Test</strong><br>
+                  Same route and course length each time. Same assistive device and shoes if possible. Similar time of day.
+                  Stop if unsafe. Record rest breaks honestly.<br><br>
+                  <strong>5x Sit-to-Stand</strong><br>
+                  Same chair and chair height. Decide once whether arms are allowed and keep it consistent. Same footwear.
+                  Fully stand and fully sit each repetition.
+                </p>
+              </div>
+            </details>
+
             <div class="input-group" style="margin-top:15px;">
               <label>Test Date</label>
               <input type="date" id="ft-date">
             </div>
+
             <div class="card" style="margin-top: 15px;">
               <h3>6-Minute Walk Test</h3>
               <div class="input-row">
@@ -1146,6 +1142,7 @@
             <div id="ft-history-list" class="history-list"></div>
           </div>
         </details>
+
 
         <div class="card">
           <h3>Symptom Drift (0-10)</h3>
@@ -1237,48 +1234,55 @@
         </div>
       </div>
 
-      <div id="trends-charts-pane" style="display:none;">
+            <div id="trends-charts-pane" style="display:none;">
         <div class="card">
           <h3>Global Baseline Rating</h3>
           <canvas id="chart-global" height="180"></canvas>
         </div>
+
         <div class="card">
           <h3>Energy / Capacity (0–10)</h3>
           <canvas id="chart-energy" height="180"></canvas>
         </div>
+
         <div class="card">
           <h3>Pain Impact (0–10)</h3>
           <canvas id="chart-pain" height="180"></canvas>
         </div>
+
         <div class="card">
           <h3>Sleep Quality (0–10)</h3>
           <canvas id="chart-sleep" height="180"></canvas>
         </div>
+
         <div class="card">
           <h3>Gait Effort (0–10)</h3>
           <canvas id="chart-gait-effort" height="180"></canvas>
         </div>
+
         <div class="card">
           <h3>Leg Stiffness (0–10)</h3>
           <canvas id="chart-leg-stiffness" height="180"></canvas>
         </div>
+
         <div class="card">
           <h3>Brain Fog (0–10)</h3>
           <canvas id="chart-brain-fog" height="180"></canvas>
         </div>
+
         <div class="card">
           <h3>Neurologic Fatigue (0–10)</h3>
           <canvas id="chart-neuro-fatigue" height="180"></canvas>
         </div>
       </div>
-
-      <div id="trends-details-pane" style="display:none;">
+<div id="trends-details-pane" style="display:none;">
         <div class="card">
           <div class="h2">Tracked Metrics (Details)</div>
-          <div class="muted" style="margin-top:8px;">N = number of days with a recorded value.</div>
+          <div class="muted" style="margin-top:8px;">N = number of days with a recorded value for a given metric (non-empty).</div>
           <div id="trends-details-content" style="margin-top:12px;"></div>
         </div>
       </div>
+
     </section>
 
     <section id="nieve-view" class="view hidden">
@@ -1335,17 +1339,20 @@
       getFirestore, doc, setDoc, serverTimestamp, enableIndexedDbPersistence,
       collection, query, where, orderBy, limit, getDocs
     } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+    import {
+      getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+      onAuthStateChanged, signOut, setPersistence, browserLocalPersistence
+    } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
-    // NO AUTH IMPORTS HERE
 
     const firebaseConfig = {
-      apiKey: "AIzaSyDrklblxcbR3TxTOMgsEB4ZgKNE2F1Au98",
-      authDomain: "pioneer-program.firebaseapp.com",
-      projectId: "pioneer-program",
-      storageBucket: "pioneer-program.firebasestorage.app",
-      messagingSenderId: "773361494367",
-      appId: "1:773361494367:web:15aee1471b181413d1eeea"
-    };
+  apiKey: "AIzaSyDrklblxcbR3TxTOMgsEB4ZgKNE2F1Au98",
+  authDomain: "pioneer-program.firebaseapp.com",
+  projectId: "pioneer-program",
+  storageBucket: "pioneer-program.firebasestorage.app",
+  messagingSenderId: "773361494367",
+  appId: "1:773361494367:web:15aee1471b181413d1eeea"
+};
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
@@ -1354,31 +1361,85 @@
       console.warn("Firestore persistence not enabled:", err?.code || err);
     });
 
+    
     // ---------------------------
-    // PERSISTENT DEVICE ID (Replaces Auth)
+    // AUTH (Google Sign-In)
     // ---------------------------
-    // We generate a random ID for this device if one doesn't exist,
-    // and store it in localStorage. This acts as the "User ID".
-    let DEVICE_UID = localStorage.getItem('amn_device_uid');
-    if (!DEVICE_UID) {
-        // Generate a simple unique ID
-        DEVICE_UID = 'dev_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
-        localStorage.setItem('amn_device_uid', DEVICE_UID);
-    }
-    console.log("Operating as Device User:", DEVICE_UID);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
 
-    function requireAuthUid() {
-      // In the old code this checked auth.currentUser.
-      // Now it returns the persistent device ID.
-      return DEVICE_UID;
+    // Keep sign-in between sessions if possible.
+    setPersistence(auth, browserLocalPersistence).catch(() => {});
+
+    // Global-ish auth state for the rest of the module.
+    let AUTH_UID = null;
+    let AUTH_EMAIL = null;
+
+    function setAuthUI(signedIn) {
+      const badge = document.getElementById("auth-status");
+      const emailEl = document.getElementById("auth-email");
+      const inBtn = document.getElementById("auth-signin-btn");
+      const outBtn = document.getElementById("auth-signout-btn");
+      if (badge) badge.textContent = signedIn ? "Signed in" : "Not signed in";
+      if (emailEl) emailEl.textContent = signedIn ? (AUTH_EMAIL || "") : "";
+      if (inBtn) inBtn.style.display = signedIn ? "none" : "block";
+      if (outBtn) outBtn.style.display = signedIn ? "block" : "none";
     }
 
+    async function beginSignIn() {
+      // iOS Safari and "Add to Home Screen" PWAs are unreliable with popups.
+      // Use redirect there; use popup elsewhere for better UX.
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const isStandalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+
+      if (isIOS || isStandalone) {
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (e) {
+        console.warn("Popup sign-in failed; trying redirect.", e?.code || e);
+        await signInWithRedirect(auth, provider);
+      }
+    }
+
+    async function beginSignOut() {
+      await signOut(auth);
+    }
+
+    // Handle redirect completion (if we used signInWithRedirect).
+    getRedirectResult(auth).catch(() => {});
+
+    window.beginSignIn = beginSignIn;
+    window.beginSignOut = beginSignOut;
+
+    // Firestore path helper (Firestore-only, no sign-in required)
+    // Data is written into fixed user documents to match your current Firestore layout:
+    //   users/patrick/...  (Pilot)
+    //   users/nieve/...    (Passenger)
+    // This also fixes the "Invalid document reference" error caused by a path like:
+    //   users/<deviceId>/pilot/logs/<date>
+    // which makes Firestore interpret `logs` as a document id.
     function userProfilePath(profile, ...rest) {
-      const uid = requireAuthUid();
-      return ["users", uid, profile, ...rest];
+      const userDocId = (profile === 'pilot') ? 'patrick' : 'nieve';
+      return ["users", userDocId, ...rest];
     }
 
-    // ---------------------------
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        AUTH_UID = user.uid;
+        AUTH_EMAIL = user.email || null;
+        setAuthUI(true);
+      } else {
+        AUTH_UID = null;
+        AUTH_EMAIL = null;
+        setAuthUI(false);
+      }
+    });
+
+// ---------------------------
     // Helpers
     // ---------------------------
     function localDateStr(d = new Date()) {
@@ -2004,6 +2065,8 @@
       }
     };
 
+
+
     window.handlePassengerSave = async function() {
       setBtn("n-save-log", true, "SAVING...");
       try {
@@ -2020,6 +2083,16 @@
     window.handlePassengerSafety = async function() {
       // Save safety report as part of the daily log (same doc)
       await window.handlePassengerSave();
+    };
+
+    window.handlePilotExport = async function() {
+      // Backwards compatibility: route to range modal
+      window.openExportModal({ patientId: 'patrick', label: 'Pilot' });
+    };
+
+    window.handlePassengerExport = async function() {
+      // Backwards compatibility: route to range modal
+      window.openExportModal({ patientId: 'nieve', label: 'Passenger' });
     };
 
     window.handleLabSave = async function() {
@@ -2230,7 +2303,7 @@
       }
     };
 
-    window.renderTrendsDetails = async function() {
+window.renderTrendsDetails = async function() {
       const host = el("trends-details-content");
       if (!host) return;
 
@@ -2292,12 +2365,13 @@
       host.innerHTML = `<div>${html}</div>`;
     };
 
+
     document.addEventListener("DOMContentLoaded", () => {
       // prime slider visuals
       Array.from(document.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
     });
   </script>
 
-  <div id="build-badge" class="build-badge">Build v15-2026-02-14 (Fix)</div>
+  <div id="build-badge" class="build-badge">Build v15-2026-02-10</div>
 </body>
 </html>
