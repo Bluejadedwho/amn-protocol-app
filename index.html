@@ -1375,7 +1375,16 @@
       collection, query, where, orderBy, limit, getDocs
     } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-    // NO AUTH IMPORTS
+    import {
+      getAuth,
+      onAuthStateChanged,
+      setPersistence,
+      browserLocalPersistence,
+      signInWithEmailAndPassword,
+      createUserWithEmailAndPassword,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
 
     const firebaseConfig = {
       apiKey: "AIzaSyDrklblxcbR3TxTOMgsEB4ZgKNE2F1Au98",
@@ -1389,8 +1398,144 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    const auth = getAuth(app);
+
+    // Persist login on device/browser (one-time login per device).
+    setPersistence(auth, browserLocalPersistence).catch((err) => {
+      console.warn("Auth persistence not set:", err?.code || err);
+    });
+
+    let CURRENT_UID = null;
+
+    function ensureAuthUI() {
+      if (document.getElementById("auth-overlay")) return;
+
+      const overlay = document.createElement("div");
+      overlay.id = "auth-overlay";
+      overlay.style.position = "fixed";
+      overlay.style.inset = "0";
+      overlay.style.background = "rgba(0,0,0,0.92)";
+      overlay.style.zIndex = "10020";
+      overlay.style.display = "none";
+      overlay.style.alignItems = "center";
+      overlay.style.justifyContent = "center";
+      overlay.style.padding = "20px";
+
+      const card = document.createElement("div");
+      card.style.width = "100%";
+      card.style.maxWidth = "420px";
+      card.style.background = "#1C1C1E";
+      card.style.border = "1px solid #333";
+      card.style.borderRadius = "16px";
+      card.style.padding = "22px";
+      card.style.boxSizing = "border-box";
+      card.style.color = "#fff";
+      card.style.fontFamily = "Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+
+      card.innerHTML = `
+        <div style="font-weight:800; font-size:1.1rem; letter-spacing:-0.2px; margin-bottom:6px;">Sign in to sync & protect your logs</div>
+        <div style="color:#8E8E93; font-size:0.9rem; line-height:1.35; margin-bottom:14px;">
+          This keeps history tied to your account and allows secure Firestore rules.
+        </div>
+
+        <label style="display:block; font-size:0.85rem; color:#8E8E93; margin:10px 0 6px;">Email</label>
+        <input id="auth-email" type="email" autocomplete="email" inputmode="email"
+               style="width:100%; padding:12px 12px; border-radius:12px; border:1px solid #333; background:#000; color:#fff; box-sizing:border-box;" />
+
+        <label style="display:block; font-size:0.85rem; color:#8E8E93; margin:12px 0 6px;">Password</label>
+        <input id="auth-pass" type="password" autocomplete="current-password"
+               style="width:100%; padding:12px 12px; border-radius:12px; border:1px solid #333; background:#000; color:#fff; box-sizing:border-box;" />
+
+        <div id="auth-error" style="color:#FF453A; font-size:0.85rem; margin-top:10px; display:none;"></div>
+
+        <button id="auth-signin" style="margin-top:16px; width:100%; padding:14px 14px; border-radius:12px; border:none; font-weight:800; background:#30D158; color:#000; cursor:pointer;">SIGN IN</button>
+        <button id="auth-create" style="margin-top:10px; width:100%; padding:14px 14px; border-radius:12px; border:1px solid #333; font-weight:700; background:#000; color:#fff; cursor:pointer;">CREATE ACCOUNT</button>
+
+        <div style="margin-top:14px; color:#8E8E93; font-size:0.8rem; line-height:1.35;">
+          Tip: you only do this once per device unless you clear browser storage.
+        </div>
+      `;
+
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+
+      const emailEl = document.getElementById("auth-email");
+      const passEl = document.getElementById("auth-pass");
+      const errEl = document.getElementById("auth-error");
+
+      try {
+        const lastEmail = localStorage.getItem("auth_last_email");
+        if (lastEmail && emailEl) emailEl.value = lastEmail;
+      } catch(e) {}
+
+      function showErr(msg) {
+        if (!errEl) return;
+        errEl.textContent = msg || "Sign-in failed.";
+        errEl.style.display = "block";
+      }
+      function clearErr() {
+        if (!errEl) return;
+        errEl.textContent = "";
+        errEl.style.display = "none";
+      }
+
+      document.getElementById("auth-signin")?.addEventListener("click", async () => {
+        clearErr();
+        const email = (emailEl?.value || "").trim();
+        const pass = (passEl?.value || "").trim();
+        if (!email || !pass) { showErr("Enter email and password."); return; }
+        try {
+          try { localStorage.setItem("auth_last_email", email); } catch(e) {}
+          await signInWithEmailAndPassword(auth, email, pass);
+        } catch (e) {
+          console.error(e);
+          showErr(e?.message || String(e));
+        }
+      });
+
+      document.getElementById("auth-create")?.addEventListener("click", async () => {
+        clearErr();
+        const email = (emailEl?.value || "").trim();
+        const pass = (passEl?.value || "").trim();
+        if (!email || !pass) { showErr("Enter email and password."); return; }
+        if (pass.length < 6) { showErr("Password must be at least 6 characters."); return; }
+        try {
+          try { localStorage.setItem("auth_last_email", email); } catch(e) {}
+          await createUserWithEmailAndPassword(auth, email, pass);
+        } catch (e) {
+          console.error(e);
+          showErr(e?.message || String(e));
+        }
+      });
+    }
+
+    function showAuthOverlay(show) {
+      ensureAuthUI();
+      const o = document.getElementById("auth-overlay");
+      if (!o) return;
+      o.style.display = show ? "flex" : "none";
+    }
+
+    // Optional: expose a manual sign-out (for testing)
+    window.signOutProtocol = async function() {
+      try { await signOut(auth); } catch(e) { console.error(e); }
+    };
+
+    function requireUid() {
+      if (!CURRENT_UID) throw new Error("Not signed in. Please sign in again.");
+      return CURRENT_UID;
+    }
+
+
     enableIndexedDbPersistence(db).catch((err) => {
       console.warn("Firestore persistence not enabled:", err?.code || err);
+    });
+
+    // Gate all Firestore reads/writes behind authentication.
+    // If you are not signed in, the app will prompt once and then stay signed in on this device.
+    onAuthStateChanged(auth, (user) => {
+      CURRENT_UID = user?.uid || null;
+      showAuthOverlay(!CURRENT_UID);
     });
 
     // --- NO AUTH / NO DEVICE ID ---
@@ -1398,8 +1543,8 @@
     // Path structure: users/{profileName}/logs/{date}
 
     function userProfilePath(profile, ...rest) {
-      // simplified path: users/patrick/... or users/nieve/...
-      return ["users", profile, ...rest];
+      // Secure path (requires Firebase Auth): users/{uid}/profiles/{profile}/...
+      return ["users", requireUid(), "profiles", profile, ...rest];
     }
 
     // ---------------------------
