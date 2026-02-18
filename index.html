@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  
+  <script>window.__AUTH_MODULE_LOADED__ = false;</script>
+<meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>The Protocol</title>
 
@@ -1450,6 +1452,7 @@
   </div>
 
   <script type="module">
+    window.__AUTH_MODULE_LOADED__ = true;
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import {
       getFirestore, doc, setDoc, serverTimestamp, enableIndexedDbPersistence,
@@ -2532,6 +2535,46 @@
     });
   </script>
 
-  <div id="build-badge" class="build-badge">Build AUTH v3</div>
+  
+  <script>
+    (function () {
+      function setAuthError(msg) {
+        var el = document.getElementById('auth-error');
+        if (!el) return;
+        el.textContent = msg;
+        el.style.display = 'block';
+      }
+
+      function attachFallback() {
+        var signin = document.getElementById('auth-signin');
+        var signup = document.getElementById('auth-signup');
+
+        function guard(e) {
+          if (window.__AUTH_MODULE_LOADED__ === true) return;
+          if (e) e.preventDefault();
+          setAuthError(
+            "Login scripts did not load on this device. Most common causes are iOS Safari content blockers or a blocked module import. Try: (1) disable content blockers for this site, (2) open in Safari (not the Home Screen icon), (3) reload with a new URL like '?v=1', then try again."
+          );
+        }
+
+        if (signin) signin.addEventListener('click', guard);
+        if (signup) signup.addEventListener('click', guard);
+
+        // If the module script never loads, surface a clear message automatically.
+        setTimeout(function () {
+          if (window.__AUTH_MODULE_LOADED__ === true) return;
+          guard();
+        }, 1200);
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attachFallback);
+      } else {
+        attachFallback();
+      }
+    })();
+  </script>
+
+<div id="build-badge" class="build-badge">Build AUTH v3.2</div>
 </body>
 </html>
