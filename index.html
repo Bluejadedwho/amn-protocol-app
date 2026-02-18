@@ -589,6 +589,15 @@
       if(end) end.value = toISODate(today);
       if(order && !order.value) order.value = 'desc';
 
+      // Patient header fields (saved locally; does not affect tracking)
+      const pn = byId('export-patient-name');
+      const dob = byId('export-patient-dob');
+      const lsNameKey = `patient_name_${target?.patientId || 'unknown'}`;
+      const lsDobKey = `patient_dob_${target?.patientId || 'unknown'}`;
+      const defaultName = (target?.patientId === 'patrick') ? 'Patrick Fuellbeck' : (target?.patientId === 'nieve' ? 'Nieve' : '');
+      if (pn) pn.value = localStorage.getItem(lsNameKey) || defaultName;
+      if (dob) dob.value = localStorage.getItem(lsDobKey) || '';
+
       if(modal) modal.style.display = 'flex';
     };
 
@@ -607,6 +616,22 @@
       if(!start || !end){ alert('Please select a start and end date.'); return; }
       if(start > end){ alert('Start date must be on or before end date.'); return; }
 
+
+      const patientName = byId('export-patient-name')?.value?.trim() || '';
+      const patientDob = byId('export-patient-dob')?.value?.trim() || '';
+      if (patientDob && !/^\d{4}-\d{2}-\d{2}$/.test(patientDob)) {
+        alert('DOB must be in YYYY-MM-DD format.');
+        return;
+      }
+      try {
+        const nameKey = `patient_name_${target.patientId}`;
+        const dobKey = `patient_dob_${target.patientId}`;
+        if (patientName) localStorage.setItem(nameKey, patientName);
+        else localStorage.removeItem(nameKey);
+        if (patientDob) localStorage.setItem(dobKey, patientDob);
+        else localStorage.removeItem(dobKey);
+      } catch(e) { /* ignore */ }
+
       if(typeof window.__EXPORT_RUN !== 'function'){
         alert('Export is not ready yet (export module not loaded).');
         return;
@@ -615,7 +640,7 @@
       const btn = byId('export-run-btn');
       if(btn){ btn.disabled = true; btn.textContent = 'GENERATING...'; }
       try{
-        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir });
+        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob });
         window.closeExportModal();
       } catch(e){
         console.error(e);
@@ -700,6 +725,17 @@
           <div class="input-group">
             <label>End date</label>
             <input type="date" id="export-end">
+          </div>
+        </div>
+
+        <div class="row2" style="display:flex; gap:12px; margin-top:12px;">
+          <div class="input-group" style="flex:2;">
+            <label>Patient name (for PDF header)</label>
+            <input type="text" id="export-patient-name" placeholder="Patrick Fuellbeck">
+          </div>
+          <div class="input-group" style="flex:1;">
+            <label>DOB (YYYY-MM-DD)</label>
+            <input type="text" id="export-patient-dob" placeholder="YYYY-MM-DD" inputmode="numeric">
           </div>
         </div>
 
@@ -1695,7 +1731,7 @@
       return y;
     }
 
-    async function generatePilotPDF(logs, label, startDate, endDate, dir) {
+    async function generatePilotPDF(logs, label, startDate, endDate, dir, patientMeta = {}) {
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ unit: "pt", format: "letter" });
 
@@ -1708,31 +1744,59 @@
       if (dir === "desc") ordered.reverse();
 
       // Header
+      const pn = (patientMeta?.patientName || '').trim() || 'Patrick Fuellbeck';
+      const pdob = (patientMeta?.patientDob || '').trim();
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(15);
       pdf.text(`AMN Protocol: ${label}`, margin, 48);
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(10);
-      pdf.text(`Range: ${startDate} to ${endDate}   |   Logs: ${ordered.length}   |   Generated: ${new Date().toLocaleDateString()}`, margin, 64);
+      pdf.text(`Patient: ${pn}${pdob ? `   |   DOB: ${pdob}` : ""}`, margin, 64);
+      pdf.text(`Range: ${startDate} to ${endDate}   |   Logs: ${ordered.length}   |   Generated: ${new Date().toLocaleDateString()}`, margin, 78);
 
+      let y = 106;
       let y = 92;
 
-      // Dense daily matrix header
+      // Daily Summary header (trend scan)
       pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(12);
+      pdf.text("Daily Summary (Trend Scan)", margin, y);
+      y += 14;
+      pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
-      pdf.text("DATE", margin, y);
-      pdf.text("BL", margin + 70, y);
-      pdf.text("E", margin + 96, y);
-      pdf.text("P", margin + 116, y);
-      pdf.text("SL", margin + 136, y);
-      pdf.text("G", margin + 164, y);
-      pdf.text("ST", margin + 184, y);
-      pdf.text("FG", margin + 212, y);
-      pdf.text("FT", margin + 240, y);
-      pdf.text("CTX", margin + 270, y);
-      pdf.text("EVT", margin + 420, y);
-      pdf.line(margin, y + 4, margin + maxW, y + 4);
+      pdf.text("Baseline status, key symptom scores (0–10), and contextual drivers for each logged day.", margin, y);
+      y += 12;
+      pdf.text("Baseline codes: MW W S B MB.  Context codes: SLP EX MEDT DOSE MISS NEW TRV STR1-3 INF GI NONE.", margin, y);
       y += 18;
+
+      // Dense daily matrix header (plain English)
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8);
+      const xDate = margin;
+      const xBase = margin + 56;
+      const xEnergy = margin + 92;
+      const xPain = margin + 132;
+      const xSleep = margin + 168;
+      const xGait = margin + 208;
+      const xStiff = margin + 252;
+      const xFog = margin + 308;
+      const xFat = margin + 360;
+      const xCtx = margin + 416;
+      const xEvt = margin + 520;
+
+      pdf.text("Date", xDate, y);
+      pdf.text("Baseline", xBase, y);
+      pdf.text("Energy", xEnergy, y);
+      pdf.text("Pain", xPain, y);
+      pdf.text("Sleep", xSleep, y);
+      pdf.text("Gait", xGait, y);
+      pdf.text("Stiff", xStiff, y);
+      pdf.text("Fog", xFog, y);
+      pdf.text("Fatigue", xFat, y);
+      pdf.text("Context", xCtx, y);
+      pdf.text("Events", xEvt, y);
+      pdf.line(margin, y + 4, margin + maxW, y + 4);
+      y += 16;
 
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
@@ -1758,18 +1822,17 @@
         const CTX = _ctxCodes(ctx);
         const EVT = Array.isArray(log.adverse_events) ? String(log.adverse_events.length) : "0";
 
-        pdf.text(date, margin, y);
-        pdf.text(String(bl), margin + 70, y);
-        pdf.text(String(E), margin + 96, y);
-        pdf.text(String(P), margin + 116, y);
-        pdf.text(String(SL), margin + 136, y);
-        pdf.text(String(G), margin + 164, y);
-        pdf.text(String(ST), margin + 184, y);
-        pdf.text(String(FG), margin + 212, y);
-        pdf.text(String(FT), margin + 240, y);
-        pdf.text(_safeTxt(CTX).slice(0, 30), margin + 270, y);
-        pdf.text(EVT, margin + 430, y);
-
+        pdf.text(date, xDate, y);
+        pdf.text(String(bl), xBase, y);
+        pdf.text(String(E), xEnergy, y);
+        pdf.text(String(P), xPain, y);
+        pdf.text(String(SL), xSleep, y);
+        pdf.text(String(G), xGait, y);
+        pdf.text(String(ST), xStiff, y);
+        pdf.text(String(FG), xFog, y);
+        pdf.text(String(FT), xFat, y);
+        pdf.text(_safeTxt(CTX).slice(0, 20), xCtx, y);
+        pdf.text(EVT, xEvt, y);
         y += 14;
 
         // Appendix entry (full details)
@@ -1850,7 +1913,7 @@
       pdf.save(`Pilot_${startDate}_to_${endDate}.pdf`);
     }
 
-    async function generatePassengerPDF(logs, label, startDate, endDate, dir) {
+    async function generatePassengerPDF(logs, label, startDate, endDate, dir, patientMeta = {}) {
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ unit: "pt", format: "letter" });
 
@@ -1866,9 +1929,12 @@
       pdf.text(`AMN Protocol: ${label}`, margin, 48);
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(10);
-      pdf.text(`Range: ${startDate} to ${endDate}   |   Logs: ${ordered.length}   |   Generated: ${new Date().toLocaleDateString()}`, margin, 64);
+      const pn = (patientMeta?.patientName || '').trim() || (label === 'Passenger' ? 'Nieve' : '');
+      const pdob = (patientMeta?.patientDob || '').trim();
+      if (pn) pdf.text(`Patient: ${pn}${pdob ? `   |   DOB: ${pdob}` : ""}`, margin, 64);
+      pdf.text(`Range: ${startDate} to ${endDate}   |   Logs: ${ordered.length}   |   Generated: ${new Date().toLocaleDateString()}`, margin, pn ? 78 : 64);
 
-      let y = 92;
+      let y = pn ? 106 : 92;
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(9);
       pdf.text("DATE", margin, y);
@@ -1928,12 +1994,12 @@
     }
 
     // Expose a single export runner to the non-module modal UI
-    window.__EXPORT_RUN = async function({ patientId, label, start, end, dir }) {
+    window.__EXPORT_RUN = async function({ patientId, label, start, end, dir, patientName, patientDob }) {
       const logs = await fetchPatientLogsInRange(patientId, start, end, dir);
       if (patientId === "patrick") {
-        await generatePilotPDF(logs, label || "Pilot", start, end, dir);
+        await generatePilotPDF(logs, label || "Pilot", start, end, dir, { patientName, patientDob });
       } else {
-        await generatePassengerPDF(logs, label || "Passenger", start, end, dir);
+        await generatePassengerPDF(logs, label || "Passenger", start, end, dir, { patientName, patientDob });
       }
     };
 
