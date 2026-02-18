@@ -472,7 +472,68 @@
     }
   
     #trends-charts-pane canvas{ width:100% !important; height:220px !important; display:block; }
-  </style>
+  
+/* Auth + build badge (added for reliable iOS visibility) */
+#auth-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0,0,0,0.65);
+}
+#auth-overlay[hidden]{ display: none !important; }
+#auth-card{
+  width: min(520px, 100%);
+  background: #121417;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  padding: 18px 18px 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+  color: #fff;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+#auth-card h2{ margin: 0 0 6px; font-size: 18px; }
+#auth-card p{ margin: 0 0 12px; opacity: 0.85; font-size: 13px; line-height: 1.35; }
+#auth-card label{ display:block; font-size: 12px; margin: 10px 0 6px; opacity: 0.9; }
+#auth-card input{
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  outline: none;
+}
+#auth-card .row{ display:flex; gap:10px; margin-top: 12px; }
+#auth-card button{
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 0;
+  cursor: pointer;
+  background: #2b6cb0;
+  color: #fff;
+  font-weight: 600;
+}
+#auth-card button.secondary{ background: rgba(255,255,255,0.10); }
+#auth-error{ margin-top: 10px; font-size: 12px; color: #ffb3b3; min-height: 16px; }
+#build-badge{
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  z-index: 99998;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(0,0,0,0.55);
+  color: rgba(255,255,255,0.9);
+  border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(6px);
+}
+</style>
 
   <script>
     function byId(id){ return document.getElementById(id); }
@@ -685,6 +746,28 @@
   </script>
 </head>
 <body>
+<div id="build-badge">Build: AUTH v2</div>
+
+<div id="auth-overlay">
+  <div id="auth-card">
+    <h2>Sign in</h2>
+    <p>Sign in once on this device to sync and protect your logs.</p>
+
+    <label for="auth-email">Email</label>
+    <input id="auth-email" type="email" autocomplete="email" inputmode="email" />
+
+    <label for="auth-pass">Password</label>
+    <input id="auth-pass" type="password" autocomplete="current-password" />
+
+    <div class="row">
+      <button id="auth-signin">Sign in</button>
+      <button id="auth-signup" class="secondary">Create account</button>
+    </div>
+
+    <div id="auth-error"></div>
+  </div>
+</div>
+
 
   <div id="splash-overlay">
     <img src="icon.png" alt="Pioneer Icon" class="hero-icon">
@@ -1408,84 +1491,31 @@
     let CURRENT_UID = null;
 
     function ensureAuthUI() {
-      if (document.getElementById("auth-overlay")) return;
-
-      const overlay = document.createElement("div");
-      overlay.id = "auth-overlay";
-      overlay.style.position = "fixed";
-      overlay.style.inset = "0";
-      overlay.style.background = "rgba(0,0,0,0.92)";
-      overlay.style.zIndex = "10020";
-      overlay.style.display = "none";
-      overlay.style.alignItems = "center";
-      overlay.style.justifyContent = "center";
-      overlay.style.padding = "20px";
-
-      const card = document.createElement("div");
-      card.style.width = "100%";
-      card.style.maxWidth = "420px";
-      card.style.background = "#1C1C1E";
-      card.style.border = "1px solid #333";
-      card.style.borderRadius = "16px";
-      card.style.padding = "22px";
-      card.style.boxSizing = "border-box";
-      card.style.color = "#fff";
-      card.style.fontFamily = "Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-
-      card.innerHTML = `
-        <div style="font-weight:800; font-size:1.1rem; letter-spacing:-0.2px; margin-bottom:6px;">Sign in to sync & protect your logs</div>
-        <div style="color:#8E8E93; font-size:0.9rem; line-height:1.35; margin-bottom:14px;">
-          This keeps history tied to your account and allows secure Firestore rules.
-        </div>
-
-        <label style="display:block; font-size:0.85rem; color:#8E8E93; margin:10px 0 6px;">Email</label>
-        <input id="auth-email" type="email" autocomplete="email" inputmode="email"
-               style="width:100%; padding:12px 12px; border-radius:12px; border:1px solid #333; background:#000; color:#fff; box-sizing:border-box;" />
-
-        <label style="display:block; font-size:0.85rem; color:#8E8E93; margin:12px 0 6px;">Password</label>
-        <input id="auth-pass" type="password" autocomplete="current-password"
-               style="width:100%; padding:12px 12px; border-radius:12px; border:1px solid #333; background:#000; color:#fff; box-sizing:border-box;" />
-
-        <div id="auth-error" style="color:#FF453A; font-size:0.85rem; margin-top:10px; display:none;"></div>
-
-        <button id="auth-signin" style="margin-top:16px; width:100%; padding:14px 14px; border-radius:12px; border:none; font-weight:800; background:#30D158; color:#000; cursor:pointer;">SIGN IN</button>
-        <button id="auth-create" style="margin-top:10px; width:100%; padding:14px 14px; border-radius:12px; border:1px solid #333; font-weight:700; background:#000; color:#fff; cursor:pointer;">CREATE ACCOUNT</button>
-
-        <div style="margin-top:14px; color:#8E8E93; font-size:0.8rem; line-height:1.35;">
-          Tip: you only do this once per device unless you clear browser storage.
-        </div>
-      `;
-
-      overlay.appendChild(card);
-      document.body.appendChild(overlay);
+      if (window.__authUIReady) return;
+      const overlay = document.getElementById("auth-overlay");
+      if (!overlay) return;
 
       const emailEl = document.getElementById("auth-email");
       const passEl = document.getElementById("auth-pass");
+      const btnIn = document.getElementById("auth-signin");
+      const btnUp = document.getElementById("auth-signup");
       const errEl = document.getElementById("auth-error");
 
-      try {
-        const lastEmail = localStorage.getItem("auth_last_email");
-        if (lastEmail && emailEl) emailEl.value = lastEmail;
-      } catch(e) {}
+      const showErr = (msg) => {
+        if (errEl) errEl.textContent = msg || "";
+      };
 
-      function showErr(msg) {
-        if (!errEl) return;
-        errEl.textContent = msg || "Sign-in failed.";
-        errEl.style.display = "block";
-      }
-      function clearErr() {
-        if (!errEl) return;
-        errEl.textContent = "";
-        errEl.style.display = "none";
-      }
-
-      document.getElementById("auth-signin")?.addEventListener("click", async () => {
-        clearErr();
+      const getCreds = () => {
         const email = (emailEl?.value || "").trim();
         const pass = (passEl?.value || "").trim();
-        if (!email || !pass) { showErr("Enter email and password."); return; }
+        return { email, pass };
+      };
+
+      btnIn?.addEventListener("click", async () => {
+        showErr("");
+        const { email, pass } = getCreds();
+        if (!email || !pass) return showErr("Enter email and password.");
         try {
-          try { localStorage.setItem("auth_last_email", email); } catch(e) {}
           await signInWithEmailAndPassword(auth, email, pass);
         } catch (e) {
           console.error(e);
@@ -1493,27 +1523,27 @@
         }
       });
 
-      document.getElementById("auth-create")?.addEventListener("click", async () => {
-        clearErr();
-        const email = (emailEl?.value || "").trim();
-        const pass = (passEl?.value || "").trim();
-        if (!email || !pass) { showErr("Enter email and password."); return; }
-        if (pass.length < 6) { showErr("Password must be at least 6 characters."); return; }
+      btnUp?.addEventListener("click", async () => {
+        showErr("");
+        const { email, pass } = getCreds();
+        if (!email || !pass) return showErr("Enter email and password.");
         try {
-          try { localStorage.setItem("auth_last_email", email); } catch(e) {}
           await createUserWithEmailAndPassword(auth, email, pass);
         } catch (e) {
           console.error(e);
           showErr(e?.message || String(e));
         }
       });
+
+      window.__authUIReady = true;
     }
 
     function showAuthOverlay(show) {
       ensureAuthUI();
       const o = document.getElementById("auth-overlay");
       if (!o) return;
-      o.style.display = show ? "flex" : "none";
+      if (show) o.removeAttribute("hidden");
+      else o.setAttribute("hidden", "hidden");
     }
 
     // Optional: expose a manual sign-out (for testing)
