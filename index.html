@@ -1460,8 +1460,32 @@
   </div>
 
   <script>
-    window.__AUTH_MODULE_LOADED__ = true;
+    // Firebase does NOT work reliably when this page is opened via file:// (origin becomes "null").
+    // Use your Netlify URL or serve locally over http://localhost.
+    // Even if Firebase fails to load, we still allow a read-only demo so you can show the UI.
+    window.__AUTH_MODULE_LOADED__ = false;
 
+    function setAuthError(msg) {
+      const el = document.getElementById('auth-error');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function hideAuthModal() {
+      const modal = document.getElementById('auth-modal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    // Demo mode is always available (no cloud sync)
+    window.enterDemoMode = function () {
+      try { localStorage.setItem('amn_demo_mode', '1'); } catch (_) {}
+      hideAuthModal();
+    };
+
+    if (location.protocol === 'file:') {
+      setAuthError('You opened this page as a local file (file://). Cloud login will not work in file mode. Use the Netlify URL, or run a local server (e.g., “python3 -m http.server”) and open http://localhost:8000. You can still use “View demo (read-only)”.');
+    }
 
     const firebaseConfig = {
       apiKey: "AIzaSyDrklblxcbR3TxTOMgsEB4ZgKNE2F1Au98",
@@ -1472,10 +1496,26 @@
       appId: "1:773361494367:web:15aee1471b181413d1eeea"
     };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    let auth = null;
+    let db = null;
+    try {
+      if (window.firebase && typeof firebase.initializeApp === 'function') {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        auth = firebase.auth();
+        window.__AUTH_MODULE_LOADED__ = true;
+      }
+    } catch (e) {
+      console.error('Firebase bootstrap failed:', e);
+      window.__AUTH_MODULE_LOADED__ = false;
+      setAuthError('Cloud login failed to initialize. If you are on iPhone Safari, try disabling content blockers for this site and reloading. You can still use “View demo (read-only)”.');
+    }
 
-    const auth = firebase.auth();
+    // If Firebase didn't initialize, keep the page usable (demo still works).
+    if (!window.__AUTH_MODULE_LOADED__ || !auth || !db) {
+      const demoBtn = document.getElementById('auth-demo');
+      if (demoBtn) demoBtn.addEventListener('click', () => window.enterDemoMode());
+    } else {
     // Persist login on device/browser (one-time login per device).
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
       console.warn("Auth persistence not set:", err?.code || err);
@@ -2582,46 +2622,9 @@
       // prime slider visuals
       Array.from(document.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
     });
-  </script>
 
-  
-  <script>
-    (function () {
-      function setAuthError(msg) {
-        var el = document.getElementById('auth-error');
-        if (!el) return;
-        el.textContent = msg;
-        el.style.display = 'block';
-      }
-
-      function attachFallback() {
-        var signin = document.getElementById('auth-signin');
-        var signup = document.getElementById('auth-signup');
-
-        function guard(e) {
-          if (window.__AUTH_MODULE_LOADED__ === true) return;
-          if (e) e.preventDefault();
-          setAuthError(
-            "Login scripts did not load on this device. Most common causes are iOS Safari content blockers or a blocked module import. Try: (1) disable content blockers for this site, (2) open in Safari (not the Home Screen icon), (3) reload with a new URL like '?v=1', then try again."
-          );
-        }
-
-        if (signin) signin.addEventListener('click', guard);
-        if (signup) signup.addEventListener('click', guard);
-
-        // If the module script never loads, surface a clear message automatically.
-        setTimeout(function () {
-          if (window.__AUTH_MODULE_LOADED__ === true) return;
-          guard();
-        }, 1200);
-      }
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', attachFallback);
-      } else {
-        attachFallback();
-      }
-    })();
+    // Close the Firebase-available branch opened earlier.
+    }
   </script>
 
 <div id="build-badge" class="build-badge">Build AUTH v3.2</div>
