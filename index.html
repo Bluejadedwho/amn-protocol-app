@@ -1521,8 +1521,8 @@ function setAuthError(msg) {
     }
 
     function hideAuthModal() {
-      const modal = document.getElementById('auth-modal');
-      if (modal) modal.style.display = 'none';
+      const overlay = document.getElementById('auth-overlay');
+      if (overlay) overlay.setAttribute('hidden', 'hidden');
     }
 
     // Demo mode is always available (no cloud sync)
@@ -1552,6 +1552,12 @@ function setAuthError(msg) {
         db = firebase.firestore();
         auth = firebase.auth();
         window.__AUTH_MODULE_LOADED__ = true;
+        // Provide the API that the UI buttons expect
+        window.__authApi = {
+          signIn: (email, pass) => auth.signInWithEmailAndPassword(email, pass),
+          signUp: (email, pass) => auth.createUserWithEmailAndPassword(email, pass),
+          signOut: () => auth.signOut()
+        };
       }
     } catch (e) {
       console.error('Firebase bootstrap failed:', e);
