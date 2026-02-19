@@ -746,6 +746,12 @@
       window.scrollTo(0,0);
     };
   </script>
+
+  <!-- Firebase (compat) for iOS Safari reliability -->
+  <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
 </head>
 <body>
 <div id="auth-overlay">
@@ -1451,23 +1457,8 @@
 
   </div>
 
-  <script type="module">
+  <script>
     window.__AUTH_MODULE_LOADED__ = true;
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-    import {
-      getFirestore, doc, setDoc, serverTimestamp, enableIndexedDbPersistence,
-      collection, query, where, orderBy, limit, getDocs
-    } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-
-    import {
-      getAuth,
-      onAuthStateChanged,
-      setPersistence,
-      browserLocalPersistence,
-      signInWithEmailAndPassword,
-      createUserWithEmailAndPassword,
-      signOut
-    } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 
     const firebaseConfig = {
@@ -1479,13 +1470,12 @@
       appId: "1:773361494367:web:15aee1471b181413d1eeea"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
-    const auth = getAuth(app);
-
+    const auth = firebase.auth();
     // Persist login on device/browser (one-time login per device).
-    setPersistence(auth, browserLocalPersistence).catch((err) => {
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
       console.warn("Auth persistence not set:", err?.code || err);
     });
 
@@ -1517,7 +1507,7 @@
         const { email, pass } = getCreds();
         if (!email || !pass) return showErr("Enter email and password.");
         try {
-          await signInWithEmailAndPassword(auth, email, pass);
+          await auth.signInWithEmailAndPassword(email, pass);
         } catch (e) {
           console.error(e);
           showErr(e?.message || String(e));
@@ -1529,7 +1519,7 @@
         const { email, pass } = getCreds();
         if (!email || !pass) return showErr("Enter email and password.");
         try {
-          await createUserWithEmailAndPassword(auth, email, pass);
+          await auth.createUserWithEmailAndPassword(email, pass);
         } catch (e) {
           console.error(e);
           showErr(e?.message || String(e));
@@ -1549,7 +1539,7 @@
 
     // Optional: expose a manual sign-out (for testing)
     window.signOutProtocol = async function() {
-      try { await signOut(auth); } catch(e) { console.error(e); }
+      try { await auth.signOut(); } catch(e) { console.error(e); }
     };
 
     function requireUid() {
@@ -1558,13 +1548,13 @@
     }
 
 
-    enableIndexedDbPersistence(db).catch((err) => {
+    db.enablePersistence().catch((err) => {
       console.warn("Firestore persistence not enabled:", err?.code || err);
     });
 
     // Gate all Firestore reads/writes behind authentication.
     // If you are not signed in, the app will prompt once and then stay signed in on this device.
-    onAuthStateChanged(auth, (user) => {
+    auth.onAuthStateChanged((user) => {
       CURRENT_UID = user?.uid || null;
       showAuthOverlay(!CURRENT_UID);
     });
@@ -1575,7 +1565,9 @@
 
     function userProfilePath(profile, ...rest) {
       // Secure path (requires Firebase Auth): users/{uid}/profiles/{profile}/...
-      return ["users", requireUid(), "profiles", profile, ...rest];
+      const uid = requireUid();
+      const tail = rest.length ? "/" + rest.map(encodeURIComponent).join("/") : "";
+      return `users/${uid}/profiles/${encodeURIComponent(profile)}${tail}`;
     }
 
     // ---------------------------
@@ -1802,39 +1794,35 @@
       // Path: users/{profile}/logs/{date}
       // doc() expects even segments: col, doc, col, doc.
       // We pass: "users", profile, "logs", data.date
-      const ref = doc(db, ...userProfilePath(profile, "logs", data.date));
+      const ref = db.doc(userProfilePath(profile, "logs", data.date));
       const payload = {
         ...data,
-        updatedAt: serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         clientUpdatedAt: new Date().toISOString()
       };
-      await setDoc(ref, payload, { merge: true });
+      await ref.set(payload, { merge: true });
     }
 
     // --- PDF EXPORT (range + dense table + notes appendix) ---
     async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
-      const logsRef = collection(db, ...userProfilePath(patientId, "logs"));
-      const q = query(
-        logsRef,
-        where("date", ">=", startDate),
-        where("date", "<=", endDate),
-        orderBy("date", dir)
-      );
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(d => d.data());
+      const q = db
+        .collection(userProfilePath(patientId, "logs"))
+        .where("date", ">=", startDate)
+        .where("date", "<=", endDate)
+        .orderBy("date", dir);
+      const snapshot = await q.get();
+      return snapshot.docs.map((d) => d.data());
     }
 
 
     // Fetch last N logs (default 30), ordered by date desc.
     async function fetchPatientLogs(patientId, days = 30) {
-      const logsRef = collection(db, ...userProfilePath(patientId, "logs"));
-      const q = query(
-        logsRef,
-        orderBy("date", "desc"),
-        limit(days)
-      );
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(d => d.data());
+      const q = db
+        .collection(userProfilePath(patientId, "logs"))
+        .orderBy("date", "desc")
+        .limit(days);
+      const snapshot = await q.get();
+      return snapshot.docs.map((d) => d.data());
     }
 
     function _safeTxt(v) {
@@ -2229,9 +2217,9 @@
         const payload = collectFunctionalTestPayload();
         // Path: users/patrick/tests/{id}
         const id = `${payload.test_date}_${Date.now()}`;
-        const ref = doc(db, ...userProfilePath("patrick", "tests", id));
+        const ref = db.doc(userProfilePath("patrick", "tests", id));
         
-        await setDoc(ref, { ...payload, createdAt: serverTimestamp(), clientCreatedAt: new Date().toISOString() }, { merge: true });
+        await ref.set({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() }, { merge: true });
         btns.forEach(b => { try { b.textContent = "SAVED ✓"; } catch(e){} });
         setTimeout(() => btns.forEach(b => { try { b.disabled = false; b.textContent = "SAVE FUNCTIONAL TEST"; } catch(e){} }), 1400);
       } catch (e) {
