@@ -1460,7 +1460,6 @@
   </div>
 
   <script>
-window.addEventListener('load', () => {
     // Firebase does NOT work reliably when this page is opened via file:// (origin becomes "null").
     // Use your Netlify URL or serve locally over http://localhost.
     // Even if Firebase fails to load, we still allow a read-only demo so you can show the UI.
@@ -1523,7 +1522,7 @@ function setAuthError(msg) {
 
     function hideAuthModal() {
       const overlay = document.getElementById('auth-overlay');
-      if (overlay) overlay.setAttribute('hidden', 'hidden');
+      if (overlay) overlay.setAttribute('hidden','hidden');
     }
 
     // Demo mode is always available (no cloud sync)
@@ -1553,12 +1552,14 @@ function setAuthError(msg) {
         db = firebase.firestore();
         auth = firebase.auth();
         window.__AUTH_MODULE_LOADED__ = true;
-        // Provide the API that the UI buttons expect
+
+        // Provide the API that the auth UI expects
         window.__authApi = {
           signIn: (email, pass) => auth.signInWithEmailAndPassword(email, pass),
           signUp: (email, pass) => auth.createUserWithEmailAndPassword(email, pass),
           signOut: () => auth.signOut()
         };
+
       }
     } catch (e) {
       console.error('Firebase bootstrap failed:', e);
@@ -2676,9 +2677,7 @@ function setAuthError(msg) {
 
     // Close the Firebase-available branch opened earlier.
     }
-  
-});
-</script>
+  </script>
 
 <div id="build-badge" class="build-badge">Build AUTH v3.2</div>
 </body>
