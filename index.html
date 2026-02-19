@@ -657,7 +657,7 @@
       const dob = byId('export-patient-dob');
       const lsNameKey = `patient_name_${target?.patientId || 'unknown'}`;
       const lsDobKey = `patient_dob_${target?.patientId || 'unknown'}`;
-      const defaultName = (target?.patientId === 'patrick') ? 'Patrick Fuellbeck' : (target?.patientId === 'nieve' ? 'Nieve' : '');
+      const defaultName = (target?.patientId === 'patrick') ? 'Patrick Fuellebeck' : (target?.patientId === 'nieve' ? 'Nieve' : '');
       if (pn) pn.value = localStorage.getItem(lsNameKey) || defaultName;
       if (dob) dob.value = localStorage.getItem(lsDobKey) || '';
 
@@ -748,9 +748,12 @@
   </script>
 
   <!-- Firebase (compat) for iOS Safari reliability -->
-  <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-  <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <!-- IMPORTANT: these must execute BEFORE the inline bootstrap script at the end of <body>.
+       Using `defer` here can cause the inline script to run first, leaving buttons non-responsive.
+       So we load them synchronously. -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
 </head>
 <body>
@@ -822,7 +825,7 @@
         <div class="row2" style="display:flex; gap:12px; margin-top:12px;">
           <div class="input-group" style="flex:2;">
             <label>Patient name (for PDF header)</label>
-            <input type="text" id="export-patient-name" placeholder="Patrick Fuellbeck">
+            <input type="text" id="export-patient-name" placeholder="Patrick Fuellebeck">
           </div>
           <div class="input-group" style="flex:1;">
             <label>DOB (YYYY-MM-DD)</label>
@@ -1569,8 +1572,16 @@ function setAuthError(msg) {
 
     // If Firebase didn't initialize, keep the page usable (demo still works).
     if (!window.__AUTH_MODULE_LOADED__ || !auth || !db) {
+      // Make the auth overlay usable even when Firebase fails:
+      // - Demo still works
+      // - Sign in / Create account show a clear error instead of doing nothing
       const demoBtn = document.getElementById('auth-demo');
+      const inBtn = document.getElementById('auth-signin');
+      const upBtn = document.getElementById('auth-signup');
       if (demoBtn) demoBtn.addEventListener('click', () => window.enterDemoMode());
+      const explain = () => setAuthError('Cloud login did not initialize on this device/browser. Try reloading, disabling content blockers, and ensure third-party scripts are allowed. You can still use “View demo (read-only)”.');
+      if (inBtn) inBtn.addEventListener('click', explain);
+      if (upBtn) upBtn.addEventListener('click', explain);
     } else {
     // Persist login on device/browser (one-time login per device).
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
@@ -2061,7 +2072,7 @@ function setAuthError(msg) {
       if (dir === "desc") ordered.reverse();
 
       // Header
-      const pn = (patientMeta?.patientName || '').trim() || 'Patrick Fuellbeck';
+      const pn = (patientMeta?.patientName || '').trim() || 'Patrick Fuellebeck';
       const pdob = (patientMeta?.patientDob || '').trim();
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(15);
@@ -2072,7 +2083,6 @@ function setAuthError(msg) {
       pdf.text(`Range: ${startDate} to ${endDate}   |   Logs: ${ordered.length}   |   Generated: ${new Date().toLocaleDateString()}`, margin, 78);
 
       let y = 106;
-      let y = 92;
 
       // Daily Summary header (trend scan)
       pdf.setFont("helvetica", "bold");
