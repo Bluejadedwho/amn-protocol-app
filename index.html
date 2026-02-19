@@ -1460,6 +1460,7 @@
   </div>
 
   <script>
+window.addEventListener('load', () => {
     // Firebase does NOT work reliably when this page is opened via file:// (origin becomes "null").
     // Use your Netlify URL or serve locally over http://localhost.
     // Even if Firebase fails to load, we still allow a read-only demo so you can show the UI.
@@ -2675,7 +2676,9 @@ function setAuthError(msg) {
 
     // Close the Firebase-available branch opened earlier.
     }
-  </script>
+  
+});
+</script>
 
 <div id="build-badge" class="build-badge">Build AUTH v3.2</div>
 </body>
