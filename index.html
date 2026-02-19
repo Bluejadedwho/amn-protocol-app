@@ -766,8 +766,8 @@
     <input id="auth-pass" type="password" autocomplete="current-password" />
 
     <div class="row">
-      <button id="auth-signin">Sign in</button>
-      <button id="auth-signup" class="secondary">Create account</button>
+      <button id="auth-signin" type="button">Sign in</button>
+      <button id="auth-signup" class="secondary" type="button">Create account</button>
     </div>
       <div class="row" style="margin-top:10px;">
         <button id="auth-demo" class="secondary" type="button" style="width:100%;">View demo (read-only)</button>
@@ -1465,7 +1465,55 @@
     // Even if Firebase fails to load, we still allow a read-only demo so you can show the UI.
     window.__AUTH_MODULE_LOADED__ = false;
 
-    function setAuthError(msg) {
+    // Demo mode can be entered even if Firebase/Auth scripts fail to load.
+window.__enterDemoMode = function __enterDemoMode() {
+  try {
+    window.__DEMO_MODE__ = true;
+    const overlay = document.getElementById('auth-overlay');
+    if (overlay) overlay.style.display = 'none';
+
+    // Disable cloud write actions
+    const disableIds = [
+      'p-save-log',
+      'n-save-log',
+      'lab-save-results-btn',
+      'clinician-export-btn'
+    ];
+    disableIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = true;
+      el.style.opacity = '0.5';
+      el.style.cursor = 'not-allowed';
+      el.title = 'Demo mode: cloud sync disabled';
+    });
+
+    let b = document.getElementById('demo-banner');
+    if (!b) {
+      b = document.createElement('div');
+      b.id = 'demo-banner';
+      b.style.position = 'fixed';
+      b.style.left = '16px';
+      b.style.right = '16px';
+      b.style.bottom = '16px';
+      b.style.zIndex = '9999';
+      b.style.padding = '10px 12px';
+      b.style.borderRadius = '12px';
+      b.style.background = 'rgba(0,0,0,0.75)';
+      b.style.backdropFilter = 'blur(8px)';
+      b.style.webkitBackdropFilter = 'blur(8px)';
+      b.style.color = '#fff';
+      b.style.fontSize = '13px';
+      b.style.lineHeight = '1.25';
+      b.innerHTML = 'Viewing in demo mode (read-only). Cloud sync and exports are disabled.';
+      document.body.appendChild(b);
+    }
+  } catch (e) {
+    console.warn('Demo mode failed to start', e);
+  }
+};
+
+function setAuthError(msg) {
       const el = document.getElementById('auth-error');
       if (!el) return;
       el.textContent = msg;
@@ -1524,62 +1572,58 @@
     let CURRENT_UID = null;
 
     function ensureAuthUI() {
+      // Attach button handlers once the auth DOM exists.
       if (window.__authUIReady) return;
-      const overlay = document.getElementById("auth-overlay");
-      if (!overlay) return;
 
+      const overlay = document.getElementById("auth-overlay");
       const emailEl = document.getElementById("auth-email");
       const passEl = document.getElementById("auth-pass");
-      const btnIn = document.getElementById("auth-signin");
-      const btnUp = document.getElementById("auth-signup");
-      const errEl = document.getElementById("auth-error");
-
+      const btnIn  = document.getElementById("auth-signin");
+      const btnUp  = document.getElementById("auth-signup");
       const btnDemo = document.getElementById("auth-demo");
-      const signupHint = document.getElementById("auth-signup-hint");
-      const allowSignup = new URLSearchParams(window.location.search).get("signup") === "1";
-      if (!allowSignup) {
-        if (btnUp) btnUp.style.display = "none";
-        if (signupHint) signupHint.style.display = "block";
-      } else {
-        if (signupHint) signupHint.style.display = "none";
+      const errEl  = document.getElementById("auth-error");
+
+      // If the elements aren't on the page yet (common when scripts run before body),
+      // don't mark ready. We'll retry shortly / on DOMContentLoaded.
+      if (!overlay || !emailEl || !passEl || !btnIn || !btnUp || !btnDemo || !errEl) {
+        setTimeout(ensureAuthUI, 50);
+        return;
       }
 
       const showErr = (msg) => {
-        if (errEl) errEl.textContent = msg || "";
+        errEl.textContent = msg || "";
+        errEl.style.display = msg ? "block" : "none";
       };
 
-      const getCreds = () => {
-        const email = (emailEl?.value || "").trim();
-        const pass = (passEl?.value || "").trim();
-        return { email, pass };
-      };
-
-      btnIn?.addEventListener("click", async () => {
+      btnIn.addEventListener("click", async () => {
         showErr("");
-        const { email, pass } = getCreds();
+        const email = (emailEl.value || "").trim();
+        const pass  = (passEl.value || "").trim();
         if (!email || !pass) return showErr("Enter email and password.");
         try {
-          await auth.signInWithEmailAndPassword(email, pass);
+          await window.__authApi.signIn(email, pass);
+          showAuthOverlay(false);
+          onAuthReady();
         } catch (e) {
-          console.error(e);
           showErr(e?.message || String(e));
         }
       });
 
-      btnUp?.addEventListener("click", async () => {
+      btnUp.addEventListener("click", async () => {
         showErr("");
-        const { email, pass } = getCreds();
+        const email = (emailEl.value || "").trim();
+        const pass  = (passEl.value || "").trim();
         if (!email || !pass) return showErr("Enter email and password.");
         try {
-          await auth.createUserWithEmailAndPassword(email, pass);
+          await window.__authApi.signUp(email, pass);
+          showAuthOverlay(false);
+          onAuthReady();
         } catch (e) {
-          console.error(e);
           showErr(e?.message || String(e));
         }
       });
 
-
-      btnDemo?.addEventListener("click", () => {
+      btnDemo.addEventListener("click", () => {
         showErr("");
         enterDemoMode();
       });
