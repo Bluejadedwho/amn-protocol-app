@@ -769,7 +769,9 @@
       <button id="auth-signin">Sign in</button>
       <button id="auth-signup" class="secondary">Create account</button>
     </div>
-
+      <div class="row" style="margin-top:10px;">
+        <button id="auth-demo" class="secondary" type="button" style="width:100%;">View demo (read-only)</button>
+      </div>
     <div id="auth-error"></div>
   </div>
 </div>
@@ -1492,6 +1494,16 @@
       const btnUp = document.getElementById("auth-signup");
       const errEl = document.getElementById("auth-error");
 
+      const btnDemo = document.getElementById("auth-demo");
+      const signupHint = document.getElementById("auth-signup-hint");
+      const allowSignup = new URLSearchParams(window.location.search).get("signup") === "1";
+      if (!allowSignup) {
+        if (btnUp) btnUp.style.display = "none";
+        if (signupHint) signupHint.style.display = "block";
+      } else {
+        if (signupHint) signupHint.style.display = "none";
+      }
+
       const showErr = (msg) => {
         if (errEl) errEl.textContent = msg || "";
       };
@@ -1526,6 +1538,12 @@
         }
       });
 
+
+      btnDemo?.addEventListener("click", () => {
+        showErr("");
+        enterDemoMode();
+      });
+
       window.__authUIReady = true;
     }
 
@@ -1537,12 +1555,55 @@
       else o.setAttribute("hidden", "hidden");
     }
 
+    function enterDemoMode() {
+      window.__DEMO_MODE__ = true;
+      showAuthOverlay(false);
+      // Disable cloud write actions
+      const disableIds = [
+        "p-save-log",
+        "n-save-log",
+        "lab-save-results-btn",
+        "clinician-export-btn"
+      ];
+      disableIds.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.disabled = true;
+        el.style.opacity = "0.5";
+        el.style.cursor = "not-allowed";
+        el.title = "Demo mode: cloud sync disabled";
+      });
+
+      // Small banner so it's obvious
+      let b = document.getElementById("demo-banner");
+      if (!b) {
+        b = document.createElement("div");
+        b.id = "demo-banner";
+        b.style.position = "fixed";
+        b.style.left = "16px";
+        b.style.right = "16px";
+        b.style.bottom = "16px";
+        b.style.zIndex = "9999";
+        b.style.padding = "10px 12px";
+        b.style.borderRadius = "12px";
+        b.style.background = "rgba(0,0,0,0.75)";
+        b.style.backdropFilter = "blur(8px)";
+        b.style.webkitBackdropFilter = "blur(8px)";
+        b.style.color = "#fff";
+        b.style.fontSize = "13px";
+        b.style.lineHeight = "1.25";
+        b.innerHTML = "Viewing in demo mode (read-only). Cloud sync and exports are disabled.";
+        document.body.appendChild(b);
+      }
+    }
+
     // Optional: expose a manual sign-out (for testing)
     window.signOutProtocol = async function() {
       try { await auth.signOut(); } catch(e) { console.error(e); }
     };
 
     function requireUid() {
+      if (window.__DEMO_MODE__) throw new Error("Demo mode: not signed in");
       if (!CURRENT_UID) throw new Error("Not signed in. Please sign in again.");
       return CURRENT_UID;
     }
