@@ -553,6 +553,13 @@
   border-bottom-right-radius: 14px;
 }
 
+
+/* Scroll cue: fade the bottom of modal content ONLY when user is at the top */
+.modal-content.at-top {
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 82%, rgba(0,0,0,0) 100%);
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 82%, rgba(0,0,0,0) 100%);
+}
+
 </style>
 
   <script>
@@ -2716,5 +2723,31 @@ function setAuthError(msg) {
     }
   </script>
 
+<script>
+// Modal scroll cue: fade bottom only when at top (helps indicate more content below on mobile)
+(function() {
+  const modalContent = document.querySelector('.modal-content');
+  if (!modalContent) return;
+
+  const updateCue = () => {
+    if (modalContent.scrollTop <= 2) modalContent.classList.add('at-top');
+    else modalContent.classList.remove('at-top');
+  };
+
+  // Initial state
+  updateCue();
+
+  // Update on scroll
+  modalContent.addEventListener('scroll', updateCue, { passive: true });
+
+  // If your modal is shown/hidden, re-apply when it opens
+  const modal = document.getElementById('protocolModal') || document.querySelector('.modal');
+  if (modal) {
+    const obs = new MutationObserver(() => updateCue());
+    obs.observe(modal, { attributes: true, attributeFilter: ['style', 'class'] });
+  }
+})();
+
+</script>
 </body>
 </html>
