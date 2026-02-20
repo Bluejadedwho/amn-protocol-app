@@ -543,6 +543,40 @@
   }
 }
 
+
+/* Scroll hint (mobile + desktop): subtle side indicator inside modal */
+.modal-content { position: relative; }
+.scroll-hint-bar {
+  position: absolute;
+  right: 8px;
+  top: 84px;
+  bottom: 84px;
+  width: 3px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.08);
+  pointer-events: none;
+}
+.scroll-hint-chevron {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 28px;
+  height: 28px;
+  opacity: 0.75;
+  pointer-events: none;
+  animation: scrollHintBob 1.6s ease-in-out infinite;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.45));
+}
+.scroll-hint-hidden .scroll-hint-bar,
+.scroll-hint-hidden .scroll-hint-chevron {
+  opacity: 0;
+  animation: none;
+}
+@keyframes scrollHintBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+
 </style>
 
   <script>
@@ -2707,5 +2741,33 @@ function setAuthError(msg) {
     }
   </script>
 
+<script>
+// Scroll hint toggle: show hint at top, hide after user scrolls
+(function () {
+  const modalContent = document.querySelector('.modal-content');
+  if (!modalContent) return;
+
+  const update = () => {
+    const canScroll = modalContent.scrollHeight > modalContent.clientHeight + 8;
+    const atTop = modalContent.scrollTop <= 2;
+    if (!canScroll) {
+      modalContent.classList.add('scroll-hint-hidden');
+      return;
+    }
+    if (atTop) modalContent.classList.remove('scroll-hint-hidden');
+    else modalContent.classList.add('scroll-hint-hidden');
+  };
+
+  update();
+  modalContent.addEventListener('scroll', update, { passive: true });
+
+  const modal = document.getElementById('protocolModal') || document.querySelector('.modal');
+  if (modal) {
+    const obs = new MutationObserver(update);
+    obs.observe(modal, { attributes: true, attributeFilter: ['style', 'class'] });
+  }
+})();
+
+</script>
 </body>
 </html>
