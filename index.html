@@ -536,28 +536,11 @@
   backdrop-filter: blur(6px);
 }
 
-/* Subtle scroll cue: bottom fade overlay inside modal content */
-.modal-content.fade-cue {
-  position: relative;
-}
-.modal-content.fade-cue::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 48px;
-  pointer-events: none;
-  background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.92));
-  border-bottom-left-radius: 14px;
-  border-bottom-right-radius: 14px;
-}
-
-
-/* Scroll cue: fade the bottom of modal content ONLY when user is at the top */
-.modal-content.at-top {
-  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 82%, rgba(0,0,0,0) 100%);
-  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 82%, rgba(0,0,0,0) 100%);
+/* Mobile-only cue: slightly reduce modal content height so content visibly continues below the fold */
+@media (max-width: 520px) {
+  .modal-content {
+    max-height: 72vh !important;
+  }
 }
 
 </style>
@@ -887,6 +870,7 @@ Conceptual Foundation and Mechanistic Framework
 <p>This project was not assembled casually. It represents a structured, multi-layered effort conducted over an extended period of time to address a condition where large-scale translational research remains limited and long-term human trials are scarce.</p>
 
 <p>This protocol is structured around a dual-mechanism model targeting two core drivers of pathology: redox instability and lipid dysregulation. The redox axis is supported through coordinated use of alpha-lipoic acid, N-acetylcysteine, and vitamin E to stabilize oxidative stress and preserve axonal integrity. In parallel, nervonic acid is incorporated as a lipid-modulating component to support membrane composition and potentially influence very long chain fatty acid dynamics. Together, these components define the mechanistic foundation of the protocol.</p>
+
 <p>The following methodological steps were undertaken to construct this framework responsibly:</p>
 
 <p style="color:#aaa; font-size:0.92rem; line-height:1.5;">Within this framework, the term "dual mechanism" reflects the recognition that oxidative destabilization and lipid compositional imbalance represent distinct but interacting pathological processes. Redox stabilization and lipid substrate modulation are therefore approached as parallel axes rather than sequential steps, acknowledging that meaningful system-level stability requires addressing both domains simultaneously.</p>
@@ -2723,31 +2707,5 @@ function setAuthError(msg) {
     }
   </script>
 
-<script>
-// Modal scroll cue: fade bottom only when at top (helps indicate more content below on mobile)
-(function() {
-  const modalContent = document.querySelector('.modal-content');
-  if (!modalContent) return;
-
-  const updateCue = () => {
-    if (modalContent.scrollTop <= 2) modalContent.classList.add('at-top');
-    else modalContent.classList.remove('at-top');
-  };
-
-  // Initial state
-  updateCue();
-
-  // Update on scroll
-  modalContent.addEventListener('scroll', updateCue, { passive: true });
-
-  // If your modal is shown/hidden, re-apply when it opens
-  const modal = document.getElementById('protocolModal') || document.querySelector('.modal');
-  if (modal) {
-    const obs = new MutationObserver(() => updateCue());
-    obs.observe(modal, { attributes: true, attributeFilter: ['style', 'class'] });
-  }
-})();
-
-</script>
 </body>
 </html>
