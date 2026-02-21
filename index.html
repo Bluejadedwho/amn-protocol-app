@@ -585,6 +585,45 @@ body.modal-open {
   touch-action: none;
 }
 
+
+/* Scroll hint (Protocol Development modal): subtle side indicator without overlapping text */
+#dev-modal .modal-card { position: relative; }
+#dev-modal .modal-body { padding-right: 28px; }
+
+#dev-modal .scroll-hint-bar {
+  position: absolute;
+  right: 10px;
+  top: 110px;
+  bottom: 22px;
+  width: 2px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.10);
+  pointer-events: none;
+}
+
+#dev-modal .scroll-hint-chevron {
+  position: absolute;
+  right: 6px;
+  bottom: 10px;
+  width: 18px;
+  height: 18px;
+  opacity: 0.45;
+  pointer-events: none;
+  animation: scrollHintBob 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
+}
+
+#dev-modal .scroll-hint-hidden .scroll-hint-bar,
+#dev-modal .scroll-hint-hidden .scroll-hint-chevron {
+  opacity: 0;
+  animation: none;
+}
+
+@keyframes scrollHintBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(5px); }
+}
+
 </style>
 
   <script>
@@ -898,21 +937,21 @@ body.modal-open {
 
   <div id="dev-modal" class="app-modal" role="dialog" aria-modal="true">
     <div class="modal-card">
+
+<div class="scroll-hint-bar" aria-hidden="true"></div>
+<div class="scroll-hint-chevron" aria-hidden="true">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M7 10l5 5 5-5" stroke="rgba(255,255,255,0.70)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</div>
+
+
         <div class="modal-header">
             <div class="modal-title">Protocol Development</div>
             <button type="button" class="modal-close" onclick="window.closeAllModals()">Close</button>
         </div>
         <div class="modal-body">
-
-<div class="scroll-hint-bar" aria-hidden="true"></div>
-<div class="scroll-hint-chevron" aria-hidden="true">
-  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M7 10l5 5 5-5" stroke="rgba(255,255,255,0.75)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>
-</div>
-
-
-            <h3 style="margin-top:0; color:#38bdf8; font-size:1.1rem; line-height:1.4;">PROTOCOL DEVELOPMENT, VALIDATION, AND STRUCTURAL FRAMEWORK</h3>
+<h3 style="margin-top:0; color:#38bdf8; font-size:1.1rem; line-height:1.4;">PROTOCOL DEVELOPMENT, VALIDATION, AND STRUCTURAL FRAMEWORK</h3>
 <h4 style="color:#22c55e; margin-top:10px; margin-bottom:14px; font-size:0.95rem; font-weight:600; letter-spacing:0.4px;">
 Conceptual Foundation and Mechanistic Framework
 </h4>
