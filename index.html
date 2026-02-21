@@ -585,16 +585,6 @@ body.modal-open {
   touch-action: none;
 }
 
-
-/* Overview modal ("What this protocol is"): strengthen label hierarchy */
-#overview-modal .modal-body p strong {
-  font-weight: 800;
-  color: rgba(255,255,255,0.96);
-}
-#overview-modal .modal-body p {
-  margin: 0 0 16px;
-}
-
 </style>
 
   <script>
@@ -815,6 +805,16 @@ body.modal-open {
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
+
+<style id="overview-tightening">
+#overview-modal .modal-body { 
+  line-height: 1.42;
+}
+#overview-modal p { 
+  margin: 0 0 12px 0;
+}
+</style>
+
 </head>
 <body>
 <div id="auth-overlay">
@@ -856,9 +856,16 @@ body.modal-open {
         <button type="button" class="modal-close" onclick="window.closeAllModals()">Close</button>
       </div>
       <div class="modal-body">
-<p><strong>Purpose.</strong> This protocol is a structured way to test whether function in adrenomyeloneuropathy can be made more stable and reliable by reducing biological stress on vulnerable pathways.</p>
+<div class="scroll-hint-bar" aria-hidden="true"></div>
+<div class="scroll-hint-chevron" aria-hidden="true">
+  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M7 10l5 5 5-5" stroke="rgba(255,255,255,0.75)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</div>
+
+        <p><strong>Purpose.</strong> This protocol is a structured way to test whether function in adrenomyeloneuropathy can be made more stable and reliable by reducing biological stress on vulnerable pathways.</p>
         <p><strong>What it is not.</strong> It does not claim a cure, reversal of established damage, or forced regeneration. The working target is <em>margin</em>: preserving what remains and reducing secondary injury.</p>
-        <p><strong>Why this is different.</strong> Many treatments primarily reduce symptoms downstream without changing the underlying strain. This approach focuses on environment optimization: oxidative load, metabolic reliability, inflammatory pressure, and hydration.</p>
+        <p><strong>Why this is different.</strong> Many treatments reduce symptoms downstream without changing the underlying strain, so this approach focuses on environment optimization: oxidative load, metabolic reliability, inflammatory pressure, and hydration.</p>
         <p><strong>How we know whether it helps.</strong> The app tracks repeatable functional tests and symptom domains over time. Trends matter more than single days.</p>
       </div>
     </div>
@@ -889,7 +896,7 @@ body.modal-open {
           </div>
           <div class="input-group" style="flex:1;">
             <label>DOB (YYYY-MM-DD)</label>
-            <input type="date" id="export-patient-dob" autocomplete="bday">
+            <input type="text" id="export-patient-dob" placeholder="YYYY-MM-DD" inputmode="numeric">
           </div>
         </div>
 
