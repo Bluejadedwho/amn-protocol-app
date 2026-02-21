@@ -815,6 +815,17 @@ body.modal-open {
 }
 </style>
 
+
+<style id="dev-modal-scrollbar-hide">
+#dev-modal .modal-body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+#dev-modal .modal-body::-webkit-scrollbar {
+  display: none;
+}
+</style>
+
 </head>
 <body>
 <div id="auth-overlay">
