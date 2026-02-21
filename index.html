@@ -844,7 +844,8 @@ body.modal-open {
       const form = byId("patrick-form");
       if (!form) return;
       form.reset();
-      const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML = '';
+            try { window.setNeuromuscularTraining(0, "none"); } catch(e){}
+const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML = '';
       const pos = document.getElementById('p-positive-events'); if (pos) pos.innerHTML = '';
       Array.from(form.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
       window.scrollTo(0,0);
@@ -1480,7 +1481,26 @@ Conceptual Foundation and Mechanistic Framework
           </div>
         </div>
 
-        <button type="button" class="mini-btn" onclick="window.openTrends()" style="margin-bottom:20px;">VIEW TRENDS & EXPORT PDF</button>
+        
+        <div class="card">
+          <h3>External Variables</h3>
+          <p style="margin-top:8px; color:#D7D7D7; font-size:0.9rem; line-height:1.5;">
+            Track major non-protocol inputs that can shift outcomes (positive or negative). This is logged as an external confounder, not a core protocol component.
+          </p>
+
+          <div class="input-group" style="margin-top:12px;">
+            <label>Neuromuscular Training (external)</label>
+            <div class="pill-row" style="margin-top:8px;">
+              <div class="pill-btn active" id="p-nmt-btn-0" onclick="window.setNeuromuscularTraining(0, 'none')">None</div>
+              <div class="pill-btn" id="p-nmt-btn-1" onclick="window.setNeuromuscularTraining(1, 'light')">Light</div>
+              <div class="pill-btn" id="p-nmt-btn-2" onclick="window.setNeuromuscularTraining(2, 'full')">Full</div>
+            </div>
+            <input type="hidden" id="p-nmt-level" value="0">
+            <input type="hidden" id="p-nmt-label" value="none">
+          </div>
+        </div>
+
+<button type="button" class="mini-btn" onclick="window.openTrends()" style="margin-bottom:20px;">VIEW TRENDS & EXPORT PDF</button>
 
         <button type="button" class="back-btn" style="width:100%; text-align:center; margin: 0 0 14px 0;" onclick="window.resetPilotForm()">Reset today's form</button>
         <button type="button" class="save-btn" id="p-save-log" onclick="window.handlePilotSave()">SAVE DAILY LOG</button>
@@ -2052,7 +2072,13 @@ function setAuthError(msg) {
           vitamin_e_taken: checked("p-vite")
         },
 
-        fast_markers: {
+        
+        external_neuromuscular_training: {
+          level: (asNumber(val("p-nmt-level")) ?? 0),
+          label: mustEnum(val("p-nmt-label"), ["none","light","full"], "none")
+        },
+
+fast_markers: {
           near_fall: checked("p-fast-nearfall"),
           leg_locking: checked("p-fast-locking"),
           spasm_or_clonus: checked("p-fast-spasm"),
@@ -2287,7 +2313,11 @@ function setAuthError(msg) {
         const ST = (sd.leg_stiffness ?? "-");
         const FG = (sd.brain_fog ?? "-");
         const FT = (sd.neurologic_fatigue ?? "-");
-        const CTX = _ctxCodes(ctx);
+        const NMTL = (log.external_neuromuscular_training && typeof log.external_neuromuscular_training.level !== "undefined")
+          ? log.external_neuromuscular_training.level
+          : null;
+        const NMT = (NMTL === 0 || NMTL === 1 || NMTL === 2) ? `NT${NMTL}` : "";
+        const CTX = [_ctxCodes(ctx), NMT].filter(Boolean).join(" ");
         const EVT = Array.isArray(log.adverse_events) ? String(log.adverse_events.length) : "0";
 
         pdf.text(date, xDate, y);
@@ -2315,6 +2345,11 @@ function setAuthError(msg) {
           symptom_drift: log.symptom_drift || null,
           pain_impact: log.pain_impact || null,
           context_changes: log.context_changes || null,
+          neuromuscular_training_external: (log.external_neuromuscular_training ? {
+            label: (log.external_neuromuscular_training.label ?? null),
+            level: (typeof log.external_neuromuscular_training.level !== "undefined" ? log.external_neuromuscular_training.level : null)
+          } : null),
+
           wins_today: log.wins_today || null,
           food_notes: log.food_notes || null,
           notes: log.notes || null,
@@ -2353,6 +2388,7 @@ function setAuthError(msg) {
         if (a.symptom_drift) blocks.push(`Symptom drift: ${_safeTxt(JSON.stringify(a.symptom_drift))}`);
         if (a.pain_impact) blocks.push(`Pain impact: ${_safeTxt(JSON.stringify(a.pain_impact))}`);
         if (a.context_changes) blocks.push(`Context: ${_safeTxt(JSON.stringify(a.context_changes))}`);
+        if (a.neuromuscular_training_external) blocks.push(`Neuromuscular training (external): ${_safeTxt(a.neuromuscular_training_external.label)} (level: ${a.neuromuscular_training_external.level ?? '-'})`);
         if (a.wins_today) blocks.push(`Wins: ${_safeTxt(a.wins_today)}`);
         if (a.food_notes) blocks.push(`Food: ${_safeTxt(a.food_notes)}`);
         if (a.notes) blocks.push(`Notes: ${_safeTxt(a.notes)}`);
@@ -2479,6 +2515,28 @@ function setAuthError(msg) {
     }
 
     // Inline onclick targets
+
+    window.setNeuromuscularTraining = function(level, label) {
+      const lvl = (typeof level === "number") ? level : parseInt(level, 10);
+      const lab = String(label || "").toLowerCase();
+      const allowed = { 0: "none", 1: "light", 2: "full" };
+      const finalLevel = (lvl in allowed) ? lvl : 0;
+      const finalLabel = allowed[finalLevel];
+
+      const lvlEl = byId("p-nmt-level");
+      const labEl = byId("p-nmt-label");
+      if (lvlEl) lvlEl.value = String(finalLevel);
+      if (labEl) labEl.value = finalLabel;
+
+      [0,1,2].forEach(i => {
+        const b = byId(`p-nmt-btn-${i}`);
+        if (!b) return;
+        if (i === finalLevel) b.classList.add("active");
+        else b.classList.remove("active");
+      });
+    };
+
+
     window.handlePilotSave = async function() {
       setBtn("p-save-log", true, "SAVING...");
       try {
