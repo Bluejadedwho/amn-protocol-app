@@ -538,14 +538,14 @@
 
 /* Mobile-only cue: slightly reduce modal content height so content visibly continues below the fold */
 @media (max-width: 520px) {
-  .modal-content {
+  .modal-body {
     max-height: 72vh !important;
   }
 }
 
 
 /* Scroll hint (mobile + desktop): subtle side indicator inside modal */
-.modal-content { position: relative; }
+.modal-body { position: relative; }
 .scroll-hint-bar {
   position: absolute;
   right: 8px;
@@ -846,6 +846,13 @@ body.modal-open {
         <button type="button" class="modal-close" onclick="window.closeAllModals()">Close</button>
       </div>
       <div class="modal-body">
+<div class="scroll-hint-bar" aria-hidden="true"></div>
+<div class="scroll-hint-chevron" aria-hidden="true">
+  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M7 10l5 5 5-5" stroke="rgba(255,255,255,0.75)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</div>
+
         <p><strong>Purpose.</strong> This protocol is a structured way to test whether function in adrenomyeloneuropathy can be made more stable and reliable by reducing biological stress on vulnerable pathways.</p>
         <p><strong>What it is not.</strong> It does not claim a cure, reversal of established damage, or forced regeneration. The working target is <em>margin</em>: preserving what remains and reducing secondary injury.</p>
         <p><strong>Why this is different.</strong> Many treatments primarily reduce symptoms downstream without changing the underlying strain. This approach focuses on environment optimization: oxidative load, metabolic reliability, inflammatory pressure, and hydration.</p>
@@ -2750,52 +2757,54 @@ function setAuthError(msg) {
   </script>
 
 <script>
-// Scroll hint toggle: show hint at top, hide after user scrolls
+</script>
+<script>
+</script>
+<script>
+// Scroll hint toggle: show hint at top, hide after user scrolls (dev-modal)
 (function () {
-  const modalContent = document.querySelector('.modal-content');
-  if (!modalContent) return;
+  const modal = document.getElementById('dev-modal');
+  if (!modal) return;
+
+  const modalBody = modal.querySelector('.modal-body');
+  if (!modalBody) return;
 
   const update = () => {
-    const canScroll = modalContent.scrollHeight > modalContent.clientHeight + 8;
-    const atTop = modalContent.scrollTop <= 2;
+    const canScroll = modalBody.scrollHeight > modalBody.clientHeight + 8;
+    const atTop = modalBody.scrollTop <= 2;
+
     if (!canScroll) {
-      modalContent.classList.add('scroll-hint-hidden');
+      modalBody.classList.add('scroll-hint-hidden');
       return;
     }
-    if (atTop) modalContent.classList.remove('scroll-hint-hidden');
-    else modalContent.classList.add('scroll-hint-hidden');
+    if (atTop) modalBody.classList.remove('scroll-hint-hidden');
+    else modalBody.classList.add('scroll-hint-hidden');
   };
 
   update();
-  modalContent.addEventListener('scroll', update, { passive: true });
+  modalBody.addEventListener('scroll', update, { passive: true });
 
-  const modal = document.getElementById('protocolModal') || document.querySelector('.modal');
-  if (modal) {
-    const obs = new MutationObserver(update);
-    obs.observe(modal, { attributes: true, attributeFilter: ['style', 'class'] });
-  }
+  const obs = new MutationObserver(update);
+  obs.observe(modal, { attributes: true, attributeFilter: ['style', 'class'] });
 })();
 
 </script>
 <script>
-// Lock background scroll when protocol modal is open
+// Lock background scroll when dev-modal is open
 (function () {
-  const modal = document.getElementById('protocolModal') || document.querySelector('.modal');
+  const modal = document.getElementById('dev-modal');
   if (!modal) return;
 
   const updateLock = () => {
-    const isVisible = modal.style.display === 'block' ||
-                      modal.classList.contains('show') ||
-                      window.getComputedStyle(modal).display !== 'none';
+    const display = window.getComputedStyle(modal).display;
+    const isVisible = display !== 'none';
     if (isVisible) document.body.classList.add('modal-open');
     else document.body.classList.remove('modal-open');
   };
 
-  // Observe modal visibility changes
   const observer = new MutationObserver(updateLock);
   observer.observe(modal, { attributes: true, attributeFilter: ['style', 'class'] });
 
-  // Initial check
   updateLock();
 })();
 
