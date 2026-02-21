@@ -575,6 +575,28 @@ body.modal-open {
   touch-action: none;
 }
 
+
+/* Scroll Chevron (refined, no vertical bar) */
+.scroll-chevron {
+  position: absolute;
+  right: 22px;
+  bottom: 20px;
+  font-size: 26px;
+  font-weight: 800;
+  opacity: 0.85;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.scroll-chevron.hidden {
+  opacity: 0;
+}
+
+.modal-content {
+  position: relative;
+  padding-bottom: 56px;
+}
+
 </style>
 
   <script>
