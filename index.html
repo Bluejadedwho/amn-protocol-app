@@ -743,10 +743,24 @@ body.modal-open {
 
 
       const patientName = byId('export-patient-name')?.value?.trim() || '';
-      const patientDob = byId('export-patient-dob')?.value?.trim() || '';
-      if (patientDob && !/^\d{4}-\d{2}-\d{2}$/.test(patientDob)) {
-        alert('DOB must be in YYYY-MM-DD format.');
-        return;
+      const dobEl = byId('export-patient-dob');
+      let patientDob = dobEl?.value?.trim() || '';
+
+      // DOB normalization + validation
+      // iOS numeric keyboards often hide the dash key. Accept either:
+      // - YYYY-MM-DD
+      // - YYYYMMDD (8 digits)
+      // Normalize to YYYY-MM-DD.
+      if (patientDob) {
+        const digits = String(patientDob).replace(/\D/g, '');
+        if (digits.length === 8) {
+          patientDob = `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+          if (dobEl) dobEl.value = patientDob;
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(patientDob)) {
+          alert('DOB must be in YYYY-MM-DD format.');
+          return;
+        }
       }
       try {
         const nameKey = `patient_name_${target.patientId}`;
@@ -774,6 +788,34 @@ body.modal-open {
         if(btn){ btn.disabled = false; btn.textContent = 'Generate PDF'; }
       }
     };
+
+    // --- DOB helper: auto-insert dashes while typing (mobile-friendly) ---
+    (function attachDobFormatter(){
+      const el = byId('export-patient-dob');
+      if (!el) return;
+
+      const format = (raw) => {
+        const digits = String(raw || '').replace(/\D/g, '').slice(0, 8);
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+        return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+      };
+
+      const handler = () => {
+        const before = el.value;
+        const after = format(before);
+        if (after === before) return;
+        const atEnd = (el.selectionStart === before.length);
+        el.value = after;
+        if (atEnd) {
+          const pos = after.length;
+          try { el.setSelectionRange(pos, pos); } catch (_) {}
+        }
+      };
+
+      el.addEventListener('input', handler);
+      el.addEventListener('blur', handler);
+    })();
 
     window.updateSlider = function(element) {
       try { element.previousElementSibling.querySelector('.slider-val').innerText = element.value; } catch(e) {}
