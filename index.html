@@ -577,6 +577,14 @@
   50% { transform: translateY(6px); }
 }
 
+
+/* Prevent background scroll when modal is open */
+body.modal-open {
+  overflow: hidden;
+  height: 100vh;
+  touch-action: none;
+}
+
 </style>
 
   <script>
@@ -2766,6 +2774,29 @@ function setAuthError(msg) {
     const obs = new MutationObserver(update);
     obs.observe(modal, { attributes: true, attributeFilter: ['style', 'class'] });
   }
+})();
+
+</script>
+<script>
+// Lock background scroll when protocol modal is open
+(function () {
+  const modal = document.getElementById('protocolModal') || document.querySelector('.modal');
+  if (!modal) return;
+
+  const updateLock = () => {
+    const isVisible = modal.style.display === 'block' ||
+                      modal.classList.contains('show') ||
+                      window.getComputedStyle(modal).display !== 'none';
+    if (isVisible) document.body.classList.add('modal-open');
+    else document.body.classList.remove('modal-open');
+  };
+
+  // Observe modal visibility changes
+  const observer = new MutationObserver(updateLock);
+  observer.observe(modal, { attributes: true, attributeFilter: ['style', 'class'] });
+
+  // Initial check
+  updateLock();
 })();
 
 </script>
