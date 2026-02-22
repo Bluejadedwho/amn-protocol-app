@@ -966,10 +966,6 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
             <option value="asc">Oldest first</option>
           </select>
         </div>
-        <div class="input-group" style="margin-top:10px;">
-          <label>Export scope</label>
-          <div class="helper" style="margin-top:6px;">All logged data (no filters).</div>
-        </div>
         <div class="helper" style="margin-top:8px; font-size:0.85rem; color:#888;">Defaults to the last 30 days.</div>
         <button type="button" class="lab-save-btn" id="export-run-btn" onclick="window.runExportFromModal()">Generate PDF</button>
       </div>
@@ -1253,7 +1249,7 @@ Conceptual Foundation and Mechanistic Framework
         
 <div class="card">
           <h3>Global Baseline Rating</h3>
-          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Overall comparison to your usual baseline for the day (10k-foot view).</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Overall comparison to your usual baseline for the day (10k-foot view).</div>
           <div class="two-col">
             <div>
               <div class="label">Compared to my usual baseline, today was</div>
@@ -1276,20 +1272,20 @@ Conceptual Foundation and Mechanistic Framework
                 <option value="medium">Medium</option>
                 <option value="low">Low</option>
               </select>
-              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (not just a weird day).</div>
+              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (vs normal day-to-day noise).</div>
             </div>
           </div>
         </div>
 
         <div class="card">
           <h3>Energy / Capacity</h3>
-          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Energy/capacity = usable “gas in the tank”. Neurologic fatigue is captured later under Symptom Drift.</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Energy/capacity = usable “gas in the tank”. Neurologic fatigue is captured later under Symptom Drift.</div>
           <div class="row">
             <div>
               <div class="label">Usable energy / capacity (10 = best)</div>
               <input id="p-energy" type="range" min="0" max="10" step="1" value="5" class="slider">
             </div>
-            <div class="value" id="p-energy-val">5</div>
+            <div class="value" id="p-energy-val">5/10</div>
           </div>
           <div class="row">
             <div>
@@ -1300,15 +1296,15 @@ Conceptual Foundation and Mechanistic Framework
                 <option value="medium">Medium</option>
                 <option value="low">Low</option>
               </select>
-              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (not just a weird day).</div>
+              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (vs normal day-to-day noise).</div>
             </div>
           </div>
         </div>
 <div class="card">
           <h3>Fast Markers</h3>
-          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Quick yes/no events that are high-signal (easy to remember and strongly meaningful).</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Quick yes/no events that are high-signal (easy to remember and strongly meaningful).</div>
           <label class="checkbox-row"><span>Near-fall or balance scare</span><input type="checkbox" id="p-fast-nearfall"></label>
-          <label class="checkbox-row"><span>Leg locking episode</span><input type="checkbox" id="p-fast-locking"></label>
+          <label class="checkbox-row"><span>Electrolyte rescue required</span><input type="checkbox" id="p-fast-electrolyte"></label>
           <label class="checkbox-row"><span>Spasm or clonus episode</span><input type="checkbox" id="p-fast-spasm"></label>
           <label class="checkbox-row"><span>Night pain woke me</span><input type="checkbox" id="p-fast-nightpain"></label>
           <label class="checkbox-row"><span>Restless legs at night</span><input type="checkbox" id="p-fast-restless"></label>
@@ -1341,14 +1337,23 @@ Conceptual Foundation and Mechanistic Framework
 
         <div class="card">
           <h3>Confounders (what changed today?)</h3>
-          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Log non-protocol factors that can skew symptoms today (positive or negative).</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Log non-protocol changes that may distort symptom interpretation today.</div>
           <label class="checkbox-row"><span>Poor sleep last night</span><input type="checkbox" id="p-conf-sleep"></label>
           <label class="checkbox-row"><span>Unusual physical exertion</span><input type="checkbox" id="p-conf-exertion"></label>
-          <label class="checkbox-row"><span>Medication timing change</span><input type="checkbox" id="p-conf-medtiming"></label>
-          <label class="checkbox-row"><span>Dose change</span><input type="checkbox" id="p-conf-dosechange"></label>
-          <label class="checkbox-row"><span>Missed dose</span><input type="checkbox" id="p-conf-misseddose"></label>
-          <label class="checkbox-row"><span>New supplement added</span><input type="checkbox" id="p-conf-newsupp"></label>
-          <label class="checkbox-row"><span>New medication added</span><input type="checkbox" id="p-conf-newmed"></label>
+          
+          <label class="checkbox-row"><span>Pharmacologic changes</span><input type="checkbox" id="p-conf-pharm"></label>
+          <div id="p-conf-pharm-panel" class="accordion-panel" style="display:none; margin:8px 0 4px 0; padding:10px 12px; border:1px solid rgba(255,255,255,0.08); border-radius:12px; background:rgba(255,255,255,0.03);">
+            <label class="checkbox-row"><span>Medication timing change</span><input type="checkbox" id="p-conf-medtiming"></label>
+            <label class="checkbox-row"><span>Dose change</span><input type="checkbox" id="p-conf-dosechange"></label>
+            <label class="checkbox-row"><span>Missed dose</span><input type="checkbox" id="p-conf-misseddose"></label>
+            <label class="checkbox-row"><span>New supplement added</span><input type="checkbox" id="p-conf-newsupp"></label>
+            <label class="checkbox-row"><span>New medication added</span><input type="checkbox" id="p-conf-newmed"></label>
+            <div class="input-group" style="margin-top:10px;">
+              <label>Notes (optional)</label>
+              <input type="text" id="p-conf-pharm-notes" placeholder="e.g., shifted hydrocortisone timing, added magnesium, missed NAC...">
+            </div>
+          </div>
+
           <label class="checkbox-row"><span>Travel or disrupted schedule</span><input type="checkbox" id="p-conf-travel"></label>
           <div class="input-group" style="padding:14px 0; border-bottom:1px solid #333;">
             <label>High stress (0–3)</label>
@@ -1357,7 +1362,7 @@ Conceptual Foundation and Mechanistic Framework
           <label class="checkbox-row"><span>Infection symptoms</span><input type="checkbox" id="p-conf-infection"></label>
           <label class="checkbox-row"><span>GI upset or dehydration risk</span><input type="checkbox" id="p-conf-gi"></label>
           <label class="checkbox-row"><span>Night pain likely electrolyte-related</span><input type="checkbox" id="p-conf-elec"></label>
-          <div class="two-col" style="margin-top:-6px;margin-bottom:6px">
+          <div class="two-col" style="margin-top:8px;margin-bottom:6px">
             <div>
               <div class="label" style="margin:0 0 4px 0">Quick pick (optional)</div>
               <select id="p-conf-elec-type" class="select">
@@ -1383,14 +1388,14 @@ Conceptual Foundation and Mechanistic Framework
         </div>
 
         <div class="card">
-          <h3>Wins today</h3>
-          <textarea id="p-wins" rows="2" placeholder="Example: Less stiffness on first stand. Walk felt smoother. Only up once overnight."></textarea>
+          <h3>Subjective daily summary</h3>
+          <textarea id="p-wins" rows="3" placeholder="Example: Energy steadier overall. Walking felt smoother overall. Less volatile symptoms."></textarea>
         </div>
 
         <div class="card">
-          <h3>Positive events (optional)</h3>
+          <h3>Timestamped positive signals (optional)</h3>
           <p style="color:var(--text-secondary); margin-top:8px; font-size:0.9rem; line-height:1.5;">
-            Use this if something clearly improved during a specific window. Mirrors adverse events for later analysis.
+            Use this if something clearly improved during a specific window. Use Trigger type to link to protocol doses when relevant.
           </p>
           <div id="p-positive-events" class="event-list"></div>
           <button type="button" class="mini-btn" id="p-add-positive-event" onclick="window.addPositiveEvent()">+ Add positive event</button>
@@ -1475,7 +1480,7 @@ Conceptual Foundation and Mechanistic Framework
 
         <div class="card">
           <h3>Symptom Drift (0-10)</h3>
-          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Rate relative to your usual baseline. 0 = best / none, 10 = worst / hardest. Keep your interpretation consistent over time.</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Rate relative to your usual baseline. 0 = best / none, 10 = worst / hardest. Keep your interpretation consistent over time.</div>
           <div class="slider-header"><label>Brain Fog (10 = Worst)</label><span class="slider-val">0</span></div>
           <input type="range" id="p-fog" min="0" max="10" value="0" oninput="window.updateSlider(this)">
           <div class="slider-header"><label>Step-by-step gait effort (10 = Hardest)</label><span class="slider-val">0</span></div>
@@ -1967,32 +1972,49 @@ function setAuthError(msg) {
     // ---------------------------
     // Event list UI (Pilot)
     // ---------------------------
-    function newEventItem() {
+    
+    function newTimestampedItem(mode) {
       const wrap = document.createElement("div");
       wrap.className = "event-item";
+
+      const descLabel = (mode === "positive") ? "What improved" : "What happened";
+
       wrap.innerHTML = `
         <div class="input-group">
-          <label>Description</label>
+          <label>${descLabel}</label>
           <input type="text" class="evt-desc" placeholder="Short description">
         </div>
-        <div class="row">
+        <div class="row2">
           <div class="input-group">
-            <label>Time of day</label>
-            <select class="evt-tod">
-              <option value="">Select</option>
-              <option value="morning">Morning</option>
-              <option value="daytime">Daytime</option>
-              <option value="evening_night">Evening / Night</option>
-            </select>
+            <label>When</label>
+            <input type="datetime-local" class="evt-when">
           </div>
           <div class="input-group">
             <label>Duration (min)</label>
             <input type="number" min="0" step="1" class="evt-dur" placeholder="e.g. 30">
           </div>
         </div>
-        <div class="input-group">
-          <label>Suspected driver (optional)</label>
-          <input type="text" class="evt-driver" placeholder="Sleep, exertion, dose timing, electrolyte shift...">
+        <div class="row2">
+          <div class="input-group">
+            <label>Trigger type (optional)</label>
+            <select class="evt-trigger-type">
+              <option value="">Select</option>
+              <option value="protocol_dose">Protocol dose</option>
+              <option value="electrolyte_rescue">Electrolyte rescue</option>
+              <option value="sleep">Sleep</option>
+              <option value="exertion">Exertion</option>
+              <option value="stress">Stress</option>
+              <option value="food">Food</option>
+              <option value="illness">Illness</option>
+              <option value="routine_relief">Routine relief action</option>
+              <option value="unknown">Unknown</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label>Trigger detail (optional)</label>
+            <input type="text" class="evt-trigger-detail" placeholder="e.g., Nervonic Acid dose, potassium, stretching">
+          </div>
         </div>
         <button type="button" class="remove-btn">Remove</button>
       `;
@@ -2000,10 +2022,21 @@ function setAuthError(msg) {
       return wrap;
     }
 
+    function timeOfDayFromWhen(whenLocal) {
+      if (!whenLocal) return null;
+      const m = whenLocal.match(/T(\d{2}):/);
+      if (!m) return null;
+      const hh = parseInt(m[1], 10);
+      if (Number.isNaN(hh)) return null;
+      if (hh < 12) return "morning";
+      if (hh < 18) return "daytime";
+      return "evening_night";
+    }
+
     window.addAdverseEvent = function() {
       const container = el("p-adverse-events");
       if (!container) return;
-      container.appendChild(newEventItem());
+      container.appendChild(newTimestampedItem("adverse"));
     };
 
     function readAdverseEvents() {
@@ -2012,24 +2045,28 @@ function setAuthError(msg) {
       const items = Array.from(container.querySelectorAll(".event-item"));
       return items.map((it) => {
         const desc = trimText(it.querySelector(".evt-desc")?.value ?? "");
-        const tod = mustEnum(it.querySelector(".evt-tod")?.value ?? "", ["morning","daytime","evening_night"], null);
+        const whenLocal = trimText(it.querySelector(".evt-when")?.value ?? "");
         const dur = asNumber(it.querySelector(".evt-dur")?.value ?? "");
-        const driver = trimText(it.querySelector(".evt-driver")?.value ?? "");
-        if (!desc && !tod && !dur && !driver) return null;
+        const trigType = trimText(it.querySelector(".evt-trigger-type")?.value ?? "");
+        const trigDetail = trimText(it.querySelector(".evt-trigger-detail")?.value ?? "");
+
+        if (!desc && !whenLocal && dur === null && !trigType && !trigDetail) return null;
+
         return {
           description: desc || null,
-          time_of_day: tod,
+          occurred_at_local: whenLocal || null,
+          time_of_day: timeOfDayFromWhen(whenLocal),
           duration_minutes: (dur === null ? null : dur),
-          suspected_driver: (driver ? driver : null)
+          trigger_type: trigType || null,
+          trigger_detail: trigDetail || null
         };
       }).filter(Boolean);
     }
 
-
     window.addPositiveEvent = function() {
       const container = el("p-positive-events");
       if (!container) return;
-      container.appendChild(newEventItem());
+      container.appendChild(newTimestampedItem("positive"));
     };
 
     function readPositiveEvents() {
@@ -2038,23 +2075,26 @@ function setAuthError(msg) {
       const items = Array.from(container.querySelectorAll(".event-item"));
       return items.map((it) => {
         const desc = trimText(it.querySelector(".evt-desc")?.value ?? "");
-        const tod = mustEnum(it.querySelector(".evt-tod")?.value ?? "", ["morning","daytime","evening_night"], null);
+        const whenLocal = trimText(it.querySelector(".evt-when")?.value ?? "");
         const dur = asNumber(it.querySelector(".evt-dur")?.value ?? "");
-        const driver = trimText(it.querySelector(".evt-driver")?.value ?? "");
-        if (!desc && !tod && dur === null && !driver) return null;
+        const trigType = trimText(it.querySelector(".evt-trigger-type")?.value ?? "");
+        const trigDetail = trimText(it.querySelector(".evt-trigger-detail")?.value ?? "");
+
+        if (!desc && !whenLocal && dur === null && !trigType && !trigDetail) return null;
+
         return {
           description: desc || null,
-          time_of_day: tod,
+          occurred_at_local: whenLocal || null,
+          time_of_day: timeOfDayFromWhen(whenLocal),
           duration_minutes: (dur === null ? null : dur),
-          suspected_driver: (driver ? driver : null)
+          trigger_type: trigType || null,
+          trigger_detail: trigDetail || null
         };
       }).filter(Boolean);
     }
 
-    // ---------------------------
-    // Payload collection
-    // ---------------------------
-    function collectPilotPayload() {
+
+function collectPilotPayload() {
       const date = localDateStr();
       const morningBP = parseBP(val("p-morning-bp"));
       const eveningBP = parseBP(val("p-evening-bp"));
@@ -2125,7 +2165,7 @@ function setAuthError(msg) {
 
 fast_markers: {
           near_fall: checked("p-fast-nearfall"),
-          leg_locking: checked("p-fast-locking"),
+          leg_locking: checked("p-fast-electrolyte"),
           spasm_or_clonus: checked("p-fast-spasm"),
           night_pain_woke_me: checked("p-fast-nightpain"),
           restless_legs: checked("p-fast-restless")
@@ -2933,6 +2973,15 @@ fast_markers: {
     document.addEventListener("DOMContentLoaded", () => {
       // prime slider visuals
       Array.from(document.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
+      // confounder accordion
+      const pharm = document.getElementById('p-conf-pharm');
+      const panel = document.getElementById('p-conf-pharm-panel');
+      if (pharm && panel) {
+        const sync = () => panel.style.display = pharm.checked ? 'block' : 'none';
+        pharm.addEventListener('change', sync);
+        sync();
+      }
+
     });
 
     // Close the Firebase-available branch opened earlier.
