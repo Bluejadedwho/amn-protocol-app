@@ -597,10 +597,6 @@ body.modal-open {
   padding-bottom: 56px;
 }
 
-/* wins-textarea-tweak */
-#p-wins{padding-top:10px;padding-bottom:18px;line-height:1.35;}
-#p-wins::placeholder{line-height:1.35;}
-
 </style>
 
   <script>
@@ -831,15 +827,6 @@ body.modal-open {
       element.style.background = "linear-gradient(to right, var(--accent-blue) 0%, var(--accent-blue) " + pct + "%, #444 " + pct + "%, #444 100%)";
     };
 
-    // Energy slider uses a custom layout (value displayed in a separate box).
-    window.updateEnergySlider = function(element) {
-      const v = (element && element.value !== undefined) ? String(element.value) : "";
-      const out = byId('p-energy-val');
-      if (out) out.textContent = v ? `${v}/10` : "";
-      // Keep the same gradient styling as other sliders.
-      window.updateSlider(element);
-    };
-
     window.toggleSafetyBox = function() {
       const checkBox = byId("n-safety");
       const box = byId("n-safety-box");
@@ -978,6 +965,10 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
             <option value="desc" selected>Newest first</option>
             <option value="asc">Oldest first</option>
           </select>
+        </div>
+        <div class="input-group" style="margin-top:10px;">
+          <label>Export scope</label>
+          <div class="helper" style="margin-top:6px;">All logged data (no filters).</div>
         </div>
         <div class="helper" style="margin-top:8px; font-size:0.85rem; color:#888;">Defaults to the last 30 days.</div>
         <button type="button" class="lab-save-btn" id="export-run-btn" onclick="window.runExportFromModal()">Generate PDF</button>
@@ -1262,7 +1253,7 @@ Conceptual Foundation and Mechanistic Framework
         
 <div class="card">
           <h3>Global Baseline Rating</h3>
-          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:10px;margin-bottom:10px;line-height:1.45">Overall comparison to your usual baseline for the day (10k-foot view).</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Overall comparison to your usual baseline for the day (10k-foot view).</div>
           <div class="two-col">
             <div>
               <div class="label">Compared to my usual baseline, today was</div>
@@ -1285,20 +1276,20 @@ Conceptual Foundation and Mechanistic Framework
                 <option value="medium">Medium</option>
                 <option value="low">Low</option>
               </select>
-              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:10px;margin-bottom:10px;line-height:1.45">Confidence = how certain today's rating reflects your underlying neurologic state (vs normal day-to-day noise).</div>
+              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (not just a weird day).</div>
             </div>
           </div>
         </div>
 
         <div class="card">
           <h3>Energy / Capacity</h3>
-          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:10px;margin-bottom:10px;line-height:1.45">Energy/capacity = usable “gas in the tank”. Neurologic fatigue is captured later under Symptom Drift.</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Energy/capacity = usable “gas in the tank”. Neurologic fatigue is captured later under Symptom Drift.</div>
           <div class="row">
             <div>
               <div class="label">Usable energy / capacity (10 = best)</div>
-              <input id="p-energy" type="range" min="0" max="10" step="1" value="5" class="slider" oninput="window.updateEnergySlider(this)">
+              <input id="p-energy" type="range" min="0" max="10" step="1" value="5" class="slider">
             </div>
-            <div class="value" id="p-energy-val">5/10</div>
+            <div class="value" id="p-energy-val">5</div>
           </div>
           <div class="row">
             <div>
@@ -1309,13 +1300,13 @@ Conceptual Foundation and Mechanistic Framework
                 <option value="medium">Medium</option>
                 <option value="low">Low</option>
               </select>
-              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:10px;margin-bottom:10px;line-height:1.45">Confidence = how certain today's rating reflects your underlying neurologic state (vs normal day-to-day noise).</div>
+              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (not just a weird day).</div>
             </div>
           </div>
         </div>
 <div class="card">
           <h3>Fast Markers</h3>
-          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:10px;margin-bottom:10px;line-height:1.45">Quick yes/no events that are high-signal (easy to remember and strongly meaningful).</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Quick yes/no events that are high-signal (easy to remember and strongly meaningful).</div>
           <label class="checkbox-row"><span>Near-fall or balance scare</span><input type="checkbox" id="p-fast-nearfall"></label>
           <label class="checkbox-row"><span>Leg locking episode</span><input type="checkbox" id="p-fast-locking"></label>
           <label class="checkbox-row"><span>Spasm or clonus episode</span><input type="checkbox" id="p-fast-spasm"></label>
@@ -1350,7 +1341,7 @@ Conceptual Foundation and Mechanistic Framework
 
         <div class="card">
           <h3>Confounders (what changed today?)</h3>
-          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:10px;margin-bottom:10px;line-height:1.45">Log non-protocol changes that may distort symptom interpretation today.</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Log non-protocol factors that can skew symptoms today (positive or negative).</div>
           <label class="checkbox-row"><span>Poor sleep last night</span><input type="checkbox" id="p-conf-sleep"></label>
           <label class="checkbox-row"><span>Unusual physical exertion</span><input type="checkbox" id="p-conf-exertion"></label>
           <label class="checkbox-row"><span>Medication timing change</span><input type="checkbox" id="p-conf-medtiming"></label>
@@ -1392,12 +1383,12 @@ Conceptual Foundation and Mechanistic Framework
         </div>
 
         <div class="card">
-          <h3>Subjective daily summary</h3>
-          <textarea id="p-wins" rows="3" placeholder="Example: Overall energy steadier. Walking smoother overall. Symptoms less volatile."></textarea>
+          <h3>Wins today</h3>
+          <textarea id="p-wins" rows="2" placeholder="Example: Less stiffness on first stand. Walk felt smoother. Only up once overnight."></textarea>
         </div>
 
         <div class="card">
-          <h3>Timestamped positive signals (optional)</h3>
+          <h3>Positive events (optional)</h3>
           <p style="color:var(--text-secondary); margin-top:8px; font-size:0.9rem; line-height:1.5;">
             Use this if something clearly improved during a specific window. Mirrors adverse events for later analysis.
           </p>
@@ -1484,7 +1475,7 @@ Conceptual Foundation and Mechanistic Framework
 
         <div class="card">
           <h3>Symptom Drift (0-10)</h3>
-          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:10px;margin-bottom:10px;line-height:1.45">Rate relative to your usual baseline. 0 = best / none, 10 = worst / hardest. Keep your interpretation consistent over time.</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Rate relative to your usual baseline. 0 = best / none, 10 = worst / hardest. Keep your interpretation consistent over time.</div>
           <div class="slider-header"><label>Brain Fog (10 = Worst)</label><span class="slider-val">0</span></div>
           <input type="range" id="p-fog" min="0" max="10" value="0" oninput="window.updateSlider(this)">
           <div class="slider-header"><label>Step-by-step gait effort (10 = Hardest)</label><span class="slider-val">0</span></div>
@@ -1976,21 +1967,23 @@ function setAuthError(msg) {
     // ---------------------------
     // Event list UI (Pilot)
     // ---------------------------
-    // Timestamped event item (used for BOTH positive signals and adverse events)
-    function newTimestampedEventItem(opts) {
+    function newEventItem() {
       const wrap = document.createElement("div");
       wrap.className = "event-item";
-      const descLabel = (opts && opts.descLabel) ? opts.descLabel : "What improved";
-      const descPlaceholder = (opts && opts.descPlaceholder) ? opts.descPlaceholder : "Short description";
       wrap.innerHTML = `
         <div class="input-group">
-          <label>${descLabel}</label>
-          <input type="text" class="evt-desc" placeholder="${descPlaceholder}">
+          <label>Description</label>
+          <input type="text" class="evt-desc" placeholder="Short description">
         </div>
         <div class="row">
           <div class="input-group">
-            <label>When</label>
-            <input type="datetime-local" class="evt-when">
+            <label>Time of day</label>
+            <select class="evt-tod">
+              <option value="">Select</option>
+              <option value="morning">Morning</option>
+              <option value="daytime">Daytime</option>
+              <option value="evening_night">Evening / Night</option>
+            </select>
           </div>
           <div class="input-group">
             <label>Duration (min)</label>
@@ -1998,20 +1991,8 @@ function setAuthError(msg) {
           </div>
         </div>
         <div class="input-group">
-          <label>Trigger type (optional)</label>
-          <select class="evt-trigger-type">
-            <option value="">Select</option>
-            <option value="protocol">Protocol supplement/medication</option>
-            <option value="electrolyte">Electrolyte adjustment</option>
-            <option value="physical">Physical intervention (stretching, massage)</option>
-            <option value="rest">Rest / pacing</option>
-            <option value="stress">Stress reduction</option>
-            <option value="unknown">Unknown</option>
-          </select>
-        </div>
-        <div class="input-group">
-          <label>Trigger detail (optional)</label>
-          <input type="text" class="evt-trigger-detail" placeholder="e.g., Nervonic Acid dose, potassium, stretching">
+          <label>Suspected driver (optional)</label>
+          <input type="text" class="evt-driver" placeholder="Sleep, exertion, dose timing, electrolyte shift...">
         </div>
         <button type="button" class="remove-btn">Remove</button>
       `;
@@ -2022,10 +2003,7 @@ function setAuthError(msg) {
     window.addAdverseEvent = function() {
       const container = el("p-adverse-events");
       if (!container) return;
-      container.appendChild(newTimestampedEventItem({
-        descLabel: "What happened",
-        descPlaceholder: "Short description"
-      }));
+      container.appendChild(newEventItem());
     };
 
     function readAdverseEvents() {
@@ -2034,17 +2012,15 @@ function setAuthError(msg) {
       const items = Array.from(container.querySelectorAll(".event-item"));
       return items.map((it) => {
         const desc = trimText(it.querySelector(".evt-desc")?.value ?? "");
-        const when = trimText(it.querySelector(".evt-when")?.value ?? "");
+        const tod = mustEnum(it.querySelector(".evt-tod")?.value ?? "", ["morning","daytime","evening_night"], null);
         const dur = asNumber(it.querySelector(".evt-dur")?.value ?? "");
-        const ttype = trimText(it.querySelector(".evt-trigger-type")?.value ?? "");
-        const tdetail = trimText(it.querySelector(".evt-trigger-detail")?.value ?? "");
-        if (!desc && !when && dur === null && !ttype && !tdetail) return null;
+        const driver = trimText(it.querySelector(".evt-driver")?.value ?? "");
+        if (!desc && !tod && !dur && !driver) return null;
         return {
           description: desc || null,
-          occurred_at_local: (when ? when : null),
+          time_of_day: tod,
           duration_minutes: (dur === null ? null : dur),
-          trigger_type: (ttype ? ttype : null),
-          trigger_detail: (tdetail ? tdetail : null)
+          suspected_driver: (driver ? driver : null)
         };
       }).filter(Boolean);
     }
@@ -2053,10 +2029,7 @@ function setAuthError(msg) {
     window.addPositiveEvent = function() {
       const container = el("p-positive-events");
       if (!container) return;
-      container.appendChild(newTimestampedEventItem({
-        descLabel: "What improved",
-        descPlaceholder: "Short description"
-      }));
+      container.appendChild(newEventItem());
     };
 
     function readPositiveEvents() {
@@ -2065,17 +2038,15 @@ function setAuthError(msg) {
       const items = Array.from(container.querySelectorAll(".event-item"));
       return items.map((it) => {
         const desc = trimText(it.querySelector(".evt-desc")?.value ?? "");
-        const when = trimText(it.querySelector(".evt-when")?.value ?? "");
+        const tod = mustEnum(it.querySelector(".evt-tod")?.value ?? "", ["morning","daytime","evening_night"], null);
         const dur = asNumber(it.querySelector(".evt-dur")?.value ?? "");
-        const ttype = trimText(it.querySelector(".evt-trigger-type")?.value ?? "");
-        const tdetail = trimText(it.querySelector(".evt-trigger-detail")?.value ?? "");
-        if (!desc && !when && dur === null && !ttype && !tdetail) return null;
+        const driver = trimText(it.querySelector(".evt-driver")?.value ?? "");
+        if (!desc && !tod && dur === null && !driver) return null;
         return {
           description: desc || null,
-          occurred_at_local: (when ? when : null),
+          time_of_day: tod,
           duration_minutes: (dur === null ? null : dur),
-          trigger_type: (ttype ? ttype : null),
-          trigger_detail: (tdetail ? tdetail : null)
+          suspected_driver: (driver ? driver : null)
         };
       }).filter(Boolean);
     }
@@ -2233,31 +2204,6 @@ fast_markers: {
     function _safeTxt(v) {
       const s = String(v ?? "");
       return s.replace(/\s+/g, " ").trim();
-    }
-
-    function _formatTimestampedEvent(e) {
-      if (!e) return "";
-      const parts = [];
-      const desc = _safeTxt(e.description || "");
-      if (desc) parts.push(desc);
-
-      // Prefer exact timestamp, fall back to legacy time-of-day.
-      const when = _safeTxt(e.occurred_at_local || e.when || "");
-      const tod = _safeTxt(e.time_of_day || "");
-      if (when) parts.push(when);
-      else if (tod) parts.push(tod);
-
-      if (e.duration_minutes) parts.push(`${e.duration_minutes}m`);
-
-      const ttype = _safeTxt(e.trigger_type || "");
-      if (ttype) parts.push(`type: ${ttype}`);
-
-      const tdetail = _safeTxt(e.trigger_detail || "");
-      const driver = _safeTxt(e.suspected_driver || "");
-      if (tdetail) parts.push(`detail: ${tdetail}`);
-      else if (driver) parts.push(`driver: ${driver}`);
-
-      return parts.length ? `- ${parts.join(" | ")}` : "";
     }
 
     function _abbrBaseline(v) {
@@ -2501,11 +2447,11 @@ fast_markers: {
 
         // Events
         if (Array.isArray(a.adverse_events) && a.adverse_events.length) {
-          const ev = a.adverse_events.map(e => _formatTimestampedEvent(e)).filter(Boolean).join(" | ");
+          const ev = a.adverse_events.map(e => `- ${_safeTxt(e?.description || "")} (${_safeTxt(e?.time_of_day || "")}${e?.duration_minutes ? `, ${e.duration_minutes}m` : ""}${e?.suspected_driver ? `, driver: ${_safeTxt(e.suspected_driver)}` : ""})`).join(" | ");
           blocks.push(`Adverse events: ${ev}`);
         }
         if (Array.isArray(a.positive_events) && a.positive_events.length) {
-          const ev = a.positive_events.map(e => _formatTimestampedEvent(e)).filter(Boolean).join(" | ");
+          const ev = a.positive_events.map(e => `- ${_safeTxt(e?.description || "")} (${_safeTxt(e?.time_of_day || "")}${e?.duration_minutes ? `, ${e.duration_minutes}m` : ""}${e?.suspected_driver ? `, driver: ${_safeTxt(e.suspected_driver)}` : ""})`).join(" | ");
           blocks.push(`Positive events: ${ev}`);
         }
 
