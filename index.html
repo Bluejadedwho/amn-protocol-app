@@ -1246,49 +1246,63 @@ Conceptual Foundation and Mechanistic Framework
           <label class="checkbox-row"><span>Vit E (Mixed - 400IU)</span><input type="checkbox" id="p-vite"></label>
         </div>
 
-        <div class="card">
-          <h3>Energy / Capacity</h3>
-          <div class="slider-header"><label>Usable energy / capacity (10 = best)</label><span class="slider-val">5</span></div>
-          <input type="range" id="p-energy-capacity" min="0" max="10" value="5" oninput="window.updateSlider(this)">
-          <div class="input-group" style="margin-top:12px;">
-            <label>Confidence</label>
-            <select id="p-energy-confidence">
-              <option value="">Select</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="card">
+        
+<div class="card">
           <h3>Global Baseline Rating</h3>
-          <div class="input-row">
-            <div class="input-group">
-              <label>Compared to my usual baseline, today was</label>
-              <select id="p-global-rating">
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Overall comparison to your usual baseline for the day (10k-foot view).</div>
+          <div class="two-col">
+            <div>
+              <div class="label">Compared to my usual baseline, today was</div>
+              <select id="p-global-rating" class="select">
                 <option value="">Select</option>
                 <option value="much_worse">Much worse</option>
                 <option value="worse">Worse</option>
-                <option value="same">About the same</option>
+                <option value="slightly_worse">Slightly worse</option>
+                <option value="baseline">Baseline</option>
+                <option value="slightly_better">Slightly better</option>
                 <option value="better">Better</option>
                 <option value="much_better">Much better</option>
               </select>
             </div>
-            <div class="input-group">
-              <label>Confidence</label>
-              <select id="p-global-confidence">
+            <div>
+              <div class="label">Confidence</div>
+              <select id="p-global-confidence" class="select">
                 <option value="">Select</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
                 <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
               </select>
+              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (not just a weird day).</div>
             </div>
           </div>
         </div>
 
         <div class="card">
+          <h3>Energy / Capacity</h3>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Energy/capacity = usable “gas in the tank”. Neurologic fatigue is captured later under Symptom Drift.</div>
+          <div class="row">
+            <div>
+              <div class="label">Usable energy / capacity (10 = best)</div>
+              <input id="p-energy" type="range" min="0" max="10" step="1" value="5" class="slider">
+            </div>
+            <div class="value" id="p-energy-val">5</div>
+          </div>
+          <div class="row">
+            <div>
+              <div class="label">Confidence</div>
+              <select id="p-energy-confidence" class="select">
+                <option value="">Select</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (not just a weird day).</div>
+            </div>
+          </div>
+        </div>
+<div class="card">
           <h3>Fast Markers</h3>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Quick yes/no events that are high-signal (easy to remember and strongly meaningful).</div>
           <label class="checkbox-row"><span>Near-fall or balance scare</span><input type="checkbox" id="p-fast-nearfall"></label>
           <label class="checkbox-row"><span>Leg locking episode</span><input type="checkbox" id="p-fast-locking"></label>
           <label class="checkbox-row"><span>Spasm or clonus episode</span><input type="checkbox" id="p-fast-spasm"></label>
@@ -1322,13 +1336,15 @@ Conceptual Foundation and Mechanistic Framework
         </div>
 
         <div class="card">
-          <h3>Context: What changed today?</h3>
+          <h3>Confounders (what changed today?)</h3>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Log non-protocol factors that can skew symptoms today (positive or negative).</div>
           <label class="checkbox-row"><span>Poor sleep last night</span><input type="checkbox" id="p-conf-sleep"></label>
           <label class="checkbox-row"><span>Unusual physical exertion</span><input type="checkbox" id="p-conf-exertion"></label>
           <label class="checkbox-row"><span>Medication timing change</span><input type="checkbox" id="p-conf-medtiming"></label>
           <label class="checkbox-row"><span>Dose change</span><input type="checkbox" id="p-conf-dosechange"></label>
           <label class="checkbox-row"><span>Missed dose</span><input type="checkbox" id="p-conf-misseddose"></label>
-          <label class="checkbox-row"><span>New supplement / med</span><input type="checkbox" id="p-conf-newsupp"></label>
+          <label class="checkbox-row"><span>New supplement added</span><input type="checkbox" id="p-conf-newsupp"></label>
+          <label class="checkbox-row"><span>New medication added</span><input type="checkbox" id="p-conf-newmed"></label>
           <label class="checkbox-row"><span>Travel or disrupted schedule</span><input type="checkbox" id="p-conf-travel"></label>
           <div class="input-group" style="padding:14px 0; border-bottom:1px solid #333;">
             <label>High stress (0–3)</label>
@@ -1336,6 +1352,29 @@ Conceptual Foundation and Mechanistic Framework
           </div>
           <label class="checkbox-row"><span>Infection symptoms</span><input type="checkbox" id="p-conf-infection"></label>
           <label class="checkbox-row"><span>GI upset or dehydration risk</span><input type="checkbox" id="p-conf-gi"></label>
+          <label class="checkbox-row"><span>Night pain likely electrolyte-related</span><input type="checkbox" id="p-conf-elec"></label>
+          <div class="two-col" style="margin-top:-6px;margin-bottom:6px">
+            <div>
+              <div class="label" style="margin:0 0 4px 0">Quick pick (optional)</div>
+              <select id="p-conf-elec-type" class="select">
+                <option value="">Select</option>
+                <option value="na">Sodium</option>
+                <option value="k">Potassium</option>
+                <option value="mg">Magnesium</option>
+                <option value="unsure">Not sure</option>
+              </select>
+            </div>
+            <div>
+              <div class="label" style="margin:0 0 4px 0">Helped within (optional)</div>
+              <select id="p-conf-elec-window" class="select">
+                <option value="">Select</option>
+                <option value="15">15 min</option>
+                <option value="30">30 min</option>
+                <option value="60">60 min</option>
+                <option value="120">2+ hours</option>
+              </select>
+            </div>
+          </div>
           <label class="checkbox-row"><span>Nothing unusual</span><input type="checkbox" id="p-conf-none"></label>
         </div>
 
@@ -1432,9 +1471,10 @@ Conceptual Foundation and Mechanistic Framework
 
         <div class="card">
           <h3>Symptom Drift (0-10)</h3>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Rate relative to your usual baseline. 0 = best / none, 10 = worst / hardest. Keep your interpretation consistent over time.</div>
           <div class="slider-header"><label>Brain Fog (10 = Worst)</label><span class="slider-val">0</span></div>
           <input type="range" id="p-fog" min="0" max="10" value="0" oninput="window.updateSlider(this)">
-          <div class="slider-header"><label>Gait Effort (10 = Hardest)</label><span class="slider-val">0</span></div>
+          <div class="slider-header"><label>Step-by-step gait effort (10 = Hardest)</label><span class="slider-val">0</span></div>
           <input type="range" id="p-gait" min="0" max="10" value="0" oninput="window.updateSlider(this)">
           <div class="slider-header"><label>Gait initiation effort (10 = Hardest)</label><span class="slider-val">0</span></div>
           <input type="range" id="p-gait-init" min="0" max="10" value="0" oninput="window.updateSlider(this)">
@@ -1485,7 +1525,7 @@ Conceptual Foundation and Mechanistic Framework
         <div class="card">
           <h3>External Variables</h3>
           <p style="margin-top:8px; color:#D7D7D7; font-size:0.9rem; line-height:1.5;">
-            Track major non-protocol inputs that can shift outcomes (positive or negative). This is logged as an external confounder, not a core protocol component.
+            Logged as an external confounder, not a core protocol component.
           </p>
 
           <div class="input-group" style="margin-top:12px;">
@@ -2052,6 +2092,7 @@ function setAuthError(msg) {
           dose_change: checked("p-conf-dosechange"),
           missed_dose: checked("p-conf-misseddose"),
           new_supplement: checked("p-conf-newsupp"),
+          new_medication: checked("p-conf-newmed"),
           travel_or_schedule_change: checked("p-conf-travel"),
           high_stress: (asNumber(val("p-conf-stress")) ?? 0),
           infection_symptoms: checked("p-conf-infection"),
@@ -2181,6 +2222,12 @@ fast_markers: {
       if (ctx.dose_change) parts.push("DOSE");
       if (ctx.missed_dose) parts.push("MISS");
       if (ctx.new_supplement) parts.push("NEW");
+      if (ctx.new_medication) parts.push("NEWMED");
+      if (ctx.electrolyte_night_pain) {
+        const t = ctx.electrolyte_type ? ctx.electrolyte_type.toUpperCase() : "";
+        const w = ctx.electrolyte_helped_within ? ctx.electrolyte_helped_within : "";
+        parts.push(`ELEC${t}${w ? "-" + w : ""}`);
+      }
       if (ctx.travel_or_schedule_change) parts.push("TRV");
       if ((ctx.high_stress ?? 0) > 0) parts.push(`STR${ctx.high_stress}`);
       if (ctx.infection_symptoms) parts.push("INF");
