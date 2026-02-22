@@ -1,33 +1,4 @@
-<!
-
-    function _formatAdverseEvent(e) {
-      if (!e) return "";
-      // New schema
-      if (e.occurred_at_local !== undefined || e.trigger_type !== undefined || e.trigger_detail !== undefined) {
-        const parts = [];
-        const label = _safeTxt(e.description || "");
-        if (label) parts.push(label);
-        const when = _safeTxt(e.occurred_at_local || "");
-        if (when) parts.push(when);
-        if (e.duration_minutes) parts.push(`${e.duration_minutes}m`);
-        const tt = _safeTxt(e.trigger_type || "");
-        if (tt) parts.push(`type: ${tt}`);
-        const td = _safeTxt(e.trigger_detail || "");
-        if (td) parts.push(`detail: ${td}`);
-        return parts.length ? `- ${parts.join(" | ")}` : "";
-      }
-      // Legacy schema
-      const desc = _safeTxt(e.description || "");
-      const tod = _safeTxt(e.time_of_day || "");
-      const parts = [];
-      if (desc) parts.push(desc);
-      if (tod) parts.push(tod);
-      if (e.duration_minutes) parts.push(`${e.duration_minutes}m`);
-      if (e.suspected_driver) parts.push(`driver: ${_safeTxt(e.suspected_driver)}`);
-      return parts.length ? `- ${parts.join(" | ")}` : "";
-    }
-
-DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   
@@ -856,6 +827,15 @@ body.modal-open {
       element.style.background = "linear-gradient(to right, var(--accent-blue) 0%, var(--accent-blue) " + pct + "%, #444 " + pct + "%, #444 100%)";
     };
 
+    // Energy slider uses a custom layout (value displayed in a separate box).
+    window.updateEnergySlider = function(element) {
+      const v = (element && element.value !== undefined) ? String(element.value) : "";
+      const out = byId('p-energy-val');
+      if (out) out.textContent = v ? `${v}/10` : "";
+      // Keep the same gradient styling as other sliders.
+      window.updateSlider(element);
+    };
+
     window.toggleSafetyBox = function() {
       const checkBox = byId("n-safety");
       const box = byId("n-safety-box");
@@ -1312,9 +1292,9 @@ Conceptual Foundation and Mechanistic Framework
           <div class="row">
             <div>
               <div class="label">Usable energy / capacity (10 = best)</div>
-              <input id="p-energy" type="range" min="0" max="10" step="1" value="5" class="slider">
+              <input id="p-energy" type="range" min="0" max="10" step="1" value="5" class="slider" oninput="window.updateEnergySlider(this)">
             </div>
-            <div class="value" id="p-energy-val">5</div>
+            <div class="value" id="p-energy-val">5/10</div>
           </div>
           <div class="row">
             <div>
@@ -1992,23 +1972,21 @@ function setAuthError(msg) {
     // ---------------------------
     // Event list UI (Pilot)
     // ---------------------------
-    function newEventItem() {
+    // Timestamped event item (used for BOTH positive signals and adverse events)
+    function newTimestampedEventItem(opts) {
       const wrap = document.createElement("div");
       wrap.className = "event-item";
+      const descLabel = (opts && opts.descLabel) ? opts.descLabel : "What improved";
+      const descPlaceholder = (opts && opts.descPlaceholder) ? opts.descPlaceholder : "Short description";
       wrap.innerHTML = `
         <div class="input-group">
-          <label>Description</label>
-          <input type="text" class="evt-desc" placeholder="Short description">
+          <label>${descLabel}</label>
+          <input type="text" class="evt-desc" placeholder="${descPlaceholder}">
         </div>
         <div class="row">
           <div class="input-group">
-            <label>Time of day</label>
-            <select class="evt-tod">
-              <option value="">Select</option>
-              <option value="morning">Morning</option>
-              <option value="daytime">Daytime</option>
-              <option value="evening_night">Evening / Night</option>
-            </select>
+            <label>When</label>
+            <input type="datetime-local" class="evt-when">
           </div>
           <div class="input-group">
             <label>Duration (min)</label>
@@ -2016,8 +1994,20 @@ function setAuthError(msg) {
           </div>
         </div>
         <div class="input-group">
-          <label>Suspected driver (optional)</label>
-          <input type="text" class="evt-driver" placeholder="Sleep, exertion, dose timing, electrolyte shift...">
+          <label>Trigger type (optional)</label>
+          <select class="evt-trigger-type">
+            <option value="">Select</option>
+            <option value="protocol">Protocol supplement/medication</option>
+            <option value="electrolyte">Electrolyte adjustment</option>
+            <option value="physical">Physical intervention (stretching, massage)</option>
+            <option value="rest">Rest / pacing</option>
+            <option value="stress">Stress reduction</option>
+            <option value="unknown">Unknown</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>Trigger detail (optional)</label>
+          <input type="text" class="evt-trigger-detail" placeholder="e.g., Nervonic Acid dose, potassium, stretching">
         </div>
         <button type="button" class="remove-btn">Remove</button>
       `;
@@ -2028,7 +2018,10 @@ function setAuthError(msg) {
     window.addAdverseEvent = function() {
       const container = el("p-adverse-events");
       if (!container) return;
-      container.appendChild(newEventItem());
+      container.appendChild(newTimestampedEventItem({
+        descLabel: "What happened",
+        descPlaceholder: "Short description"
+      }));
     };
 
     function readAdverseEvents() {
@@ -2037,17 +2030,17 @@ function setAuthError(msg) {
       const items = Array.from(container.querySelectorAll(".event-item"));
       return items.map((it) => {
         const desc = trimText(it.querySelector(".evt-desc")?.value ?? "");
-        const whenLocal = trimText(it.querySelector(".evt-when")?.value ?? "");
+        const when = trimText(it.querySelector(".evt-when")?.value ?? "");
         const dur = asNumber(it.querySelector(".evt-dur")?.value ?? "");
         const ttype = trimText(it.querySelector(".evt-trigger-type")?.value ?? "");
         const tdetail = trimText(it.querySelector(".evt-trigger-detail")?.value ?? "");
-        if (!desc && !whenLocal && dur === null && !ttype && !tdetail) return null;
+        if (!desc && !when && dur === null && !ttype && !tdetail) return null;
         return {
           description: desc || null,
-          occurred_at_local: (whenLocal ? whenLocal : null),
+          occurred_at_local: (when ? when : null),
           duration_minutes: (dur === null ? null : dur),
-          trigger_type: (ttype || null),
-          trigger_detail: (tdetail || null)
+          trigger_type: (ttype ? ttype : null),
+          trigger_detail: (tdetail ? tdetail : null)
         };
       }).filter(Boolean);
     }
@@ -2056,7 +2049,10 @@ function setAuthError(msg) {
     window.addPositiveEvent = function() {
       const container = el("p-positive-events");
       if (!container) return;
-      container.appendChild(newEventItem());
+      container.appendChild(newTimestampedEventItem({
+        descLabel: "What improved",
+        descPlaceholder: "Short description"
+      }));
     };
 
     function readPositiveEvents() {
@@ -2065,15 +2061,17 @@ function setAuthError(msg) {
       const items = Array.from(container.querySelectorAll(".event-item"));
       return items.map((it) => {
         const desc = trimText(it.querySelector(".evt-desc")?.value ?? "");
-        const tod = mustEnum(it.querySelector(".evt-tod")?.value ?? "", ["morning","daytime","evening_night"], null);
+        const when = trimText(it.querySelector(".evt-when")?.value ?? "");
         const dur = asNumber(it.querySelector(".evt-dur")?.value ?? "");
-        const driver = trimText(it.querySelector(".evt-driver")?.value ?? "");
-        if (!desc && !tod && dur === null && !driver) return null;
+        const ttype = trimText(it.querySelector(".evt-trigger-type")?.value ?? "");
+        const tdetail = trimText(it.querySelector(".evt-trigger-detail")?.value ?? "");
+        if (!desc && !when && dur === null && !ttype && !tdetail) return null;
         return {
           description: desc || null,
-          time_of_day: tod,
+          occurred_at_local: (when ? when : null),
           duration_minutes: (dur === null ? null : dur),
-          suspected_driver: (driver ? driver : null)
+          trigger_type: (ttype ? ttype : null),
+          trigger_detail: (tdetail ? tdetail : null)
         };
       }).filter(Boolean);
     }
@@ -2231,6 +2229,31 @@ fast_markers: {
     function _safeTxt(v) {
       const s = String(v ?? "");
       return s.replace(/\s+/g, " ").trim();
+    }
+
+    function _formatTimestampedEvent(e) {
+      if (!e) return "";
+      const parts = [];
+      const desc = _safeTxt(e.description || "");
+      if (desc) parts.push(desc);
+
+      // Prefer exact timestamp, fall back to legacy time-of-day.
+      const when = _safeTxt(e.occurred_at_local || e.when || "");
+      const tod = _safeTxt(e.time_of_day || "");
+      if (when) parts.push(when);
+      else if (tod) parts.push(tod);
+
+      if (e.duration_minutes) parts.push(`${e.duration_minutes}m`);
+
+      const ttype = _safeTxt(e.trigger_type || "");
+      if (ttype) parts.push(`type: ${ttype}`);
+
+      const tdetail = _safeTxt(e.trigger_detail || "");
+      const driver = _safeTxt(e.suspected_driver || "");
+      if (tdetail) parts.push(`detail: ${tdetail}`);
+      else if (driver) parts.push(`driver: ${driver}`);
+
+      return parts.length ? `- ${parts.join(" | ")}` : "";
     }
 
     function _abbrBaseline(v) {
@@ -2474,11 +2497,11 @@ fast_markers: {
 
         // Events
         if (Array.isArray(a.adverse_events) && a.adverse_events.length) {
-          const ev = a.adverse_events.map(e => _formatAdverseEvent(e)).filter(Boolean).join(" ");
+          const ev = a.adverse_events.map(e => _formatTimestampedEvent(e)).filter(Boolean).join(" | ");
           blocks.push(`Adverse events: ${ev}`);
         }
         if (Array.isArray(a.positive_events) && a.positive_events.length) {
-          const ev = a.positive_events.map(e => `- ${_safeTxt(e?.description || "")} (${_safeTxt(e?.time_of_day || "")}${e?.duration_minutes ? `, ${e.duration_minutes}m` : ""}${e?.suspected_driver ? `, driver: ${_safeTxt(e.suspected_driver)}` : ""})`).join(" | ");
+          const ev = a.positive_events.map(e => _formatTimestampedEvent(e)).filter(Boolean).join(" | ");
           blocks.push(`Positive events: ${ev}`);
         }
 
