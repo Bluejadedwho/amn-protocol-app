@@ -840,6 +840,26 @@ body.modal-open {
       }
     };
 
+    window.togglePharmBox = function() {
+      const checkBox = byId("p-conf-pharm");
+      const box = byId("p-conf-pharm-box");
+      if (!checkBox || !box) return;
+      if (checkBox.checked) {
+        box.classList.add("visible-box");
+        box.style.display = "block";
+      } else {
+        box.classList.remove("visible-box");
+        box.style.display = "none";
+        // If you uncheck the high-level signal, clear detail checkboxes to avoid silent leftovers.
+        ["p-conf-medtiming","p-conf-dosechange","p-conf-misseddose","p-conf-newsupp","p-conf-newmed"].forEach(id => {
+          const c = byId(id);
+          if (c) c.checked = false;
+        });
+        const n = byId("p-conf-pharm-notes");
+        if (n) n.value = "";
+      }
+    };
+
     window.resetPilotForm = function() {
       const form = byId("patrick-form");
       if (!form) return;
@@ -1272,7 +1292,7 @@ Conceptual Foundation and Mechanistic Framework
                 <option value="medium">Medium</option>
                 <option value="low">Low</option>
               </select>
-              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (not just a weird day).</div>
+              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:6px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (not just a weird day).</div>
             </div>
           </div>
         </div>
@@ -1296,7 +1316,7 @@ Conceptual Foundation and Mechanistic Framework
                 <option value="medium">Medium</option>
                 <option value="low">Low</option>
               </select>
-              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (not just a weird day).</div>
+              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:6px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (not just a weird day).</div>
             </div>
           </div>
         </div>
@@ -1340,11 +1360,19 @@ Conceptual Foundation and Mechanistic Framework
           <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Log non-protocol factors that can skew symptoms today (positive or negative).</div>
           <label class="checkbox-row"><span>Poor sleep last night</span><input type="checkbox" id="p-conf-sleep"></label>
           <label class="checkbox-row"><span>Unusual physical exertion</span><input type="checkbox" id="p-conf-exertion"></label>
-          <label class="checkbox-row"><span>Medication timing change</span><input type="checkbox" id="p-conf-medtiming"></label>
-          <label class="checkbox-row"><span>Dose change</span><input type="checkbox" id="p-conf-dosechange"></label>
-          <label class="checkbox-row"><span>Missed dose</span><input type="checkbox" id="p-conf-misseddose"></label>
-          <label class="checkbox-row"><span>New supplement added</span><input type="checkbox" id="p-conf-newsupp"></label>
-          <label class="checkbox-row"><span>New medication added</span><input type="checkbox" id="p-conf-newmed"></label>
+          <label class="checkbox-row"><span>Pharmacologic changes</span><input type="checkbox" id="p-conf-pharm" onclick="window.togglePharmBox?.()"></label>
+          <div id="p-conf-pharm-box" class="hidden-box">
+            <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:6px;margin-bottom:10px;line-height:1.35">Optional details. Leave blank if you just want the simple yes/no signal.</div>
+            <label class="checkbox-row"><span>Medication timing change</span><input type="checkbox" id="p-conf-medtiming"></label>
+            <label class="checkbox-row"><span>Dose change</span><input type="checkbox" id="p-conf-dosechange"></label>
+            <label class="checkbox-row"><span>Missed dose</span><input type="checkbox" id="p-conf-misseddose"></label>
+            <label class="checkbox-row"><span>New supplement added</span><input type="checkbox" id="p-conf-newsupp"></label>
+            <label class="checkbox-row"><span>New medication added</span><input type="checkbox" id="p-conf-newmed"></label>
+            <div class="input-group" style="padding:14px 0; border-bottom:1px solid #333;">
+              <label>Notes (optional)</label>
+              <input type="text" id="p-conf-pharm-notes" placeholder="What changed (e.g. ‘moved HC later’, ‘added taurine’)">
+            </div>
+          </div>
           <label class="checkbox-row"><span>Travel or disrupted schedule</span><input type="checkbox" id="p-conf-travel"></label>
           <div class="input-group" style="padding:14px 0; border-bottom:1px solid #333;">
             <label>High stress (0–3)</label>
@@ -1379,12 +1407,12 @@ Conceptual Foundation and Mechanistic Framework
         </div>
 
         <div class="card">
-          <h3>Wins today</h3>
-          <textarea id="p-wins" rows="2" placeholder="Example: Less stiffness on first stand. Walk felt smoother. Only up once overnight."></textarea>
+          <h3>Subjective daily summary</h3>
+          <textarea id="p-wins" rows="2" style="padding-top:10px;" placeholder="Example: Energy steadier overall. Walking felt smoother overall. Less volatile symptoms."></textarea>
         </div>
 
         <div class="card">
-          <h3>Positive events (optional)</h3>
+          <h3>Timestamped positive signals (optional)</h3>
           <p style="color:var(--text-secondary); margin-top:8px; font-size:0.9rem; line-height:1.5;">
             Use this if something clearly improved during a specific window. Mirrors adverse events for later analysis.
           </p>
@@ -1973,13 +2001,8 @@ function setAuthError(msg) {
         </div>
         <div class="row">
           <div class="input-group">
-            <label>Time of day</label>
-            <select class="evt-tod">
-              <option value="">Select</option>
-              <option value="morning">Morning</option>
-              <option value="daytime">Daytime</option>
-              <option value="evening_night">Evening / Night</option>
-            </select>
+            <label>When</label>
+            <input type="datetime-local" class="evt-when">
           </div>
           <div class="input-group">
             <label>Duration (min)</label>
@@ -2008,13 +2031,13 @@ function setAuthError(msg) {
       const items = Array.from(container.querySelectorAll(".event-item"));
       return items.map((it) => {
         const desc = trimText(it.querySelector(".evt-desc")?.value ?? "");
-        const tod = mustEnum(it.querySelector(".evt-tod")?.value ?? "", ["morning","daytime","evening_night"], null);
+        const whenLocal = trimText(it.querySelector(".evt-when")?.value ?? "");
         const dur = asNumber(it.querySelector(".evt-dur")?.value ?? "");
         const driver = trimText(it.querySelector(".evt-driver")?.value ?? "");
-        if (!desc && !tod && !dur && !driver) return null;
+        if (!desc && !whenLocal && dur === null && !driver) return null;
         return {
           description: desc || null,
-          time_of_day: tod,
+          occurred_at_local: (whenLocal ? whenLocal : null),
           duration_minutes: (dur === null ? null : dur),
           suspected_driver: (driver ? driver : null)
         };
@@ -2034,13 +2057,13 @@ function setAuthError(msg) {
       const items = Array.from(container.querySelectorAll(".event-item"));
       return items.map((it) => {
         const desc = trimText(it.querySelector(".evt-desc")?.value ?? "");
-        const tod = mustEnum(it.querySelector(".evt-tod")?.value ?? "", ["morning","daytime","evening_night"], null);
+        const whenLocal = trimText(it.querySelector(".evt-when")?.value ?? "");
         const dur = asNumber(it.querySelector(".evt-dur")?.value ?? "");
         const driver = trimText(it.querySelector(".evt-driver")?.value ?? "");
-        if (!desc && !tod && dur === null && !driver) return null;
+        if (!desc && !whenLocal && dur === null && !driver) return null;
         return {
           description: desc || null,
-          time_of_day: tod,
+          occurred_at_local: (whenLocal ? whenLocal : null),
           duration_minutes: (dur === null ? null : dur),
           suspected_driver: (driver ? driver : null)
         };
@@ -2088,11 +2111,13 @@ function setAuthError(msg) {
         context_changes: {
           poor_sleep: checked("p-conf-sleep"),
           unusual_exertion: checked("p-conf-exertion"),
+          pharmacologic_changes: checked("p-conf-pharm"),
           medication_timing_change: checked("p-conf-medtiming"),
           dose_change: checked("p-conf-dosechange"),
           missed_dose: checked("p-conf-misseddose"),
           new_supplement: checked("p-conf-newsupp"),
           new_medication: checked("p-conf-newmed"),
+          pharmacologic_notes: trimText(val("p-conf-pharm-notes")) || null,
           travel_or_schedule_change: checked("p-conf-travel"),
           high_stress: (asNumber(val("p-conf-stress")) ?? 0),
           infection_symptoms: checked("p-conf-infection"),
@@ -2436,18 +2461,24 @@ fast_markers: {
         if (a.pain_impact) blocks.push(`Pain impact: ${_safeTxt(JSON.stringify(a.pain_impact))}`);
         if (a.context_changes) blocks.push(`Context: ${_safeTxt(JSON.stringify(a.context_changes))}`);
         if (a.neuromuscular_training_external) blocks.push(`Neuromuscular training (external): ${_safeTxt(a.neuromuscular_training_external.label)} (level: ${a.neuromuscular_training_external.level ?? '-'})`);
-        if (a.wins_today) blocks.push(`Wins: ${_safeTxt(a.wins_today)}`);
+        if (a.wins_today) blocks.push(`Subjective summary: ${_safeTxt(a.wins_today)}`);
         if (a.food_notes) blocks.push(`Food: ${_safeTxt(a.food_notes)}`);
         if (a.notes) blocks.push(`Notes: ${_safeTxt(a.notes)}`);
         if (a.lab) blocks.push(`Lab: ${_safeTxt(JSON.stringify(a.lab))}`);
 
         // Events
         if (Array.isArray(a.adverse_events) && a.adverse_events.length) {
-          const ev = a.adverse_events.map(e => `- ${_safeTxt(e?.description || "")} (${_safeTxt(e?.time_of_day || "")}${e?.duration_minutes ? `, ${e.duration_minutes}m` : ""}${e?.suspected_driver ? `, driver: ${_safeTxt(e.suspected_driver)}` : ""})`).join(" | ");
+          const ev = a.adverse_events.map(e => {
+            const when = _safeTxt(e?.occurred_at_local || e?.time_of_day || "");
+            return `- ${_safeTxt(e?.description || "")} (${when}${e?.duration_minutes ? `, ${e.duration_minutes}m` : ""}${e?.suspected_driver ? `, driver: ${_safeTxt(e.suspected_driver)}` : ""})`;
+          }).join(" | ");
           blocks.push(`Adverse events: ${ev}`);
         }
         if (Array.isArray(a.positive_events) && a.positive_events.length) {
-          const ev = a.positive_events.map(e => `- ${_safeTxt(e?.description || "")} (${_safeTxt(e?.time_of_day || "")}${e?.duration_minutes ? `, ${e.duration_minutes}m` : ""}${e?.suspected_driver ? `, driver: ${_safeTxt(e.suspected_driver)}` : ""})`).join(" | ");
+          const ev = a.positive_events.map(e => {
+            const when = _safeTxt(e?.occurred_at_local || e?.time_of_day || "");
+            return `- ${_safeTxt(e?.description || "")} (${when}${e?.duration_minutes ? `, ${e.duration_minutes}m` : ""}${e?.suspected_driver ? `, driver: ${_safeTxt(e.suspected_driver)}` : ""})`;
+          }).join(" | ");
           blocks.push(`Positive events: ${ev}`);
         }
 
