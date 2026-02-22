@@ -1,4 +1,33 @@
-<!DOCTYPE html>
+<!
+
+    function _formatAdverseEvent(e) {
+      if (!e) return "";
+      // New schema
+      if (e.occurred_at_local !== undefined || e.trigger_type !== undefined || e.trigger_detail !== undefined) {
+        const parts = [];
+        const label = _safeTxt(e.description || "");
+        if (label) parts.push(label);
+        const when = _safeTxt(e.occurred_at_local || "");
+        if (when) parts.push(when);
+        if (e.duration_minutes) parts.push(`${e.duration_minutes}m`);
+        const tt = _safeTxt(e.trigger_type || "");
+        if (tt) parts.push(`type: ${tt}`);
+        const td = _safeTxt(e.trigger_detail || "");
+        if (td) parts.push(`detail: ${td}`);
+        return parts.length ? `- ${parts.join(" | ")}` : "";
+      }
+      // Legacy schema
+      const desc = _safeTxt(e.description || "");
+      const tod = _safeTxt(e.time_of_day || "");
+      const parts = [];
+      if (desc) parts.push(desc);
+      if (tod) parts.push(tod);
+      if (e.duration_minutes) parts.push(`${e.duration_minutes}m`);
+      if (e.suspected_driver) parts.push(`driver: ${_safeTxt(e.suspected_driver)}`);
+      return parts.length ? `- ${parts.join(" | ")}` : "";
+    }
+
+DOCTYPE html>
 <html lang="en">
 <head>
   
@@ -779,8 +808,7 @@ body.modal-open {
       const btn = byId('export-run-btn');
       if(btn){ btn.disabled = true; btn.textContent = 'GENERATING...'; }
       try{
-              const signalFilter = byId('export-signal-filter')?.value || 'all';
-        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob, signalFilter });
+        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob });
         window.closeExportModal();
       } catch(e){
         console.error(e);
@@ -838,26 +866,6 @@ body.modal-open {
       } else {
         box.classList.remove("visible-box");
         box.style.display = "none";
-      }
-    };
-
-    window.togglePharmBox = function() {
-      const checkBox = byId("p-conf-pharm");
-      const box = byId("p-conf-pharm-box");
-      if (!checkBox || !box) return;
-      if (checkBox.checked) {
-        box.classList.add("visible-box");
-        box.style.display = "block";
-      } else {
-        box.classList.remove("visible-box");
-        box.style.display = "none";
-        // If you uncheck the high-level signal, clear detail checkboxes to avoid silent leftovers.
-        ["p-conf-medtiming","p-conf-dosechange","p-conf-misseddose","p-conf-newsupp","p-conf-newmed"].forEach(id => {
-          const c = byId(id);
-          if (c) c.checked = false;
-        });
-        const n = byId("p-conf-pharm-notes");
-        if (n) n.value = "";
       }
     };
 
@@ -985,15 +993,6 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
           <select id="export-order">
             <option value="desc" selected>Newest first</option>
             <option value="asc">Oldest first</option>
-          </select>
-        </div>
-
-        <div class="input-group" style="margin-top:10px;">
-          <label>Positive signal filter</label>
-          <select id="export-signal-filter">
-            <option value="all" selected>Include all positive signals</option>
-            <option value="protocol_only">Protocol-linked signals only</option>
-            <option value="exclude_routine_relief">Exclude routine relief (stretching, rest, stress reduction)</option>
           </select>
         </div>
         <div class="helper" style="margin-top:8px; font-size:0.85rem; color:#888;">Defaults to the last 30 days.</div>
@@ -1279,7 +1278,7 @@ Conceptual Foundation and Mechanistic Framework
         
 <div class="card">
           <h3>Global Baseline Rating</h3>
-          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Overall comparison to your usual baseline today (big-picture).</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Overall comparison to your usual baseline for the day (10k-foot view).</div>
           <div class="two-col">
             <div>
               <div class="label">Compared to my usual baseline, today was</div>
@@ -1302,7 +1301,7 @@ Conceptual Foundation and Mechanistic Framework
                 <option value="medium">Medium</option>
                 <option value="low">Low</option>
               </select>
-              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:6px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (vs normal day-to-day noise).</div>
+              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (not just a weird day).</div>
             </div>
           </div>
         </div>
@@ -1326,7 +1325,7 @@ Conceptual Foundation and Mechanistic Framework
                 <option value="medium">Medium</option>
                 <option value="low">Low</option>
               </select>
-              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:6px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (vs normal day-to-day noise).</div>
+              <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (not just a weird day).</div>
             </div>
           </div>
         </div>
@@ -1367,22 +1366,14 @@ Conceptual Foundation and Mechanistic Framework
 
         <div class="card">
           <h3>Confounders (what changed today?)</h3>
-          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Log non-protocol changes that may distort symptom interpretation today.</div>
-<label class="checkbox-row"><span>Poor sleep last night</span><input type="checkbox" id="p-conf-sleep"></label>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:-6px;margin-bottom:10px;line-height:1.35">Log non-protocol factors that can skew symptoms today (positive or negative).</div>
+          <label class="checkbox-row"><span>Poor sleep last night</span><input type="checkbox" id="p-conf-sleep"></label>
           <label class="checkbox-row"><span>Unusual physical exertion</span><input type="checkbox" id="p-conf-exertion"></label>
-          <label class="checkbox-row"><span>Pharmacologic changes</span><input type="checkbox" id="p-conf-pharm" onclick="window.togglePharmBox?.()"></label>
-          <div id="p-conf-pharm-box" class="hidden-box">
-            <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:6px;margin-bottom:10px;line-height:1.35">Optional details. Leave blank if you just want the simple yes/no signal.</div>
-            <label class="checkbox-row"><span>Medication timing change</span><input type="checkbox" id="p-conf-medtiming"></label>
-            <label class="checkbox-row"><span>Dose change</span><input type="checkbox" id="p-conf-dosechange"></label>
-            <label class="checkbox-row"><span>Missed dose</span><input type="checkbox" id="p-conf-misseddose"></label>
-            <label class="checkbox-row"><span>New supplement added</span><input type="checkbox" id="p-conf-newsupp"></label>
-            <label class="checkbox-row"><span>New medication added</span><input type="checkbox" id="p-conf-newmed"></label>
-            <div class="input-group" style="padding:14px 0; border-bottom:1px solid #333;">
-              <label>Notes (optional)</label>
-              <input type="text" id="p-conf-pharm-notes" placeholder="What changed (e.g. ‘moved HC later’, ‘added taurine’)">
-            </div>
-          </div>
+          <label class="checkbox-row"><span>Medication timing change</span><input type="checkbox" id="p-conf-medtiming"></label>
+          <label class="checkbox-row"><span>Dose change</span><input type="checkbox" id="p-conf-dosechange"></label>
+          <label class="checkbox-row"><span>Missed dose</span><input type="checkbox" id="p-conf-misseddose"></label>
+          <label class="checkbox-row"><span>New supplement added</span><input type="checkbox" id="p-conf-newsupp"></label>
+          <label class="checkbox-row"><span>New medication added</span><input type="checkbox" id="p-conf-newmed"></label>
           <label class="checkbox-row"><span>Travel or disrupted schedule</span><input type="checkbox" id="p-conf-travel"></label>
           <div class="input-group" style="padding:14px 0; border-bottom:1px solid #333;">
             <label>High stress (0–3)</label>
@@ -1417,12 +1408,12 @@ Conceptual Foundation and Mechanistic Framework
         </div>
 
         <div class="card">
-          <h3>Subjective daily summary</h3>
-          <textarea id="p-wins" rows="3" style="padding-top:10px; line-height:1.4;" placeholder="Example: Overall energy steadier. Walking smoother. Symptoms less volatile."></textarea>
+          <h3>Wins today</h3>
+          <textarea id="p-wins" rows="2" placeholder="Example: Less stiffness on first stand. Walk felt smoother. Only up once overnight."></textarea>
         </div>
 
         <div class="card">
-          <h3>Timestamped positive signals (optional)</h3>
+          <h3>Positive events (optional)</h3>
           <p style="color:var(--text-secondary); margin-top:8px; font-size:0.9rem; line-height:1.5;">
             Use this if something clearly improved during a specific window. Mirrors adverse events for later analysis.
           </p>
@@ -2001,8 +1992,7 @@ function setAuthError(msg) {
     // ---------------------------
     // Event list UI (Pilot)
     // ---------------------------
-    
-    function newAdverseEventItem() {
+    function newEventItem() {
       const wrap = document.createElement("div");
       wrap.className = "event-item";
       wrap.innerHTML = `
@@ -2035,51 +2025,10 @@ function setAuthError(msg) {
       return wrap;
     }
 
-    function newPositiveEventItem() {
-      const wrap = document.createElement("div");
-      wrap.className = "event-item";
-      wrap.innerHTML = `
-        <div class="input-group">
-          <label>What improved</label>
-          <input type="text" class="evt-improved" placeholder="Short description">
-        </div>
-        <div class="row">
-          <div class="input-group">
-            <label>When</label>
-            <input type="datetime-local" class="evt-when">
-          </div>
-          <div class="input-group">
-            <label>Duration (min)</label>
-            <input type="number" min="0" step="1" class="evt-dur" placeholder="e.g. 30">
-          </div>
-        </div>
-        <div class="input-group">
-          <label>Trigger type (optional)</label>
-          <select class="evt-trigger-type">
-            <option value="">Select</option>
-            <option value="protocol">Protocol supplement/medication</option>
-            <option value="electrolyte">Electrolyte adjustment</option>
-            <option value="physical">Physical intervention (stretching, massage)</option>
-            <option value="rest">Rest / pacing</option>
-            <option value="stress">Stress reduction</option>
-            <option value="unknown">Unknown</option>
-          </select>
-        </div>
-        <div class="input-group">
-          <label>Trigger detail (optional)</label>
-          <input type="text" class="evt-trigger-detail" placeholder="e.g., Nervonic Acid dose, potassium, stretching, nap...">
-        </div>
-        <button type="button" class="remove-btn">Remove</button>
-      `;
-      wrap.querySelector(".remove-btn").addEventListener("click", () => wrap.remove());
-      return wrap;
-    }
-
-
     window.addAdverseEvent = function() {
       const container = el("p-adverse-events");
       if (!container) return;
-      container.appendChild(newAdverseEventItem());
+      container.appendChild(newEventItem());
     };
 
     function readAdverseEvents() {
@@ -2090,13 +2039,15 @@ function setAuthError(msg) {
         const desc = trimText(it.querySelector(".evt-desc")?.value ?? "");
         const whenLocal = trimText(it.querySelector(".evt-when")?.value ?? "");
         const dur = asNumber(it.querySelector(".evt-dur")?.value ?? "");
-        const driver = trimText(it.querySelector(".evt-driver")?.value ?? "");
-        if (!desc && !whenLocal && dur === null && !driver) return null;
+        const ttype = trimText(it.querySelector(".evt-trigger-type")?.value ?? "");
+        const tdetail = trimText(it.querySelector(".evt-trigger-detail")?.value ?? "");
+        if (!desc && !whenLocal && dur === null && !ttype && !tdetail) return null;
         return {
           description: desc || null,
           occurred_at_local: (whenLocal ? whenLocal : null),
           duration_minutes: (dur === null ? null : dur),
-          suspected_driver: (driver ? driver : null)
+          trigger_type: (ttype || null),
+          trigger_detail: (tdetail || null)
         };
       }).filter(Boolean);
     }
@@ -2105,52 +2056,27 @@ function setAuthError(msg) {
     window.addPositiveEvent = function() {
       const container = el("p-positive-events");
       if (!container) return;
-      container.appendChild(newPositiveEventItem());
+      container.appendChild(newEventItem());
     };
 
-    
     function readPositiveEvents() {
       const container = el("p-positive-events");
       if (!container) return [];
       const items = Array.from(container.querySelectorAll(".event-item"));
       return items.map((it) => {
-        // New schema
-        const improved = trimText(it.querySelector(".evt-improved")?.value ?? "");
-        const when = trimText(it.querySelector(".evt-when")?.value ?? "");
+        const desc = trimText(it.querySelector(".evt-desc")?.value ?? "");
+        const tod = mustEnum(it.querySelector(".evt-tod")?.value ?? "", ["morning","daytime","evening_night"], null);
         const dur = asNumber(it.querySelector(".evt-dur")?.value ?? "");
-        const ttype = trimText(it.querySelector(".evt-trigger-type")?.value ?? "");
-        const tdetail = trimText(it.querySelector(".evt-trigger-detail")?.value ?? "");
-
-        // Legacy schema fallback (older logs / older UI blocks)
-        const legacyDesc = trimText(it.querySelector(".evt-desc")?.value ?? "");
-        const legacyTod = mustEnum(it.querySelector(".evt-tod")?.value ?? "", ["morning","daytime","evening_night"], null);
-        const legacyDriver = trimText(it.querySelector(".evt-driver")?.value ?? "");
-
-        const hasNew = (improved || when || dur !== null || ttype || tdetail);
-        const hasLegacy = (legacyDesc || legacyTod || dur !== null || legacyDriver);
-
-        if (!hasNew && !hasLegacy) return null;
-
-        if (hasNew) {
-          return {
-            what_improved: improved || null,
-            occurred_at_local: when || null,
-            duration_minutes: (dur === null ? null : dur),
-            trigger_type: (ttype || null),
-            trigger_detail: (tdetail || null)
-          };
-        }
-
-        // Legacy shape
+        const driver = trimText(it.querySelector(".evt-driver")?.value ?? "");
+        if (!desc && !tod && dur === null && !driver) return null;
         return {
-          description: legacyDesc || null,
-          time_of_day: legacyTod,
+          description: desc || null,
+          time_of_day: tod,
           duration_minutes: (dur === null ? null : dur),
-          suspected_driver: (legacyDriver ? legacyDriver : null)
+          suspected_driver: (driver ? driver : null)
         };
       }).filter(Boolean);
     }
-
 
     // ---------------------------
     // Payload collection
@@ -2193,14 +2119,12 @@ function setAuthError(msg) {
         context_changes: {
           poor_sleep: checked("p-conf-sleep"),
           unusual_exertion: checked("p-conf-exertion"),
-          pharmacologic_changes: checked("p-conf-pharm"),
           medication_timing_change: checked("p-conf-medtiming"),
           dose_change: checked("p-conf-dosechange"),
           missed_dose: checked("p-conf-misseddose"),
           new_supplement: checked("p-conf-newsupp"),
           new_medication: checked("p-conf-newmed"),
-          pharmacologic_notes: trimText(val("p-conf-pharm-notes")) || null,
-travel_or_schedule_change: checked("p-conf-travel"),
+          travel_or_schedule_change: checked("p-conf-travel"),
           high_stress: (asNumber(val("p-conf-stress")) ?? 0),
           infection_symptoms: checked("p-conf-infection"),
           gi_or_dehydration: checked("p-conf-gi"),
@@ -2309,47 +2233,6 @@ fast_markers: {
       return s.replace(/\s+/g, " ").trim();
     }
 
-    function _filterPositiveEvents(list, mode) {
-      if (!Array.isArray(list)) return [];
-      const m = String(mode || "all");
-      if (m === "protocol_only") {
-        return list.filter(e => (e?.trigger_type || "").toLowerCase() === "protocol");
-      }
-      if (m === "exclude_routine_relief") {
-        const exclude = new Set(["physical","rest","stress"]);
-        return list.filter(e => !exclude.has(String(e?.trigger_type || "").toLowerCase()));
-      }
-      return list;
-    }
-
-    function _formatPositiveEvent(e) {
-      if (!e) return "";
-      // New schema
-      if (e.what_improved !== undefined || e.occurred_at_local !== undefined || e.trigger_type !== undefined) {
-        const parts = [];
-        const label = _safeTxt(e.what_improved || "");
-        if (label) parts.push(label);
-        const when = _safeTxt(e.occurred_at_local || "");
-        if (when) parts.push(when);
-        if (e.duration_minutes) parts.push(`${e.duration_minutes}m`);
-        const tt = _safeTxt(e.trigger_type || "");
-        if (tt) parts.push(`type: ${tt}`);
-        const td = _safeTxt(e.trigger_detail || "");
-        if (td) parts.push(`detail: ${td}`);
-        return parts.length ? `- ${parts.join(" | ")}` : "";
-      }
-      // Legacy schema
-      const desc = _safeTxt(e.description || "");
-      const tod = _safeTxt(e.time_of_day || "");
-      const parts = [];
-      if (desc) parts.push(desc);
-      if (tod) parts.push(tod);
-      if (e.duration_minutes) parts.push(`${e.duration_minutes}m`);
-      if (e.suspected_driver) parts.push(`driver: ${_safeTxt(e.suspected_driver)}`);
-      return parts.length ? `- ${parts.join(" | ")}` : "";
-    }
-
-
     function _abbrBaseline(v) {
       switch (v) {
         case "much_worse": return "MW";
@@ -2421,7 +2304,7 @@ fast_markers: {
       return y;
     }
 
-    async function generatePilotPDF(logs, label, startDate, endDate, dir, patientMeta = {}, signalFilter = 'all') {
+    async function generatePilotPDF(logs, label, startDate, endDate, dir, patientMeta = {}) {
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ unit: "pt", format: "letter" });
 
@@ -2584,28 +2467,20 @@ fast_markers: {
         if (a.pain_impact) blocks.push(`Pain impact: ${_safeTxt(JSON.stringify(a.pain_impact))}`);
         if (a.context_changes) blocks.push(`Context: ${_safeTxt(JSON.stringify(a.context_changes))}`);
         if (a.neuromuscular_training_external) blocks.push(`Neuromuscular training (external): ${_safeTxt(a.neuromuscular_training_external.label)} (level: ${a.neuromuscular_training_external.level ?? '-'})`);
-        if (a.wins_today) blocks.push(`Subjective summary: ${_safeTxt(a.wins_today)}`);
+        if (a.wins_today) blocks.push(`Wins: ${_safeTxt(a.wins_today)}`);
         if (a.food_notes) blocks.push(`Food: ${_safeTxt(a.food_notes)}`);
         if (a.notes) blocks.push(`Notes: ${_safeTxt(a.notes)}`);
         if (a.lab) blocks.push(`Lab: ${_safeTxt(JSON.stringify(a.lab))}`);
 
         // Events
         if (Array.isArray(a.adverse_events) && a.adverse_events.length) {
-          const ev = a.adverse_events.map(e => {
-            const when = _safeTxt(e?.occurred_at_local || e?.time_of_day || "");
-            return `- ${_safeTxt(e?.description || "")} (${when}${e?.duration_minutes ? `, ${e.duration_minutes}m` : ""}${e?.suspected_driver ? `, driver: ${_safeTxt(e.suspected_driver)}` : ""})`;
-          }).join(" | ");
+          const ev = a.adverse_events.map(e => _formatAdverseEvent(e)).filter(Boolean).join(" ");
           blocks.push(`Adverse events: ${ev}`);
         }
-
         if (Array.isArray(a.positive_events) && a.positive_events.length) {
-          const filtered = _filterPositiveEvents(a.positive_events, signalFilter);
-          if (filtered.length) {
-            const ev = filtered.map(e => _formatPositiveEvent(e)).filter(Boolean).join(" ");
-            blocks.push(`Positive signals: ${ev}`);
-          }
+          const ev = a.positive_events.map(e => `- ${_safeTxt(e?.description || "")} (${_safeTxt(e?.time_of_day || "")}${e?.duration_minutes ? `, ${e.duration_minutes}m` : ""}${e?.suspected_driver ? `, driver: ${_safeTxt(e.suspected_driver)}` : ""})`).join(" | ");
+          blocks.push(`Positive events: ${ev}`);
         }
-
 
         for (const b of blocks) {
           if (y > 720) { pdf.addPage(); y = 54; }
@@ -2701,10 +2576,10 @@ fast_markers: {
     }
 
     // Expose a single export runner to the non-module modal UI
-    window.__EXPORT_RUN = async function({ patientId, label, start, end, dir, patientName, patientDob, signalFilter = 'all' }) {
+    window.__EXPORT_RUN = async function({ patientId, label, start, end, dir, patientName, patientDob }) {
       const logs = await fetchPatientLogsInRange(patientId, start, end, dir);
       if (patientId === "patrick") {
-                await generatePilotPDF(logs, label || "Pilot", start, end, dir, { patientName, patientDob }, signalFilter);
+        await generatePilotPDF(logs, label || "Pilot", start, end, dir, { patientName, patientDob });
       } else {
         await generatePassengerPDF(logs, label || "Passenger", start, end, dir, { patientName, patientDob });
       }
