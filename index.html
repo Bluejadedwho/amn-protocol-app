@@ -547,9 +547,14 @@
 /* Scroll hint (mobile + desktop): subtle side indicator inside modal */
 .modal-body { position: relative; }
 #dev-modal .scroll-hint-chevron {
+  /*
+    Keep the chevron away from the bottom edge where it can sit on top
+    of paragraph text. Vertical-center inside the modal instead.
+  */
   position: absolute;
   right: 14px;
-  bottom: 14px;
+  top: 50%;
+  bottom: auto;
   width: 28px;
   height: 28px;
   opacity: 0.75;
@@ -563,8 +568,8 @@
   animation: none;
 }
 @keyframes scrollHintBob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(6px); }
+  0%, 100% { transform: translateY(-50%); }
+  50% { transform: translateY(calc(-50% + 6px)); }
 }
 
 
@@ -817,8 +822,15 @@ body.modal-open {
       el.addEventListener('blur', handler);
     })();
 
-    window.updateSlider = function(element) {
+    window.updateSlider = function(element, outId) {
+      // Support both: updateSlider(element) and updateSlider('elementId','outId')
+      if (typeof element === 'string') element = document.getElementById(element);
+      if (!element) return;
       try { element.previousElementSibling.querySelector('.slider-val').innerText = element.value; } catch(e) {}
+      if (outId) {
+        const outEl = document.getElementById(outId);
+        if (outEl) outEl.innerText = String(element.value);
+      }
       if (!element.max) return;
       var min = parseFloat(element.min || "0");
       var max = parseFloat(element.max || "100");
@@ -1279,13 +1291,15 @@ Conceptual Foundation and Mechanistic Framework
 
         <div class="card">
           <h3>Energy / Capacity</h3>
-          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Energy/capacity = usable “gas in the tank”. Neurologic fatigue is captured later under Symptom Drift.</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Energy/capacity = usable “gas in the tank”. Neurologic fatigue is captured later under Symptom Shift.</div>
           <div class="row">
             <div>
-              <div class="label">Usable energy / capacity (10 = best)</div>
-              <input id="p-energy" type="range" min="0" max="10" step="1" value="5" class="slider">
+              <div class="label" style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;">
+                <span>Usable energy / capacity (10 = best)</span>
+                <span id="p-energy-capacity-value" style="font-weight:700;color:rgba(255,255,255,0.85);">5</span>
+              </div>
+              <input id="p-energy-capacity" type="range" min="0" max="10" step="1" value="5" class="slider" oninput="window.updateSlider('p-energy-capacity','p-energy-capacity-value')" data-out-id="p-energy-capacity-value">
             </div>
-            <div class="value" id="p-energy-val">5/10</div>
           </div>
           <div class="row">
             <div>
@@ -1388,17 +1402,12 @@ Conceptual Foundation and Mechanistic Framework
         </div>
 
         <div class="card">
-          <h3>Subjective daily summary</h3>
-          <textarea id="p-wins" rows="3" placeholder="Example: Energy steadier overall. Walking felt smoother overall. Less volatile symptoms."></textarea>
-        </div>
-
-        <div class="card">
-          <h3>Timestamped positive signals (optional)</h3>
+          <h3>Wins (optional)</h3>
           <p style="color:var(--text-secondary); margin-top:8px; font-size:0.9rem; line-height:1.5;">
             Use this if something clearly improved during a specific window. Use Trigger type to link to protocol doses when relevant.
           </p>
           <div id="p-positive-events" class="event-list"></div>
-          <button type="button" class="mini-btn" id="p-add-positive-event" onclick="window.addPositiveEvent()">+ Add positive event</button>
+          <button type="button" class="mini-btn" id="p-add-positive-event" onclick="window.addPositiveEvent()">+ Add win</button>
         </div>
 
         <details style="margin-bottom: 20px; margin-top: 0;">
@@ -1479,7 +1488,7 @@ Conceptual Foundation and Mechanistic Framework
         </details>
 
         <div class="card">
-          <h3>Symptom Drift (0-10)</h3>
+          <h3>Symptom Shift (0-10)</h3>
           <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Rate relative to your usual baseline. 0 = best / none, 10 = worst / hardest. Keep your interpretation consistent over time.</div>
           <div class="slider-header"><label>Brain Fog (10 = Worst)</label><span class="slider-val">0</span></div>
           <input type="range" id="p-fog" min="0" max="10" value="0" oninput="window.updateSlider(this)">
@@ -1521,7 +1530,7 @@ Conceptual Foundation and Mechanistic Framework
         </div>
 
         <div class="card">
-          <h3>Adverse events / notes</h3>
+          <h3>Adverse events</h3>
           <div id="p-adverse-events" class="event-list"></div>
           <button type="button" class="mini-btn" id="p-add-adverse-event" onclick="window.addAdverseEvent()">+ Add adverse event</button>
           <div class="input-group" style="margin-top:14px;">
@@ -1547,6 +1556,11 @@ Conceptual Foundation and Mechanistic Framework
             <input type="hidden" id="p-nmt-level" value="0">
             <input type="hidden" id="p-nmt-label" value="none">
           </div>
+        </div>
+
+        <div class="card">
+          <h3>Subjective daily summary</h3>
+          <textarea id="p-daily-summary" rows="3" placeholder="Example: Energy steadier overall. Walking felt smoother overall. Less volatile symptoms."></textarea>
         </div>
 
 <button type="button" class="mini-btn" onclick="window.openTrends()" style="margin-bottom:20px;">VIEW TRENDS & EXPORT PDF</button>
@@ -1718,6 +1732,7 @@ window.__enterDemoMode = function __enterDemoMode() {
       b.style.color = '#fff';
       b.style.fontSize = '13px';
       b.style.lineHeight = '1.25';
+      b.style.pointerEvents = 'none';
       b.innerHTML = 'Viewing in demo mode (read-only)';
       document.body.appendChild(b);
     }
@@ -1972,128 +1987,147 @@ function setAuthError(msg) {
     // ---------------------------
     // Event list UI (Pilot)
     // ---------------------------
-    
-    function newTimestampedItem(mode) {
+
+    // "Wins" and "Adverse events" are *episodes* worth noting, separate from the daily baseline scores.
+    // They are optional and meant for high-signal moments (something clearly improved or clearly worsened).
+
+    window.POSITIVE_TRIGGERS = [
+      "Sleep improvement",
+      "Rest / pacing",
+      "Mindfulness practice",
+      "Light movement / mobility",
+      "Food / hydration",
+      "Medication / supplement adjustment (non-core)",
+      "Other",
+      "Unknown"
+    ];
+
+    window.ADVERSE_TRIGGERS = [
+      "Poor sleep",
+      "Overexertion",
+      "Stress",
+      "Illness / infection",
+      "Travel / disrupted schedule",
+      "Medication / supplement adjustment (non-core)",
+      "Electrolyte shift (suspected)",
+      "Other",
+      "Unknown"
+    ];
+
+    // Ensure these are available as plain identifiers inside this script scope
+    // (Safari can be strict about resolving undeclared globals).
+    const POSITIVE_TRIGGERS = window.POSITIVE_TRIGGERS;
+    const ADVERSE_TRIGGERS = window.ADVERSE_TRIGGERS;
+
+    // Basic HTML escaping for safe option rendering.
+    function escapeHTML(input) {
+      return String(input ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function optionList(options) {
+      return options.map(o => `<option value="${escapeHTML(o)}">${escapeHTML(o)}</option>`).join("");
+    }
+
+    function newEpisodeItem(kind) {
+      // kind: "positive" | "adverse"
       const wrap = document.createElement("div");
       wrap.className = "event-item";
 
-      const descLabel = (mode === "positive") ? "What improved" : "What happened";
+      const title = (kind === "positive") ? "What improved" : "What happened";
+      const triggerLabel = (kind === "positive") ? "What helped (optional)" : "What drove it (optional)";
+      const triggers = (kind === "positive") ? POSITIVE_TRIGGERS : ADVERSE_TRIGGERS;
 
       wrap.innerHTML = `
         <div class="input-group">
-          <label>${descLabel}</label>
-          <input type="text" class="evt-desc" placeholder="Short description">
+          <label>${title}</label>
+          <textarea class="input" rows="2" placeholder="Short description..."></textarea>
         </div>
-        <div class="row2">
-          <div class="input-group">
-            <label>When</label>
-            <input type="datetime-local" class="evt-when">
-          </div>
+
+        <div class="row">
           <div class="input-group">
             <label>Duration (min)</label>
-            <input type="number" min="0" step="1" class="evt-dur" placeholder="e.g. 30">
+            <input class="input duration" type="number" min="0" step="1" placeholder="e.g. 30" />
           </div>
-        </div>
-        <div class="row2">
           <div class="input-group">
-            <label>Trigger type (optional)</label>
-            <select class="evt-trigger-type">
+            <label>${triggerLabel}</label>
+            <select class="input trigger">
               <option value="">Select</option>
-              <option value="protocol_dose">Protocol dose</option>
-              <option value="electrolyte_rescue">Electrolyte rescue</option>
-              <option value="sleep">Sleep</option>
-              <option value="exertion">Exertion</option>
-              <option value="stress">Stress</option>
-              <option value="food">Food</option>
-              <option value="illness">Illness</option>
-              <option value="routine_relief">Routine relief action</option>
-              <option value="unknown">Unknown</option>
-              <option value="other">Other</option>
+              ${optionList(triggers)}
             </select>
           </div>
-          <div class="input-group">
-            <label>Trigger detail (optional)</label>
-            <input type="text" class="evt-trigger-detail" placeholder="e.g., Nervonic Acid dose, potassium, stretching">
-          </div>
         </div>
-        <button type="button" class="remove-btn">Remove</button>
+
+        <div class="input-group">
+          <label>Trigger detail (optional)</label>
+          <input class="input detail" type="text" placeholder="e.g., potassium helped, intense PT session, shifted hydrocortisone timing" />
+        </div>
+
+        <button class="btn btn-ghost remove" type="button">Remove</button>
       `;
-      wrap.querySelector(".remove-btn").addEventListener("click", () => wrap.remove());
+
+      wrap.querySelector(".remove").addEventListener("click", () => wrap.remove());
       return wrap;
     }
 
-    function timeOfDayFromWhen(whenLocal) {
-      if (!whenLocal) return null;
-      const m = whenLocal.match(/T(\d{2}):/);
-      if (!m) return null;
-      const hh = parseInt(m[1], 10);
-      if (Number.isNaN(hh)) return null;
-      if (hh < 12) return "morning";
-      if (hh < 18) return "daytime";
-      return "evening_night";
+    function initEvents() {
+      const posWrap = document.getElementById("p-positive-events") || document.getElementById("positive-events");
+      const advWrap = document.getElementById("p-adverse-events") || document.getElementById("adverse-events");
+      const addPos = document.getElementById("p-add-positive-event") || document.getElementById("add-positive-event");
+      const addAdv = document.getElementById("p-add-adverse-event") || document.getElementById("add-adverse-event");
+
+      if (addPos && posWrap) {
+        addPos.addEventListener("click", () => {
+          posWrap.appendChild(newEpisodeItem("positive"));
+        });
+      }
+
+      if (addAdv && advWrap) {
+        addAdv.addEventListener("click", () => {
+          advWrap.appendChild(newEpisodeItem("adverse"));
+        });
+      }
     }
 
-    window.addAdverseEvent = function() {
-      const container = el("p-adverse-events");
-      if (!container) return;
-      container.appendChild(newTimestampedItem("adverse"));
+    // Backward-compatible helpers used by inline onclick handlers
+    window.addPositiveEvent = function(){
+      const posWrap = document.getElementById("p-positive-events") || document.getElementById("positive-events");
+      if (posWrap) posWrap.appendChild(newEpisodeItem("positive"));
+    };
+    window.addAdverseEvent = function(){
+      const advWrap = document.getElementById("p-adverse-events") || document.getElementById("adverse-events");
+      if (advWrap) advWrap.appendChild(newEpisodeItem("adverse"));
     };
 
-    function readAdverseEvents() {
-      const container = el("p-adverse-events");
-      if (!container) return [];
-      const items = Array.from(container.querySelectorAll(".event-item"));
-      return items.map((it) => {
-        const desc = trimText(it.querySelector(".evt-desc")?.value ?? "");
-        const whenLocal = trimText(it.querySelector(".evt-when")?.value ?? "");
-        const dur = asNumber(it.querySelector(".evt-dur")?.value ?? "");
-        const trigType = trimText(it.querySelector(".evt-trigger-type")?.value ?? "");
-        const trigDetail = trimText(it.querySelector(".evt-trigger-detail")?.value ?? "");
-
-        if (!desc && !whenLocal && dur === null && !trigType && !trigDetail) return null;
-
+    function readEpisodeItems(containerId) {
+      const wrap = document.getElementById(containerId);
+      const items = [...wrap.querySelectorAll(".event-item")];
+      return items.map(el => {
+        const desc = (el.querySelector("textarea")?.value || "").trim();
+        const durationRaw = (el.querySelector("input.duration")?.value || "").trim();
+        const durationMin = durationRaw === "" ? null : Number(durationRaw);
+        const trigger = (el.querySelector("select.trigger")?.value || "").trim();
+        const detail = (el.querySelector("input.detail")?.value || "").trim();
         return {
-          description: desc || null,
-          occurred_at_local: whenLocal || null,
-          time_of_day: timeOfDayFromWhen(whenLocal),
-          duration_minutes: (dur === null ? null : dur),
-          trigger_type: trigType || null,
-          trigger_detail: trigDetail || null
+          desc,
+          durationMin: Number.isFinite(durationMin) ? durationMin : null,
+          trigger: trigger || null,
+          detail: detail || null
         };
-      }).filter(Boolean);
+      }).filter(x => x.desc || x.trigger || x.detail || (x.durationMin !== null));
     }
-
-    window.addPositiveEvent = function() {
-      const container = el("p-positive-events");
-      if (!container) return;
-      container.appendChild(newTimestampedItem("positive"));
-    };
 
     function readPositiveEvents() {
-      const container = el("p-positive-events");
-      if (!container) return [];
-      const items = Array.from(container.querySelectorAll(".event-item"));
-      return items.map((it) => {
-        const desc = trimText(it.querySelector(".evt-desc")?.value ?? "");
-        const whenLocal = trimText(it.querySelector(".evt-when")?.value ?? "");
-        const dur = asNumber(it.querySelector(".evt-dur")?.value ?? "");
-        const trigType = trimText(it.querySelector(".evt-trigger-type")?.value ?? "");
-        const trigDetail = trimText(it.querySelector(".evt-trigger-detail")?.value ?? "");
-
-        if (!desc && !whenLocal && dur === null && !trigType && !trigDetail) return null;
-
-        return {
-          description: desc || null,
-          occurred_at_local: whenLocal || null,
-          time_of_day: timeOfDayFromWhen(whenLocal),
-          duration_minutes: (dur === null ? null : dur),
-          trigger_type: trigType || null,
-          trigger_detail: trigDetail || null
-        };
-      }).filter(Boolean);
+      return readEpisodeItems("positive-events");
     }
 
-
+    function readAdverseEvents() {
+      return readEpisodeItems("adverse-events");
+    }
 function collectPilotPayload() {
       const date = localDateStr();
       const morningBP = parseBP(val("p-morning-bp"));
@@ -2172,7 +2206,7 @@ fast_markers: {
         },
 
         positive_events: readPositiveEvents(),
-        wins_today: trimText(val("p-wins")) || null,
+        daily_summary: trimText(val("p-daily-summary")) || null,
         adverse_events: readAdverseEvents(),
         notes: trimText(val("p-notes")) || null,
         food_notes: trimText(val("p-food-notes")) || null
@@ -2441,7 +2475,7 @@ fast_markers: {
             level: (typeof log.external_neuromuscular_training.level !== "undefined" ? log.external_neuromuscular_training.level : null)
           } : null),
 
-          wins_today: log.wins_today || null,
+          daily_summary: log.daily_summary || null,
           food_notes: log.food_notes || null,
           notes: log.notes || null,
           adverse_events: log.adverse_events || null,
@@ -2480,7 +2514,7 @@ fast_markers: {
         if (a.pain_impact) blocks.push(`Pain impact: ${_safeTxt(JSON.stringify(a.pain_impact))}`);
         if (a.context_changes) blocks.push(`Context: ${_safeTxt(JSON.stringify(a.context_changes))}`);
         if (a.neuromuscular_training_external) blocks.push(`Neuromuscular training (external): ${_safeTxt(a.neuromuscular_training_external.label)} (level: ${a.neuromuscular_training_external.level ?? '-'})`);
-        if (a.wins_today) blocks.push(`Wins: ${_safeTxt(a.wins_today)}`);
+        if (a.daily_summary) blocks.push(`Daily summary: ${_safeTxt(a.daily_summary)}`);
         if (a.food_notes) blocks.push(`Food: ${_safeTxt(a.food_notes)}`);
         if (a.notes) blocks.push(`Notes: ${_safeTxt(a.notes)}`);
         if (a.lab) blocks.push(`Lab: ${_safeTxt(JSON.stringify(a.lab))}`);
@@ -2492,7 +2526,7 @@ fast_markers: {
         }
         if (Array.isArray(a.positive_events) && a.positive_events.length) {
           const ev = a.positive_events.map(e => `- ${_safeTxt(e?.description || "")} (${_safeTxt(e?.time_of_day || "")}${e?.duration_minutes ? `, ${e.duration_minutes}m` : ""}${e?.suspected_driver ? `, driver: ${_safeTxt(e.suspected_driver)}` : ""})`).join(" | ");
-          blocks.push(`Positive events: ${ev}`);
+          blocks.push(`Wins: ${ev}`);
         }
 
         for (const b of blocks) {
@@ -2941,7 +2975,7 @@ fast_markers: {
       pushMetric("pain_impact", "Pain Impact (0–10)", l => (l.pain_impact ? l.pain_impact.severity : null));
       pushMetric("sleep_quality", "Sleep Quality (0–10)", l => (l.symptom_drift ? l.symptom_drift.sleep_quality : null));
 
-      // Symptom Drift sliders
+      // Symptom Shift sliders
       pushMetric("brain_fog", "Brain Fog (0–10)", l => (l.symptom_drift ? l.symptom_drift.brain_fog : null));
       pushMetric("gait_effort", "Gait Effort (0–10)", l => (l.symptom_drift ? l.symptom_drift.gait_effort : null));
       pushMetric("gait_initiation", "Gait initiation effort (0–10)", l => (l.symptom_drift ? l.symptom_drift.gait_initiation : null));
@@ -2973,6 +3007,16 @@ fast_markers: {
     document.addEventListener("DOMContentLoaded", () => {
       // prime slider visuals
       Array.from(document.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
+
+      // Ensure the Energy/Capacity slider always shows its numeric value
+      if (document.getElementById('p-energy-capacity') && document.getElementById('p-energy-capacity-value')) {
+        window.updateSlider('p-energy-capacity', 'p-energy-capacity-value');
+      }
+
+      // Wire up Wins / Adverse Events buttons and rendering
+      if (typeof window.initEvents === 'function') {
+        window.initEvents();
+      }
       // confounder accordion
       const pharm = document.getElementById('p-conf-pharm');
       const panel = document.getElementById('p-conf-pharm-panel');
