@@ -413,6 +413,7 @@
       backdrop-filter: blur(4px);
     }
     .app-modal .modal-card {
+      position: relative;
       width: 100%;
       max-width: 720px;
       background: #101010;
@@ -540,6 +541,10 @@
 @media (max-width: 520px) {
   .modal-body {
     max-height: 72vh !important;
+  }
+  .app-modal {
+    align-items: flex-start;
+    padding-top: calc(env(safe-area-inset-top) + 12px);
   }
 }
 
@@ -1407,7 +1412,7 @@ Conceptual Foundation and Mechanistic Framework
             Use this if something clearly improved during a specific window. Use Trigger type to link to protocol doses when relevant.
           </p>
           <div id="p-positive-events" class="event-list"></div>
-          <button type="button" class="mini-btn" id="p-add-positive-event" onclick="window.addPositiveEvent()">+ Add win</button>
+          <button type="button" class="mini-btn" id="p-add-positive-event">+ Add win</button>
         </div>
 
         <details style="margin-bottom: 20px; margin-top: 0;">
@@ -1488,30 +1493,43 @@ Conceptual Foundation and Mechanistic Framework
         </details>
 
         <div class="card">
-          <h3>Symptom Shift (0-10)</h3>
-          <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Rate relative to your usual baseline. 0 = best / none, 10 = worst / hardest. Keep your interpretation consistent over time.</div>
-          <div class="slider-header"><label>Brain Fog (10 = Worst)</label><span class="slider-val">0</span></div>
-          <input type="range" id="p-fog" min="0" max="10" value="0" oninput="window.updateSlider(this)">
-          <div class="slider-header"><label>Step-by-step gait effort (10 = Hardest)</label><span class="slider-val">0</span></div>
-          <input type="range" id="p-gait" min="0" max="10" value="0" oninput="window.updateSlider(this)">
-          <div class="slider-header"><label>Gait initiation effort (10 = Hardest)</label><span class="slider-val">0</span></div>
-          <input type="range" id="p-gait-init" min="0" max="10" value="0" oninput="window.updateSlider(this)">
-          <div class="slider-header"><label>Sustained walking effort (10 = Hardest)</label><span class="slider-val">0</span></div>
-          <input type="range" id="p-gait-sustain" min="0" max="10" value="0" oninput="window.updateSlider(this)">
-          <div class="slider-header"><label>Neurologic fatigue (10 = Wiped out)</label><span class="slider-val">0</span></div>
-          <input type="range" id="p-fatigue" min="0" max="10" value="0" oninput="window.updateSlider(this)">
-          <div class="slider-header"><label>Sleep Quality (10 = Best)</label><span class="slider-val">5</span></div>
-          <input type="range" id="p-sleep" min="0" max="10" value="5" oninput="window.updateSlider(this)">
-          <div class="slider-header"><label>Leg Stiffness (10 = Rigid)</label><span class="slider-val">0</span></div>
-          <input type="range" id="p-stiff" min="0" max="10" value="0" oninput="window.updateSlider(this)">
-          <div class="slider-header"><label>Post-rest stiffness (10 = Severe)</label><span class="slider-val">0</span></div>
-          <input type="range" id="p-postrest" min="0" max="10" value="0" oninput="window.updateSlider(this)">
-          <div class="slider-header"><label>Symptom volatility (10 = Very up and down)</label><span class="slider-val">0</span></div>
-          <input type="range" id="p-volatility" min="0" max="10" value="0" oninput="window.updateSlider(this)">
-        </div>
+  <h3>Symptom Shift (0–10)</h3>
+  <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">
+    Rate relative to your usual baseline.
+    0 = much worse, 5 = baseline, 10 = much better.
+    Keep your interpretation consistent over time.
+  </div>
 
-        <div class="card">
-          <h3>Evening Vitals</h3>
+  <div class="slider-header"><label>Brain Fog</label><span class="slider-val">5</span></div>
+  <input type="range" id="p-fog" min="0" max="10" value="5" oninput="window.updateSlider(this)">
+
+  <div class="slider-header"><label>Step-by-step gait effort</label><span class="slider-val">5</span></div>
+  <input type="range" id="p-gait" min="0" max="10" value="5" oninput="window.updateSlider(this)">
+
+  <div class="slider-header"><label>Gait initiation effort</label><span class="slider-val">5</span></div>
+  <input type="range" id="p-gait-init" min="0" max="10" value="5" oninput="window.updateSlider(this)">
+
+  <div class="slider-header"><label>Sustained walking effort</label><span class="slider-val">5</span></div>
+  <input type="range" id="p-gait-sustain" min="0" max="10" value="5" oninput="window.updateSlider(this)">
+
+  <div class="slider-header"><label>Neurologic fatigue</label><span class="slider-val">5</span></div>
+  <input type="range" id="p-fatigue" min="0" max="10" value="5" oninput="window.updateSlider(this)">
+
+  <div class="slider-header"><label>Sleep quality</label><span class="slider-val">5</span></div>
+  <input type="range" id="p-sleep" min="0" max="10" value="5" oninput="window.updateSlider(this)">
+
+  <div class="slider-header"><label>Leg stiffness</label><span class="slider-val">5</span></div>
+  <input type="range" id="p-stiff" min="0" max="10" value="5" oninput="window.updateSlider(this)">
+
+  <div class="slider-header"><label>Post-rest stiffness</label><span class="slider-val">5</span></div>
+  <input type="range" id="p-postrest" min="0" max="10" value="5" oninput="window.updateSlider(this)">
+
+  <div class="slider-header"><label>Symptom volatility</label><span class="slider-val">5</span></div>
+  <input type="range" id="p-volatility" min="0" max="10" value="5" oninput="window.updateSlider(this)">
+</div>
+
+<div class="card">
+  <h3>Evening Vitals</h3>
           <div class="input-row">
             <div class="input-group">
               <label>BP (Sys/Dia)</label>
@@ -1532,7 +1550,7 @@ Conceptual Foundation and Mechanistic Framework
         <div class="card">
           <h3>Adverse events</h3>
           <div id="p-adverse-events" class="event-list"></div>
-          <button type="button" class="mini-btn" id="p-add-adverse-event" onclick="window.addAdverseEvent()">+ Add adverse event</button>
+          <button type="button" class="mini-btn" id="p-add-adverse-event">+ Add adverse event</button>
           <div class="input-group" style="margin-top:14px;">
             <label>Notes (optional)</label>
             <textarea id="p-notes" rows="3" placeholder="General notes..."></textarea>
@@ -2135,7 +2153,7 @@ function collectPilotPayload() {
 
       return {
         date,
-        baseline_rating: mustEnum(val("p-global-rating"), ["much_worse","worse","same","better","much_better"], null),
+        baseline_rating: mustEnum(val("p-global-rating"), ["much_worse","worse","slightly_worse","baseline","slightly_better","better","much_better"], null),
         baseline_confidence: mustEnum(val("p-global-confidence"), ["low","medium","high"], null),
 
         energy_capacity: asNumber(val("p-energy-capacity")),
@@ -2281,14 +2299,17 @@ fast_markers: {
     }
 
     function _abbrBaseline(v) {
-      switch (v) {
-        case "much_worse": return "MW";
-        case "worse": return "W";
-        case "same": return "S";
-        case "better": return "B";
-        case "much_better": return "MB";
-        default: return "-";
-      }
+  switch (v) {
+    case "much_worse": return "MW";
+    case "worse": return "W";
+    case "slightly_worse": return "SW";
+    case "baseline": return "BL";
+    case "slightly_better": return "SB";
+    case "better": return "B";
+    case "much_better": return "MB";
+    default: return "-";
+  }
+}
     }
 
     function _ctxCodes(ctx) {
@@ -2385,7 +2406,7 @@ fast_markers: {
       pdf.setFontSize(9);
       pdf.text("Baseline status, key symptom scores (0–10), and contextual drivers for each logged day.", margin, y);
       y += 12;
-      pdf.text("Baseline codes: MW W S B MB.  Context codes: SLP EX MEDT DOSE MISS NEW TRV STR1-3 INF GI NONE.", margin, y);
+      pdf.text("Baseline codes: MW W SW BL SB B MB.  Context codes: SLP EX MEDT DOSE MISS NEW TRV STR1-3 INF GI NONE.", margin, y);
       y += 18;
 
       // Dense daily matrix header (plain English)
@@ -2870,22 +2891,31 @@ fast_markers: {
     }
 
     function _mapBaselineTo15(v){
-      if(v == null) return null;
-      if(typeof v === "number") return v; // already 1–5
-      const s = String(v).toLowerCase();
-      if(s === "much_worse") return 1;
-      if(s === "worse") return 2;
-      if(s === "same") return 3;
-      if(s === "better") return 4;
-      if(s === "much_better") return 5;
-      // fallback for earlier variants
-      if(s.includes("much") && s.includes("worse")) return 1;
-      if(s.includes("worse")) return 2;
-      if(s.includes("same")) return 3;
-      if(s.includes("better") && s.includes("much")) return 5;
-      if(s.includes("better")) return 4;
-      return null;
-    }
+  if(v == null) return null;
+  if(typeof v === "number") return v; // already numeric
+  const s = String(v).toLowerCase();
+  if(s === "much_worse") return 1;
+  if(s === "worse") return 2;
+  if(s === "slightly_worse") return 3;
+  if(s === "baseline") return 4;
+  if(s === "slightly_better") return 5;
+  if(s === "better") return 6;
+  if(s === "much_better") return 7;
+
+  // fallback for earlier variants
+  if(s.includes("much") && s.includes("worse")) return 1;
+  if(s.includes("slightly") && s.includes("worse")) return 3;
+  if(s.includes("worse")) return 2;
+  if(s.includes("baseline")) return 4;
+  if(s.includes("slightly") && s.includes("better")) return 5;
+  if(s.includes("better") && s.includes("much")) return 7;
+  if(s.includes("better")) return 6;
+
+  // legacy "same" -> baseline
+  if(s.includes("same")) return 4;
+
+  return null;
+}
 
     function _num(v){
       const n = Number(v);
@@ -2924,7 +2954,7 @@ fast_markers: {
         const neuroFatigue = ordered.map(l => _getSymptom(l, "neurologic_fatigue"));
 
         // Charts
-        _buildLineChart("chart-global", labels, global, 1, 5, "Global baseline (1–5)");
+        _buildLineChart("chart-global", labels, global, 1, 7, "Global baseline (1–7)");
         _buildLineChart("chart-energy", labels, energy, 0, 10, "Energy / Capacity (0–10)");
         _buildLineChart("chart-pain", labels, pain, 0, 10, "Pain impact (0–10)");
         _buildLineChart("chart-sleep", labels, sleep, 0, 10, "Sleep quality (0–10)");
@@ -2970,7 +3000,7 @@ fast_markers: {
       }
 
       // These keys match the saved pilot log schema in this build (snake_case).
-      pushMetric("baseline_rating", "Global Baseline Rating (1–5)", l => _mapBaselineTo15(l.baseline_rating));
+      pushMetric("baseline_rating", "Global Baseline Rating (1–7)", l => _mapBaselineTo15(l.baseline_rating));
       pushMetric("energy_capacity", "Energy / Capacity (0–10)", l => l.energy_capacity);
       pushMetric("pain_impact", "Pain Impact (0–10)", l => (l.pain_impact ? l.pain_impact.severity : null));
       pushMetric("sleep_quality", "Sleep Quality (0–10)", l => (l.symptom_drift ? l.symptom_drift.sleep_quality : null));
@@ -3084,6 +3114,44 @@ fast_markers: {
   updateLock();
 })();
 
+</script>
+<script>
+// Scroll cue chevron for overview + export modals: show when content can scroll and user is not at the bottom.
+(function () {
+  function attachScrollChevron(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+    const card = modal.querySelector('.modal-card');
+    const body = modal.querySelector('.modal-body');
+    if (!card || !body) return;
+
+    let chev = card.querySelector('.scroll-chevron');
+    if (!chev) {
+      chev = document.createElement('div');
+      chev.className = 'scroll-chevron hidden';
+      chev.textContent = '⌄';
+      card.appendChild(chev);
+    }
+
+    const update = () => {
+      const canScroll = body.scrollHeight > body.clientHeight + 8;
+      const nearBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 6;
+      if (canScroll && !nearBottom) chev.classList.remove('hidden');
+      else chev.classList.add('hidden');
+    };
+
+    body.addEventListener('scroll', update, { passive: true });
+
+    // Re-evaluate when modal opens/closes or content changes
+    const obs = new MutationObserver(() => requestAnimationFrame(update));
+    obs.observe(modal, { attributes: true, attributeFilter: ['style','class'] });
+
+    requestAnimationFrame(update);
+  }
+
+  attachScrollChevron('overview-modal');
+  attachScrollChevron('export-modal');
+})();
 </script>
 </body>
 </html>
