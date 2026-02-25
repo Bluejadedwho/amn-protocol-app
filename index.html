@@ -17,8 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <style>
     :root {
@@ -793,7 +792,7 @@ body.modal-open {
         window.closeExportModal();
       } catch(e){
         console.error(e);
-        alert('Export failed. Check console for details.');
+        alert('Export failed: ' + (e && e.message ? e.message : e) + "\n\nIf this is permission-denied on localhost, add localhost to Firebase Auth Authorized Domains and ensure you are signed in.");
       } finally {
         if(btn){ btn.disabled = false; btn.textContent = 'Generate PDF'; }
       }
@@ -1759,6 +1758,43 @@ window.__enterDemoMode = function __enterDemoMode() {
   }
 };
 
+
+  function showToast(message, opts = {}) {
+    try {
+      const duration = typeof opts.duration === 'number' ? opts.duration : 2500;
+      let toast = document.getElementById('toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.style.position = 'fixed';
+        toast.style.left = '50%';
+        toast.style.bottom = '22px';
+        toast.style.transform = 'translateX(-50%)';
+        toast.style.maxWidth = '92vw';
+        toast.style.background = 'rgba(0,0,0,0.85)';
+        toast.style.color = '#fff';
+        toast.style.padding = '10px 14px';
+        toast.style.borderRadius = '12px';
+        toast.style.fontSize = '14px';
+        toast.style.lineHeight = '1.25';
+        toast.style.zIndex = '99999';
+        toast.style.boxShadow = '0 8px 30px rgba(0,0,0,0.35)';
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 160ms ease';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = message || '';
+      toast.style.opacity = '1';
+      clearTimeout(toast.__hideTimer);
+      toast.__hideTimer = setTimeout(() => {
+        toast.style.opacity = '0';
+      }, duration);
+    } catch (e) {
+      // Fallback
+      alert(message);
+    }
+  }
+
 function setAuthError(msg) {
       const el = document.getElementById('auth-error');
       if (!el) return;
@@ -1774,6 +1810,12 @@ function setAuthError(msg) {
     // Demo mode is always available (no cloud sync)
     window.enterDemoMode = function () {
       try { localStorage.setItem('amn_demo_mode', '1'); } catch (_) {}
+      window.__DEMO_MODE__ = true;
+      if (typeof window.__enterDemoMode === 'function') {
+        window.__enterDemoMode();
+      } else {
+        hideAuthModal();
+      }
       hideAuthModal();
     };
 
@@ -1831,7 +1873,7 @@ function setAuthError(msg) {
       console.warn("Auth persistence not set:", err?.code || err);
     });
 
-    let CURRENT_UID = null;
+    CURRENT_UID = null;
 
     function ensureAuthUI() {
       // Attach button handlers once the auth DOM exists.
@@ -2123,6 +2165,7 @@ function setAuthError(msg) {
 
     function readEpisodeItems(containerId) {
       const wrap = document.getElementById(containerId);
+      if (!wrap) return [];
       const items = [...wrap.querySelectorAll(".event-item")];
       return items.map(el => {
         const desc = (el.querySelector("textarea")?.value || "").trim();
@@ -2193,6 +2236,10 @@ function collectPilotPayload() {
           high_stress: (asNumber(val("p-conf-stress")) ?? 0),
           infection_symptoms: checked("p-conf-infection"),
           gi_or_dehydration: checked("p-conf-gi"),
+          night_pain_electrolyte_related: checked("p-conf-elec"),
+          pharm_notes: trimText(val("p-conf-pharm-notes")) || null,
+          electrolyte_type: trimText(val("p-conf-elec-type")) || null,
+          electrolyte_window_min: (asNumber(val("p-conf-elec-window")) ?? null),
           nothing_unusual: checked("p-conf-none")
         },
 
@@ -2246,14 +2293,16 @@ fast_markers: {
     }
 
     function collectLabPayload() {
-      const date = trimText(val("lab-date"));
+      const dateRaw = trimText(val("lab-date"));
+      const dateISO = normalizeDateInput(dateRaw || localDateStr());
       return {
-        date: date || localDateStr(),
+        date: dateISO || localDateStr(),
         lab: {
-          test_date: date || null,
+          test_date: dateISO || null,
+          test_date_raw: dateRaw || null,
           vlcfa_c26: trimText(val("lab-vlcfa")) || null,
           liver_alt_ast: trimText(val("lab-liver")) || null,
-          notes: trimText(val("lab-notes")) || null
+          notes: trimText(val("lab-notes")) || null,
         }
       };
     }
@@ -2270,6 +2319,9 @@ fast_markers: {
       };
       await ref.set(payload, { merge: true });
     }
+
+    // Expose for iOS/Safari inline handlers
+    window.saveUserLog = saveUserLog;
 
     // --- PDF EXPORT (range + dense table + notes appendix) ---
     async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
@@ -2360,7 +2412,7 @@ fast_markers: {
       };
       const am = v?.morning;
       const pm = v?.evening;
-      return `AM ${fmtBP(am)} HR ${fmtHR(am)}   PM ${fmtBP(pm)} HR ${fmtHR(pm)}`;
+      return `AM BP ${fmtBP(am)}  HR ${fmtHR(am)}   PM BP ${fmtBP(pm)}  HR ${fmtHR(pm)}`;
     }
 
     function _appendWrapped(pdf, text, x, y, maxWidth, lineH) {
@@ -2406,7 +2458,7 @@ fast_markers: {
       pdf.setFontSize(9);
       pdf.text("Baseline status, key symptom scores (0–10), and contextual drivers for each logged day.", margin, y);
       y += 12;
-      pdf.text("Baseline codes: MW W SW BL SB B MB.  Context codes: SLP EX MEDT DOSE MISS NEW TRV STR1-3 INF GI NONE.", margin, y);
+      pdf.text("Baseline levels: Much worse, Worse, Slightly worse, Baseline, Slightly better, Better, Much better.  Context flags: Poor sleep, Unusual exertion, Med timing change, Dose change, Missed dose, New med/supplement, Travel, Stress (1-3), Infection, GI upset.", margin, y);
       y += 18;
 
       // Dense daily matrix header (plain English)
@@ -2488,6 +2540,7 @@ fast_markers: {
           baseline_confidence: log.baseline_confidence || null,
           energy_capacity: log.energy_capacity ?? null,
           energy_confidence: log.energy_confidence || null,
+          fast_markers: log.fast_markers || null,
           symptom_drift: log.symptom_drift || null,
           pain_impact: log.pain_impact || null,
           context_changes: log.context_changes || null,
@@ -2510,6 +2563,51 @@ fast_markers: {
         });
       }
 
+      // Periodic Lab Results (separate section)
+      const labRows = ordered.map(l => {
+        const s = l.symptom_drift || {};
+        const lab = s.lab || null;
+        if (!lab) return null;
+        const vlcfa = (lab.vlcfa_c26 ?? "").toString().trim();
+        const liver = (lab.liver_altast ?? "").toString().trim();
+        const notes = (lab.notes ?? "").toString().trim();
+        if (!vlcfa && !liver && !notes) return null;
+        return {
+          date: String(l.date || ""),
+          vlcfa,
+          liver,
+          notes
+        };
+      }).filter(Boolean);
+
+      if (labRows.length) {
+        pdf.addPage();
+        pdf.setFontSize(16);
+        pdf.text("Periodic Lab Results (VLCFA & Liver)", 14, 22);
+        pdf.setFontSize(10);
+        pdf.text("Optional entries. Use for less-frequent lab anchors (not daily symptoms).", 14, 30);
+
+        let yLab = 40;
+        pdf.setFontSize(11);
+
+        for (const r of labRows) {
+          const line = `${r.date}  |  VLCFA (C26:0): ${r.vlcfa || "-"}  |  Liver (ALT/AST): ${r.liver || "-"}`;
+          yLab = _appendWrapped(pdf, line, 14, yLab, 180, 6);
+
+          if (r.notes) {
+            yLab = _appendWrapped(pdf, `Notes: ${r.notes}`, 18, yLab, 176, 6);
+          }
+
+          yLab += 2;
+          if (yLab > 270) {
+            pdf.addPage();
+            yLab = 22;
+            pdf.setFontSize(11);
+          }
+        }
+      }
+
+
       // Appendix
       pdf.addPage();
       pdf.setFont("helvetica", "bold");
@@ -2526,36 +2624,130 @@ fast_markers: {
         pdf.setFont("helvetica", "normal");
         y += 14;
 
-        const blocks = [];
-        if (a.protocol) blocks.push(`Protocol: ${a.protocol}`);
-        if (a.vitals) blocks.push(`Vitals: ${a.vitals}`);
-        if (a.baseline_rating || a.baseline_confidence) blocks.push(`Baseline: ${_safeTxt(a.baseline_rating)}  (conf: ${_safeTxt(a.baseline_confidence) || "-"})`);
-        if (a.energy_capacity !== null || a.energy_confidence) blocks.push(`Energy: ${a.energy_capacity ?? "-"}/10  (conf: ${_safeTxt(a.energy_confidence) || "-"})`);
-        if (a.symptom_drift) blocks.push(`Symptom drift: ${_safeTxt(JSON.stringify(a.symptom_drift))}`);
-        if (a.pain_impact) blocks.push(`Pain impact: ${_safeTxt(JSON.stringify(a.pain_impact))}`);
-        if (a.context_changes) blocks.push(`Context: ${_safeTxt(JSON.stringify(a.context_changes))}`);
-        if (a.neuromuscular_training_external) blocks.push(`Neuromuscular training (external): ${_safeTxt(a.neuromuscular_training_external.label)} (level: ${a.neuromuscular_training_external.level ?? '-'})`);
-        if (a.daily_summary) blocks.push(`Daily summary: ${_safeTxt(a.daily_summary)}`);
-        if (a.food_notes) blocks.push(`Food: ${_safeTxt(a.food_notes)}`);
-        if (a.notes) blocks.push(`Notes: ${_safeTxt(a.notes)}`);
-        if (a.lab) blocks.push(`Lab: ${_safeTxt(JSON.stringify(a.lab))}`);
+        const sd = a.symptom_drift || {};
+        const pi = a.pain_impact || {};
+        const ctx = a.context_changes || {};
+        const adv = Array.isArray(a.adverse_events) ? a.adverse_events : [];
+        const win = Array.isArray(a.positive_events) ? a.positive_events : [];
 
-        // Events
-        if (Array.isArray(a.adverse_events) && a.adverse_events.length) {
-          const ev = a.adverse_events.map(e => `- ${_safeTxt(e?.description || "")} (${_safeTxt(e?.time_of_day || "")}${e?.duration_minutes ? `, ${e.duration_minutes}m` : ""}${e?.suspected_driver ? `, driver: ${_safeTxt(e.suspected_driver)}` : ""})`).join(" | ");
-          blocks.push(`Adverse events: ${ev}`);
-        }
-        if (Array.isArray(a.positive_events) && a.positive_events.length) {
-          const ev = a.positive_events.map(e => `- ${_safeTxt(e?.description || "")} (${_safeTxt(e?.time_of_day || "")}${e?.duration_minutes ? `, ${e.duration_minutes}m` : ""}${e?.suspected_driver ? `, driver: ${_safeTxt(e.suspected_driver)}` : ""})`).join(" | ");
-          blocks.push(`Wins: ${ev}`);
+        // Build a readable, explicit appendix (shows "-" when not filled)
+        const lines = [];
+
+        lines.push(`Protocol adherence: ${a.protocol || "-"}`);
+                // Lab results are printed in a dedicated section earlier in the PDF.
+
+lines.push(`Vitals: ${a.vitals || "-"}`);
+        lines.push(`Baseline rating: ${_safeTxt(a.baseline_rating) || "-"} (confidence: ${_safeTxt(a.baseline_confidence) || "-"})`);
+        lines.push(`Energy/capacity: ${a.energy_capacity ?? "-"} /10 (confidence: ${_safeTxt(a.energy_confidence) || "-"})`);
+
+        
+        // Fast markers
+        const fm = a.fast_markers || {};
+        const fastList = [];
+        if (fm.near_fall) fastList.push("Near-fall / balance scare");
+        if (fm.leg_locking) fastList.push("Electrolyte rescue required");
+        if (fm.spasm_or_clonus) fastList.push("Spasm or clonus episode");
+        if (fm.night_pain_woke_me) fastList.push("Night pain woke me");
+        if (fm.restless_legs) fastList.push("Restless legs at night");
+        lines.push(`Fast markers: ${fastList.length ? fastList.join("; ") : "NONE"}`);
+
+        // Pain impact (episode-style flags)
+        lines.push(`Pain impact: ${pi.severity ?? "-"} /10`);
+        lines.push(`  Interfered with sleep: ${pi.interfered_with_sleep ? "Yes" : "No"}`);
+        lines.push(`  Limited walking: ${pi.limited_walking ? "Yes" : "No"}`);
+        lines.push(`  Forced extra rest: ${pi.forced_extra_rest ? "Yes" : "No"}`);
+        lines.push(`  Required rescue meds: ${pi.required_rescue_meds ? "Yes" : "No"}`);
+        lines.push(`  Changed gait mechanics: ${pi.changed_gait_mechanics ? "Yes" : "No"}`);
+        lines.push(`  Primary driver: ${_safeTxt(pi.primary_driver) || "-"}`);
+
+        // Confounders (expanded, not just codes)
+        const conf = [];
+        if (ctx.poor_sleep) conf.push("Poor sleep");
+        if (ctx.unusual_exertion) conf.push("Unusual exertion");
+        if (ctx.travel_or_schedule_change) conf.push("Travel / schedule disruption");
+        if (ctx.infection_symptoms) conf.push("Infection symptoms");
+        if (ctx.gi_or_dehydration) conf.push("GI upset / dehydration risk");
+        if (ctx.night_pain_electrolyte_related) conf.push("Night pain possibly electrolyte-related");
+        if (typeof ctx.high_stress === "number" && ctx.high_stress > 0) conf.push(`High stress ${ctx.high_stress}/3`);
+
+        const pharmFlags = [];
+        if (ctx.medication_timing_change) pharmFlags.push("Timing change");
+        if (ctx.dose_change) pharmFlags.push("Dose change");
+        if (ctx.missed_dose) pharmFlags.push("Missed dose");
+        if (ctx.new_supplement) pharmFlags.push("New supplement");
+        if (ctx.new_medication) pharmFlags.push("New medication");
+        if (pharmFlags.length) conf.push(`Pharm: ${pharmFlags.join(", ")}`);
+        if (ctx.pharm_notes) conf.push(`Pharm notes: ${_safeTxt(ctx.pharm_notes)}`);
+
+        if (ctx.electrolyte_type || ctx.electrolyte_window_min) {
+          const et = _safeTxt(ctx.electrolyte_type) || "-";
+          const ew = (typeof ctx.electrolyte_window_min === "number") ? `${ctx.electrolyte_window_min} min` : "-";
+          conf.push(`Electrolyte pick: ${et} (helped within: ${ew})`);
         }
 
-        for (const b of blocks) {
+        lines.push(`Confounders: ${ctx.nothing_unusual ? "NONE" : (conf.length ? conf.join("; ") : "—")}`);
+        lines.push(`Context: ${_ctxCodesExpanded(ctx) || "None"}`);
+
+        // Symptom shift
+        lines.push(`Symptom shift (0–10, 5 = baseline, higher = better):`);
+        lines.push(`  Brain fog: ${sd.brain_fog ?? "-"}`);
+        lines.push(`  Step-by-step gait effort: ${sd.gait_effort ?? "-"}`);
+        lines.push(`  Gait initiation effort: ${sd.gait_initiation ?? "-"}`);
+        lines.push(`  Sustained walking effort: ${sd.sustained_walking ?? "-"}`);
+        lines.push(`  Neurologic fatigue: ${sd.neurologic_fatigue ?? "-"}`);
+        lines.push(`  Sleep quality: ${sd.sleep_quality ?? "-"}`);
+        lines.push(`  Leg stiffness: ${sd.leg_stiffness ?? "-"}`);
+        lines.push(`  Post-rest stiffness: ${sd.post_rest_stiffness ?? "-"}`);
+        lines.push(`  Symptom volatility: ${sd.symptom_volatility ?? "-"}`);
+
+
+        if (a.neuromuscular_training_external) {
+          lines.push(`Neuromuscular training (external): ${_safeTxt(a.neuromuscular_training_external.label) || "-"} (level: ${a.neuromuscular_training_external.level ?? "-"})`);
+        } else {
+          lines.push(`Neuromuscular training (external): -`);
+        }
+
+        lines.push(`Daily summary: ${_safeTxt(a.daily_summary) || "-"}`);
+        lines.push(`Food notes: ${_safeTxt(a.food_notes) || "-"}`);
+        lines.push(`Notes: ${_safeTxt(a.notes) || "-"}`);
+
+        lines.push(`Adverse events logged: ${adv.length}`);
+        if (adv.length) {
+          adv.forEach((ev, i) => {
+            const desc = _safeTxt(ev.description) || "-";
+            const dur = (typeof ev.duration === "number") ? `${ev.duration} min` : "-";
+            const drv = _safeTxt(ev.driver) || "-";
+            const det = _safeTxt(ev.trigger_detail) || "-";
+            lines.push(`  ${i+1}. ${desc} | ${dur} | Driver: ${drv} | Detail: ${det}`);
+          });
+        }
+
+        lines.push(`Wins logged: ${win.length}`);
+        if (win.length) {
+          win.forEach((w, i) => {
+            const desc = _safeTxt(w.description) || "-";
+            const dur = (typeof w.duration === "number") ? `${w.duration} min` : "-";
+            const help = _safeTxt(w.helped) || "-";
+            const det = _safeTxt(w.trigger_detail) || "-";
+            lines.push(`  ${i+1}. ${desc} | ${dur} | Helped by: ${help} | Detail: ${det}`);
+          });
+        }
+
+        if (a.lab) {
+          lines.push(`Lab notes:`);
+          lines.push(`  Lab date: ${_safeTxt(a.lab.lab_date) || "-"}`);
+          lines.push(`  VLCFA (C26:0): ${_safeTxt(a.lab.vlcfa_c26_0) || "-"}`);
+          lines.push(`  Liver ALT/AST: ${_safeTxt(a.lab.liver_alt_ast) || "-"}`);
+          lines.push(`  Notes: ${_safeTxt(a.lab.notes) || "-"}`);
+        }
+
+        for (const line of lines) {
           if (y > 720) { pdf.addPage(); y = 54; }
-          y = _appendWrapped(pdf, b, margin, y, maxW, 12);
+          y = _appendWrapped(pdf, line, margin, y, maxW, 12);
         }
+
         y += 10;
-        pdf.setDrawColor(200);
+pdf.setDrawColor(200);
         pdf.line(margin, y, margin + maxW, y);
         y += 14;
       }
@@ -2640,7 +2832,7 @@ fast_markers: {
         y += 14;
       }
 
-      pdf.save(`Passenger_${startDate}_to_${endDate}.pdf`);
+      pdf.save(`Pilot_${startDate}_to_${endDate}.pdf`);
     }
 
     // Expose a single export runner to the non-module modal UI
@@ -2686,7 +2878,7 @@ fast_markers: {
     window.handlePilotSave = async function() {
       setBtn("p-save-log", true, "SAVING...");
       try {
-        await saveUserLog("patrick", collectPilotPayload());
+        await window.saveUserLog("patrick", collectPilotPayload());
         setBtn("p-save-log", false, "SAVED ✓");
         setTimeout(() => setBtn("p-save-log", false, "SAVE DAILY LOG"), 1200);
       } catch(e) {
@@ -2740,7 +2932,7 @@ fast_markers: {
     window.handlePassengerSave = async function() {
       setBtn("n-save-log", true, "SAVING...");
       try {
-        await saveUserLog("nieve", collectPassengerPayload());
+        await window.saveUserLog("nieve", collectPassengerPayload());
         setBtn("n-save-log", false, "SAVED ✓");
         setTimeout(() => setBtn("n-save-log", false, "SAVE DAILY LOG"), 1200);
       } catch(e) {
@@ -2758,13 +2950,14 @@ fast_markers: {
     window.handleLabSave = async function() {
       setBtn("lab-save-results-btn", true, "SAVING...");
       try {
-        await saveUserLog("patrick", collectLabPayload());
-        setBtn("lab-save-results-btn", false, "SAVED ✓");
-        setTimeout(() => setBtn("lab-save-results-btn", false, "SAVE LAB RESULTS ONLY"), 1600);
-      } catch(e) {
+        const payload = collectLabPayload();
+        await window.saveUserLog("patrick", payload);
+        setBtn("lab-save-results-btn", false, "SAVE RESULTS");
+        showToast("Lab results saved.");
+      } catch (e) {
         console.error(e);
-        setBtn("lab-save-results-btn", false, "SAVE LAB RESULTS ONLY");
-        alert("Lab save failed: " + (e.message || e));
+        setBtn("lab-save-results-btn", false, "SAVE RESULTS");
+        alert("Lab save failed: " + (e?.message || e));
       }
     };
 
