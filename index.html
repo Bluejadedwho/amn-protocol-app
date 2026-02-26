@@ -1759,7 +1759,9 @@ window.__enterDemoMode = function __enterDemoMode() {
 };
 
 
-  function showToast(message, opts = {}) {
+  function showToast(message, opts = {}
+  window.showToast = showToast;
+) {
     try {
       const duration = typeof opts.duration === 'number' ? opts.duration : 2500;
       let toast = document.getElementById('toast');
@@ -2333,6 +2335,8 @@ fast_markers: {
       const snapshot = await q.get();
       return snapshot.docs.map((d) => d.data());
     }
+      window.fetchPatientLogsInRange = fetchPatientLogsInRange;
+
 
 
     // Fetch last N logs (default 30), ordered by date desc.
@@ -2344,6 +2348,8 @@ fast_markers: {
       const snapshot = await q.get();
       return snapshot.docs.map((d) => d.data());
     }
+      window.fetchPatientLogs = fetchPatientLogs;
+
 
     function _safeTxt(v) {
       const s = String(v ?? "");
@@ -2637,6 +2643,15 @@ fast_markers: {
                 // Lab results are printed in a dedicated section earlier in the PDF.
 
 lines.push(`Vitals: ${a.vitals || "-"}`);
+
+        // Periodic labs (optional)
+        const lab = a.lab || {};
+        const labDate = _safeTxt(lab.date || "");
+        const labV = (lab.vlcfa_c26_0 ?? lab.vlcfa ?? "");
+        const labL = (lab.liver_alt_ast ?? lab.liver ?? "");
+        const labN = _safeTxt(lab.notes || "-");
+        lines.push(`Periodic labs${labDate ? ' (' + labDate + ')' : ''}: VLCFA C26:0 ${labV || '-'}  |  Liver ALT/AST ${labL || '-'}  |  Notes: ${labN}`);
+
         lines.push(`Baseline rating: ${_safeTxt(a.baseline_rating) || "-"} (confidence: ${_safeTxt(a.baseline_confidence) || "-"})`);
         lines.push(`Energy/capacity: ${a.energy_capacity ?? "-"} /10 (confidence: ${_safeTxt(a.energy_confidence) || "-"})`);
 
@@ -2837,7 +2852,7 @@ pdf.setDrawColor(200);
 
     // Expose a single export runner to the non-module modal UI
     window.__EXPORT_RUN = async function({ patientId, label, start, end, dir, patientName, patientDob }) {
-      const logs = await fetchPatientLogsInRange(patientId, start, end, dir);
+      const logs = await window.fetchPatientLogsInRange(patientId, start, end, dir);
       if (patientId === "patrick") {
         await generatePilotPDF(logs, label || "Pilot", start, end, dir, { patientName, patientDob });
       } else {
@@ -2953,7 +2968,7 @@ pdf.setDrawColor(200);
         const payload = collectLabPayload();
         await window.saveUserLog("patrick", payload);
         setBtn("lab-save-results-btn", false, "SAVE RESULTS");
-        showToast("Lab results saved.");
+        window.showToast("Lab results saved.");
       } catch (e) {
         console.error(e);
         setBtn("lab-save-results-btn", false, "SAVE RESULTS");
@@ -3009,7 +3024,7 @@ pdf.setDrawColor(200);
     window.renderTrends = async function() {
       // lightweight summary text only (avoid blocking UI)
       try {
-        const logs = await fetchPatientLogs("patrick", 30);
+        const logs = await window.fetchPatientLogs("patrick", 30);
         const elSum = el("change-summary");
         if (!elSum) return;
 
@@ -3132,7 +3147,7 @@ pdf.setDrawColor(200);
 
     window.renderTrendsCharts = async function() {
       try {
-        const logs = await fetchPatientLogs("patrick", 30);
+        const logs = await window.fetchPatientLogs("patrick", 30);
         const ordered = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
         const labels = ordered.map(l => l.date || "");
 
@@ -3169,7 +3184,7 @@ pdf.setDrawColor(200);
       const host = el("trends-details-content");
       if (!host) return;
 
-      const logs = await fetchPatientLogs("patrick", 365); // pilot history (same collection used in Trends)
+      const logs = await window.fetchPatientLogs("patrick", 365); // pilot history (same collection used in Trends)
       const rows = [];
 
       function pushMetric(key, label, getter) {
