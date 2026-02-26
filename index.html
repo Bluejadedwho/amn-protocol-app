@@ -597,6 +597,69 @@ body.modal-open {
   padding-bottom: 56px;
 }
 
+/* --- REPORT VIEW & PRINT STYLES --- */
+#report-view {
+  display: none;
+  background: #ffffff;
+  color: #000000;
+  padding: 20px;
+  font-family: 'Inter', sans-serif;
+}
+
+.report-header {
+  border-bottom: 2px solid #000;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+}
+.report-header h1 { font-size: 24px; margin: 0 0 5px 0; font-weight: 800; color: #000; }
+.report-header p { margin: 2px 0; font-size: 12px; color: #333; }
+
+.report-day-block {
+  page-break-after: always;
+  margin-bottom: 30px;
+}
+.report-day-block:last-child { page-break-after: auto; }
+
+.day-title {
+  background: #f0f0f5;
+  padding: 10px;
+  font-size: 18px;
+  font-weight: 800;
+  border-left: 4px solid var(--accent-blue);
+  margin-bottom: 15px;
+}
+
+.report-section {
+  margin-bottom: 15px;
+}
+.report-section h3 {
+  font-size: 14px;
+  color: var(--accent-blue);
+  border-bottom: 1px solid #eee;
+  padding-bottom: 4px;
+  margin: 0 0 8px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.report-section p { margin: 4px 0; font-size: 13px; line-height: 1.4; color: #111; }
+.report-section ul { margin: 4px 0; padding-left: 20px; font-size: 13px; }
+.report-section li { margin-bottom: 3px; }
+
+/* Print Media Query */
+@media print {
+  body * { visibility: hidden; }
+  body { background: #fff; margin: 0; padding: 0; }
+  #app-container { display: none !important; }
+  #report-view, #report-view * { visibility: visible; }
+  #report-view {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
+
 </style>
 <script>
     function byId(id){ return document.getElementById(id); }
@@ -883,6 +946,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 </style>
 </head>
 <body>
+<div id="report-view"></div>
 <div id="auth-overlay">
 <div id="auth-card">
 <h2>Sign in</h2>
@@ -1701,6 +1765,7 @@ function setAuthError(msg) {
       setAuthError('You opened this page as a local file (file://). Cloud login will not work in file mode. Use the Netlify URL, or run a local server (e.g., “python3 -m http.server”) and open http://localhost:8000. You can still use “View demo (read-only)”.');
     }
 
+    // --- FIREBASE INITIALIZATION ---
     const firebaseConfig = {
       apiKey: "AIzaSyDrklblxcbR3TxTOMgsEB4ZgKNE2F1Au98",
       authDomain: "pioneer-program.firebaseapp.com",
@@ -1710,11 +1775,17 @@ function setAuthError(msg) {
       appId: "1:773361494367:web:15aee1471b181413d1eeea"
     };
 
+    // 1. Initialize once
     let auth = null;
     let db = null;
     try {
       if (window.firebase && typeof firebase.initializeApp === 'function') {
-        firebase.initializeApp(firebaseConfig);
+        if (!firebase.apps.length) {
+          firebase.initializeApp(firebaseConfig);
+        }
+
+        // 2. Create db reference once globally.
+        // Do not call firebase.firestore() anywhere else in your functions.
         db = firebase.firestore();
         auth = firebase.auth();
         window.__AUTH_MODULE_LOADED__ = true;
@@ -1725,13 +1796,14 @@ function setAuthError(msg) {
           signUp: (email, pass) => auth.createUserWithEmailAndPassword(email, pass),
           signOut: () => auth.signOut()
         };
-
       }
     } catch (e) {
       console.error('Firebase bootstrap failed:', e);
       window.__AUTH_MODULE_LOADED__ = false;
       setAuthError('Cloud login failed to initialize. If you are on iPhone Safari, try disabling content blockers for this site and reloading. You can still use “View demo (read-only)”.');
     }
+
+    // Note: Do NOT call db.enablePersistence() or db.terminate() anywhere in the code.
 
     // If Firebase didn't initialize, keep the page usable (demo still works).
     if (!window.__AUTH_MODULE_LOADED__ || !auth || !db) {
@@ -2181,17 +2253,33 @@ fast_markers: {
       };
     }
 
-    async function saveUserLog(profile, data) {
-      // Path: users/{profile}/logs/{date}
-      // doc() expects even segments: col, doc, col, doc.
-      // We pass: "users", profile, "logs", data.date
-      const ref = db.doc(userProfilePath(profile, "logs", data.date));
-      const payload = {
-        ...data,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        clientUpdatedAt: new Date().toISOString()
-      };
-      await ref.set(payload, { merge: true });
+    async function saveUserLog(profileId, payload) {
+      try {
+        const uid = window.CURRENT_UID;
+        if (!uid) throw new Error("Not authenticated");
+
+        // Ensure date exists
+        const dateStr = payload.date || localDateStr();
+        const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
+
+        const finalPayload = {
+          ...payload,
+          date: dateStr,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          clientUpdatedAt: new Date().toISOString()
+        };
+
+        await docRef.set(finalPayload, { merge: true });
+      } catch (err) {
+        if (err?.message && String(err.message).toLowerCase().includes('terminated')) {
+          alert("Database connection interrupted. The page will now refresh to restore connection.");
+          window.location.reload();
+          return;
+        }
+        console.error("Save error:", err);
+        alert("Failed to save: " + (err?.message || err));
+        throw err;
+      }
     }
 
     // --- PDF EXPORT (range + dense table + notes appendix) ---
@@ -2654,14 +2742,222 @@ fast_markers: {
       pdf.save(`Passenger_${startDate}_to_${endDate}.pdf`);
     }
 
-    // Expose a single export runner to the non-module modal UI
-    window.__EXPORT_RUN = async function({ patientId, label, start, end, dir, patientName, patientDob }) {
-      const logs = await fetchPatientLogsInRange(patientId, start, end, dir);
-      if (patientId === "patrick") {
-        await generatePilotPDF(logs, label || "Pilot", start, end, dir, { patientName, patientDob });
-      } else {
-        await generatePassengerPDF(logs, label || "Passenger", start, end, dir, { patientName, patientDob });
+    // Helper to render blank instead of "null" or "undefined"
+    function valRender(val, suffix = "") {
+      if (val === null || val === undefined || val === "") return "";
+      return val + suffix;
+    }
+    function yesNo(val) {
+      if (val === null || val === undefined) return "";
+      return val ? "Yes" : "No";
+    }
+
+    async function exportProtocolReport(profileId) {
+      const uid = window.CURRENT_UID;
+      if (!uid) {
+        alert("Must be logged in to export.");
+        return;
       }
+
+      try {
+        // 1. Fetch data safely
+        const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
+        const snapshot = await logsRef.orderBy("date", "desc").get();
+
+        if (snapshot.empty) {
+          alert("No data found to export.");
+          return;
+        }
+
+        const logs = [];
+        snapshot.forEach(doc => logs.push(doc.data()));
+
+        // 2. Generate HTML Report
+        const pn = document.getElementById('export-patient-name')?.value || "Patient";
+        const dob = document.getElementById('export-patient-dob')?.value || "";
+
+        let html = `
+          <div class="report-header">
+            <h1>Protocol Report: ${pn}</h1>
+            ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ''}
+            <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Records:</strong> ${logs.length}</p>
+          </div>
+        `;
+
+        const bpRender = (v) => {
+          if (!v || typeof v !== 'object') return '';
+          if (v.bp) return v.bp;
+          if (v.bp_sys && v.bp_dia) return `${v.bp_sys}/${v.bp_dia}`;
+          return '';
+        };
+
+        logs.forEach(log => {
+          // Safely default objects (support both legacy + current schemas)
+          const vAm = log.vitals?.morning || {};
+          const vPm = log.vitals?.evening || {};
+
+          const rate = log.ratings || {
+            global_baseline: log.baseline_rating,
+            baseline_confidence: log.baseline_confidence,
+            energy_capacity: log.energy_capacity,
+            energy_confidence: log.energy_confidence,
+            pain_level: log.symptom_drift?.pain_level,
+            sleep_quality: log.symptom_drift?.sleep_quality,
+            leg_stiffness: log.symptom_drift?.leg_stiffness,
+            post_rest_stiffness: log.symptom_drift?.post_rest_stiffness,
+            symptom_volatility: log.symptom_drift?.symptom_volatility,
+            brain_fog: log.symptom_drift?.brain_fog,
+            neurologic_fatigue: log.symptom_drift?.neurologic_fatigue,
+            gait_effort: log.symptom_drift?.gait_effort
+          };
+
+          const pImp = log.pain_impact || {
+            severity: log.pain_impact?.severity,
+            primary_driver: log.pain_impact?.primary_driver,
+            interfered_with_sleep: log.pain_impact?.interfered_with_sleep,
+            limited_walking: log.pain_impact?.limited_walking,
+            forced_rest_breaks: log.pain_impact?.forced_rest_breaks,
+            required_meds: log.pain_impact?.required_meds,
+            changed_gait: log.pain_impact?.changed_gait
+          };
+
+          const legacyPain = log.pain_impact || {};
+          if (pImp.forced_rest_breaks === undefined && legacyPain.forced_extra_rest !== undefined) pImp.forced_rest_breaks = legacyPain.forced_extra_rest;
+          if (pImp.required_meds === undefined && legacyPain.required_rescue_meds !== undefined) pImp.required_meds = legacyPain.required_rescue_meds;
+          if (pImp.changed_gait === undefined && legacyPain.changed_gait_mechanics !== undefined) pImp.changed_gait = legacyPain.changed_gait_mechanics;
+
+          const conf = log.confounders || log.context_changes || {};
+          const shift = log.symptom_shift || log.symptom_drift || {};
+          const ext = log.external_variables || log.external_neuromuscular_training || {};
+          const labs = log.periodic_labs || log.lab || {};
+
+          const proto = log.protocol || log.protocol_adherence || {};
+
+          html += `<div class="report-day-block">
+            <div class="day-title">Date: ${valRender(log.date)}</div>`;
+
+          // 2. Protocol Adherence
+          html += `<div class="report-section"><h3>Protocol Adherence</h3>
+            <p>NA: ${yesNo(proto.nervonic_acid_taken)}, NAC: ${yesNo(proto.nac_taken)}, ALA: ${yesNo(proto.r_ala_taken)}, Vit E: ${yesNo(proto.vitamin_e_taken)}</p>
+          </div>`;
+
+          // 3. Vitals (Do not drop BP)
+          html += `<div class="report-section"><h3>Vitals AM & PM</h3>
+            <p><strong>AM:</strong> BP: ${valRender(bpRender(vAm))} | HR: ${valRender(vAm.hr, " bpm")}</p>
+            <p><strong>PM:</strong> BP: ${valRender(bpRender(vPm))} | HR: ${valRender(vPm.hr, " bpm")}</p>
+          </div>`;
+
+          // 4. Baseline & 5. Energy
+          html += `<div class="report-section"><h3>Global Status</h3>
+            <p>Baseline Rating: ${valRender(rate.global_baseline)} (Confidence: ${valRender(rate.baseline_confidence)})</p>
+            <p>Energy/Capacity: ${valRender(rate.energy_capacity)} (Confidence: ${valRender(rate.energy_confidence)})</p>
+          </div>`;
+
+          // 6. Fast Markers
+          html += `<div class="report-section"><h3>Fast Markers (0-10)</h3>
+            <ul>
+              <li>Pain: ${valRender(rate.pain_level)}</li>
+              <li>Sleep: ${valRender(rate.sleep_quality)}</li>
+              <li>Leg Stiffness: ${valRender(rate.leg_stiffness)}</li>
+              <li>Post-rest Stiffness: ${valRender(rate.post_rest_stiffness)}</li>
+              <li>Symptom Volatility: ${valRender(rate.symptom_volatility)}</li>
+              <li>Brain Fog: ${valRender(rate.brain_fog)}</li>
+              <li>Neuro Fatigue: ${valRender(rate.neurologic_fatigue)}</li>
+              <li>Gait Effort: ${valRender(rate.gait_effort)}</li>
+            </ul>
+          </div>`;
+
+          // 7. Pain Impact
+          html += `<div class="report-section"><h3>Pain Impact</h3>
+            <p>Severity: ${valRender(pImp.severity)} | Driver: ${valRender(pImp.primary_driver)}</p>
+            <p>Interfered sleep: ${yesNo(pImp.interfered_with_sleep)}, Limited walk: ${yesNo(pImp.limited_walking)}, Forced rest: ${yesNo(pImp.forced_rest_breaks)}, Meds: ${yesNo(pImp.required_meds)}, Changed gait: ${yesNo(pImp.changed_gait)}</p>
+          </div>`;
+
+          // 8. Confounders
+          html += `<div class="report-section"><h3>Confounders</h3>
+            <p>Missed dose: ${yesNo(conf.missed_dose)}, New supp: ${yesNo(conf.new_supplement)}, New med: ${yesNo(conf.new_medication)}, Travel/Schedule: ${yesNo(conf.travel_or_schedule_change)}, High stress: ${valRender(conf.high_stress)}, Infection: ${yesNo(conf.infection_symptoms)}, GI: ${yesNo(conf.gi_or_dehydration)}, None: ${yesNo(conf.nothing_unusual)}</p>
+          </div>`;
+
+          // 9. Symptom Shift
+          html += `<div class="report-section"><h3>Symptom Shift</h3>
+            <p>Motor: ${valRender(shift.motor_control)}, Sensory: ${valRender(shift.sensory)}, Cognitive: ${valRender(shift.cognitive)}, Bladder/Bowel: ${valRender(shift.bladder_bowel)}</p>
+          </div>`;
+
+          // 10. External Variables
+          html += `<div class="report-section"><h3>External Variables</h3>
+            <p>Neuro Training Level: ${valRender(ext.neuromuscular_training_level ?? ext.neuromuscular_training_level ?? ext.level)}</p>
+          </div>`;
+
+          // 11. Periodic Labs
+          const vlcfaVal = labs.vlcfa ?? labs.vlcfa_c26;
+          const liverVal = labs.liver_alt_ast;
+          const labsNotes = labs.notes;
+          if (vlcfaVal || liverVal || labsNotes) {
+            html += `<div class="report-section"><h3>Periodic Lab Results</h3>
+              <p>VLCFA: ${valRender(vlcfaVal)}</p>
+              <p>Liver (ALT/AST): ${valRender(liverVal)}</p>
+              <p>Notes: ${valRender(labsNotes)}</p>
+            </div>`;
+          }
+
+          // 12. Functional Tests
+          html += `<div class="report-section"><h3>Functional Tests</h3>`;
+          if (log.functional_tests && log.functional_tests.length > 0) {
+            log.functional_tests.forEach(ft => {
+              html += `<p>Type: ${valRender(ft.test_type)} | Duration: ${valRender(ft.duration_seconds)}s | Distance: ${valRender(ft.distance_meters)}m | Notes: ${valRender(ft.notes)}</p>`;
+            });
+          } else {
+            html += `<p>None</p>`;
+          }
+          html += `</div>`;
+
+          // 13. Food & 14. General
+          html += `<div class="report-section"><h3>Notes</h3>
+            <p><strong>Food:</strong> ${valRender(log.food_notes)}</p>
+            <p><strong>General:</strong> ${valRender(log.general_notes)}</p>
+          </div>`;
+
+          // 15. Adverse Events
+          html += `<div class="report-section"><h3>Adverse Events</h3>`;
+          if (log.adverse_events && log.adverse_events.length > 0) {
+            log.adverse_events.forEach(ae => html += `<p>• ${valRender(ae.description)} (Dur: ${valRender(ae.duration_min)}m, Trigger: ${valRender(ae.trigger)})</p>`);
+          } else { html += `<p>None</p>`; }
+          html += `</div>`;
+
+          // 16. Wins
+          html += `<div class="report-section"><h3>Wins</h3>`;
+          if (log.wins && log.wins.length > 0) {
+            log.wins.forEach(w => html += `<p>• ${valRender(w.description)} (Dur: ${valRender(w.duration_min)}m, Trigger: ${valRender(w.trigger)})</p>`);
+          } else { html += `<p>None</p>`; }
+          html += `</div>`;
+
+          // 17. Daily Summary
+          html += `<div class="report-section"><h3>Daily Summary</h3>
+            <p>${valRender(log.daily_summary)}</p>
+          </div>`;
+
+          html += `</div>`; // End day block
+        });
+
+        // 3. Inject and Print
+        const reportView = document.getElementById('report-view');
+        reportView.innerHTML = html;
+
+        // Trigger the native print dialog (saves to PDF styled cleanly via CSS)
+        window.print();
+
+        // Clean up memory after print
+        setTimeout(() => { reportView.innerHTML = ""; }, 1000);
+      } catch (err) {
+        console.error("Export error:", err);
+        alert("Export failed: " + err.message);
+      }
+    }
+
+    // Expose a single export runner to the non-module modal UI
+    window.__EXPORT_RUN = async function({ patientId }) {
+      await exportProtocolReport(patientId || "patrick");
     };
 
     function setBtn(btnId, busy, text) {
