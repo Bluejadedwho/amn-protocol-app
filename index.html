@@ -1758,10 +1758,9 @@ window.__enterDemoMode = function __enterDemoMode() {
   }
 };
 
+  function showToast(message, opts) {
+    opts = opts || {};
 
-  function showToast(message, opts = {}
-  window.showToast = showToast;
-) {
     try {
       const duration = typeof opts.duration === 'number' ? opts.duration : 2500;
       let toast = document.getElementById('toast');
