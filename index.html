@@ -3339,6 +3339,16 @@ pdf.setDrawColor(200);
   attachScrollChevron('overview-modal');
   attachScrollChevron('export-modal');
 })();
+
+// --- Global exports (Safari / inline handlers)
+try {
+  if (typeof showToast === 'function') window.showToast = showToast;
+  if (typeof fetchPatientLogsInRange === 'function') window.fetchPatientLogsInRange = fetchPatientLogsInRange;
+  if (typeof saveUserLog === 'function') window.saveUserLog = saveUserLog;
+  if (typeof generatePilotPDF === 'function') window.generatePilotPDF = generatePilotPDF;
+} catch (e) { /* no-op */ }
 </script>
+
+<div id="buildBadge" style="position:fixed;bottom:8px;left:10px;font-size:12px;color:#8E8E93;opacity:0.7;z-index:9999;">Build: v12-2026-02-25</div>
 </body>
 </html>
