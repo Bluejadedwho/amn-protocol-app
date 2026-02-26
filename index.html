@@ -2392,6 +2392,45 @@ fast_markers: {
       return parts.join(" ");
     }
 
+    // Expanded, human-readable context codes for PDF/export (keeps abbreviations for compact UI)
+    function _ctxCodesExpanded(ctx){
+      if (!ctx) return "None";
+      const parts = [];
+
+      // Sleep / rest
+      if (ctx.sleepPoor) parts.push("Poor sleep / fragmented sleep");
+      if (ctx.forcedRest) parts.push("Forced rest day");
+      if (ctx.sleepInterrupted) parts.push("Sleep interrupted");
+
+      // Exertion / training
+      if (ctx.unusualExertion) parts.push("Unusual exertion (more than usual)");
+      if (ctx.ptOrTrainingShift) parts.push("PT/training session changed or unusually intense");
+
+      // Meds / protocol deviations
+      if (ctx.missedDose) parts.push("Missed dose");
+      if (ctx.extraMeds) parts.push("Extra meds / rescue meds used");
+      if (ctx.protocolMiss) parts.push("Protocol adherence miss");
+
+      // Hydration/electrolytes / illness
+      if (ctx.giOrIllness) parts.push("GI issue or illness");
+      if (ctx.dehydration) parts.push("Dehydration / low fluids");
+      if (ctx.highSalt) parts.push("Higher salt than usual");
+      if (ctx.lowSalt) parts.push("Lower salt than usual");
+      if (ctx.highPotassium) parts.push("Higher potassium than usual");
+      if (ctx.lowPotassium) parts.push("Lower potassium than usual");
+
+      // Other stressors
+      if (ctx.travel) parts.push("Travel");
+      if (ctx.stressEvent) parts.push("Acute stress event");
+
+      // Backward compatibility: some earlier builds stored a free-text field
+      if (ctx.other && String(ctx.other).trim()) parts.push(`Other: ${String(ctx.other).trim()}`);
+
+      return parts.length ? parts.join("; ") : "None";
+    }
+    window._ctxCodesExpanded = _ctxCodesExpanded;
+
+
     function _protoPilot(p) {
       if (!p) return "";
       const yn = (b) => (b ? "Y" : "N");
@@ -2700,7 +2739,9 @@ lines.push(`Vitals: ${a.vitals || "-"}`);
         }
 
         lines.push(`Confounders: ${ctx.nothing_unusual ? "NONE" : (conf.length ? conf.join("; ") : "—")}`);
-        lines.push(`Context: ${_ctxCodesExpanded(ctx) || "None"}`);
+        lines.push('Context flags:');
+        lines.push(`  ${_ctxCodesExpanded(ctx) || "None"}`);
+        lines.push(`  Codes: ${_ctxCodes(ctx) || "None"}`);
 
         // Symptom shift
         lines.push(`Symptom shift (0–10, 5 = baseline, higher = better):`);
