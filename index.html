@@ -2179,7 +2179,7 @@ function collectPilotPayload() {
 
       return {
         date,
-        baseline_rating: mustEnum(val("p-global-rating"), ["much_worse","worse","same","better","much_better"], null),
+        baseline_rating: mustEnum(val("p-global-rating"), ["much_worse","worse","slightly_worse","baseline","slightly_better","better","much_better"], null),
         baseline_confidence: mustEnum(val("p-global-confidence"), ["low","medium","high"], null),
 
         energy_capacity: asNumber(val("p-energy-capacity")),
@@ -2352,6 +2352,13 @@ fast_markers: {
     }
 
 
+    function _prettyEnum(v){
+      if(v == null) return null;
+      const s = String(v).trim();
+      if(!s) return null;
+      return s.replace(/_/g, " ").replace(/\w/g, c => c.toUpperCase());
+    }
+
     function _yesNo(v) { return v ? "Yes" : "No"; }
 
     function _fmtSymptomShift(sd) {
@@ -2453,7 +2460,9 @@ fast_markers: {
       switch (v) {
         case "much_worse": return "MW";
         case "worse": return "W";
-        case "same": return "S";
+        case "slightly_worse": return "sW";
+        case "baseline": return "BL";
+        case "slightly_better": return "sB";
         case "better": return "B";
         case "much_better": return "MB";
         default: return "-";
@@ -2886,14 +2895,39 @@ fast_markers: {
     try {
       const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/tests`);
       const testsSnap = await testsRef.get();
+      const seen = new Set(); // de-dupe across accidental duplicates
       testsSnap.forEach(d => {
         const t = d.data() || {};
         const td = String(t.test_date || t.date || "").trim();
         if (!td) return;
         if (startDate && td < startDate) return;
         if (endDate && td > endDate) return;
+
+        // Build a stable signature (doc id + key metrics) so duplicate docs don't render twice.
+        const sig = [
+          d.id,
+          td,
+          t.six_minute_distance_m ?? t.six_minute_walk_m ?? "",
+          t.six_minute_rest_breaks ?? "",
+          t.six_minute_device ?? "",
+          t.six_minute_course_m ?? "",
+          t.six_minute_rpe ?? "",
+          t.sit_to_stand_time_s ?? "",
+          t.sit_to_stand_used_arms ?? "",
+          t.sit_to_stand_chair_height_cm ?? "",
+          (t.notes ?? "").trim()
+        ].join("|");
+
+        if (seen.has(sig)) return;
+        seen.add(sig);
+
         if (!testsByDate[td]) testsByDate[td] = [];
-        testsByDate[td].push(t);
+        testsByDate[td].push({ _id: d.id, ...t });
+      });
+
+      // Optional: keep most recent first if a user ran multiple tests same day.
+      Object.keys(testsByDate).forEach(k => {
+        testsByDate[k].sort((a,b) => String(b.created_at || b.ts || "").localeCompare(String(a.created_at || a.ts || "")));
       });
     } catch (e) {
       console.warn("Could not load functional tests:", e);
@@ -2949,7 +2983,7 @@ fast_markers: {
 
       // Global status
       html += `<div class="report-section"><h3>Global Status</h3>
-        <p>Baseline Rating: ${vr(pick(log, "baseline_rating", "global_baseline"))} (Confidence: ${vr(pick(log, "baseline_confidence"))})</p>
+        <p>Baseline Rating: ${vr(_prettyEnum(pick(log, "baseline_rating", "global_baseline")))} (Confidence: ${vr(_prettyEnum(pick(log, "baseline_confidence")))})</p>
         <p>Energy/Capacity: ${vr(pick(log, "energy_capacity"))} (Confidence: ${vr(pick(log, "energy_confidence"))})</p>
       </div>`;
 
