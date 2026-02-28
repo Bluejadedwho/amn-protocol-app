@@ -3020,6 +3020,8 @@ fast_markers: {
 
         ${(vr(pick(ctx, "electrolyte_rescue_type")) !== "N/A" || helpedWithinLabel) ? `<p><strong>Electrolyte rescue details:</strong>
            Type: ${vr(pick(ctx, "electrolyte_rescue_type"))}${helpedWithinLabel ? `, Helped within: ${helpedWithinLabel}` : ""}</p>` : ""}
+      </div>`;
+
       // External Variables
       html += `<div class="report-section"><h3>External Variables</h3>
         <p>Neuromuscular training: ${vr(pick(ext, "label", "nmt_label"))} (Level: ${vr(pick(ext, "level", "nmt_level"))})</p>
@@ -3057,7 +3059,6 @@ fast_markers: {
 
 
 
-      </div>`;
 
 
 
