@@ -2,7 +2,6 @@
 
 <html lang="en">
 <head>
-    <!-- test update 2026-02-27 -->
 <script>window.__AUTH_MODULE_LOADED__ = false;</script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
@@ -14,7 +13,7 @@
 <link href="icon.png" rel="apple-touch-icon"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&amp;display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
     :root {
@@ -782,7 +781,7 @@ body.modal-open {
       const dob = byId('export-patient-dob');
       const lsNameKey = `patient_name_${target?.patientId || 'unknown'}`;
       const lsDobKey = `patient_dob_${target?.patientId || 'unknown'}`;
-      const defaultName = (target?.patientId === 'patrick') ? 'Patrick Fuellebeck' : (target?.patientId === 'nieve' ? 'Nieve' : '');
+      const defaultName = (target?.patientId === 'patrick') ? 'Patrick Fuellbeck' : (target?.patientId === 'nieve' ? 'Nieve' : '');
       if (pn) pn.value = localStorage.getItem(lsNameKey) || defaultName;
       if (dob) dob.value = localStorage.getItem(lsDobKey) || '';
 
@@ -842,7 +841,13 @@ body.modal-open {
       const btn = byId('export-run-btn');
       if(btn){ btn.disabled = true; btn.textContent = 'GENERATING...'; }
       try{
-        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob });
+        // Open a dedicated print window immediately (keeps print allowed on Safari)
+        const printWin = window.open("", "_blank");
+        if(!printWin){
+          alert("Popup blocked. Please allow popups for this site to export PDF.");
+          return;
+        }
+        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob, printWindow: printWin });
         window.closeExportModal();
       } catch(e){
         console.error(e);
@@ -961,7 +966,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 <button class="secondary" id="auth-signup" type="button">Create account</button>
 </div>
 <div class="row" style="margin-top:10px;">
-<button class="secondary" id="auth-demo" style="width:100%;" type="button">View demo (read-only)</button>
+<button class="secondary" id="auth-demo" style="width:100%;" type="button">View read-only</button>
 </div>
 <div id="auth-error"></div>
 </div>
@@ -1007,7 +1012,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 <div class="row2" style="display:flex; gap:12px; margin-top:12px;">
 <div class="input-group" style="flex:2;">
 <label>Patient name (for PDF header)</label>
-<input id="export-patient-name" placeholder="Patrick Fuellebeck" type="text"/>
+<input id="export-patient-name" placeholder="Patrick Fuellbeck" type="text"/>
 </div>
 <div class="input-group" style="flex:1;">
 <label>DOB (YYYY-MM-DD)</label>
@@ -1896,9 +1901,31 @@ function setAuthError(msg) {
       else o.setAttribute("hidden", "hidden");
     }
 
+    function setCloudActionsEnabled(enabled) {
+      // In demo mode, cloud actions stay disabled.
+      if (window.__DEMO_MODE__) enabled = false;
+      const ids = [
+        "p-save-log",
+        "n-save-log",
+        "lab-save-results-btn",
+        "clinician-export-btn",
+        "export-run-btn"
+      ];
+      ids.forEach((id) => {
+        const b = document.getElementById(id);
+        if (!b) return;
+        b.disabled = !enabled;
+        b.style.opacity = enabled ? "" : "0.5";
+        b.style.cursor = enabled ? "" : "not-allowed";
+        b.title = enabled ? "" : "Sign in required";
+      });
+    }
+
+
     function enterDemoMode() {
       window.__DEMO_MODE__ = true;
       showAuthOverlay(false);
+      setCloudActionsEnabled(false);
       // Disable cloud write actions
       const disableIds = [
         "p-save-log",
@@ -1958,7 +1985,9 @@ function setAuthError(msg) {
     // If you are not signed in, the app will prompt once and then stay signed in on this device.
     auth.onAuthStateChanged((user) => {
       window.CURRENT_UID = user?.uid || null;
+      setCloudActionsEnabled(!!window.CURRENT_UID);
       showAuthOverlay(!window.CURRENT_UID);
+      if (window.CURRENT_UID) { try { window.__DEMO_MODE__ = false; } catch(e){} }
     });
 
     // --- NO AUTH / NO DEVICE ID ---
@@ -2093,13 +2122,14 @@ function setAuthError(msg) {
       const addPos = document.getElementById("p-add-positive-event") || document.getElementById("add-positive-event");
       const addAdv = document.getElementById("p-add-adverse-event") || document.getElementById("add-adverse-event");
 
-      if (addPos && posWrap) {
+      if (addPos && posWrap && !addPos.getAttribute("onclick")) {
         addPos.addEventListener("click", () => {
           posWrap.appendChild(newEpisodeItem("positive"));
         });
       }
 
-      if (addAdv && advWrap) {
+
+      if (addAdv && advWrap && !addAdv.getAttribute("onclick")) {
         addAdv.addEventListener("click", () => {
           advWrap.appendChild(newEpisodeItem("adverse"));
         });
@@ -2157,9 +2187,9 @@ function collectPilotPayload() {
 
         symptom_drift: {
           brain_fog: asNumber(val("p-fog")),
-          gait_effort: asNumber(val("p-gait")),
-          gait_initiation: asNumber(val("p-gait-init")),
-          sustained_walking: asNumber(val("p-gait-sustain")),
+          step_gait_effort: asNumber(val("p-gait")),
+          gait_initiation_effort: asNumber(val("p-gait-init")),
+          sustained_walking_effort: asNumber(val("p-gait-sustain")),
           neurologic_fatigue: asNumber(val("p-fatigue")),
           sleep_quality: asNumber(val("p-sleep")),
           leg_stiffness: asNumber(val("p-stiff")),
@@ -2178,17 +2208,28 @@ function collectPilotPayload() {
         },
 
         context_changes: {
-          poor_sleep: checked("p-conf-sleep"),
-          unusual_exertion: checked("p-conf-exertion"),
+          poor_sleep_last_night: checked("p-conf-sleep"),
+          unusual_physical_exertion: checked("p-conf-exertion"),
+
+          // Pharmacologic changes (accordion)
+          pharmacologic_changes: checked("p-conf-pharm"),
           medication_timing_change: checked("p-conf-medtiming"),
           dose_change: checked("p-conf-dosechange"),
           missed_dose: checked("p-conf-misseddose"),
-          new_supplement: checked("p-conf-newsupp"),
-          new_medication: checked("p-conf-newmed"),
-          travel_or_schedule_change: checked("p-conf-travel"),
+          new_supplement_added: checked("p-conf-newsupp"),
+          new_medication_added: checked("p-conf-newmed"),
+          pharmacologic_notes: trimText(val("p-conf-pharm-notes")) || null,
+
+          travel_or_disrupted_schedule: checked("p-conf-travel"),
           high_stress: (asNumber(val("p-conf-stress")) ?? 0),
           infection_symptoms: checked("p-conf-infection"),
-          gi_or_dehydration: checked("p-conf-gi"),
+          gi_upset_or_dehydration_risk: checked("p-conf-gi"),
+
+          // Electrolyte-related night pain quick pick
+          night_pain_likely_electrolyte_related: checked("p-conf-elec"),
+          electrolyte_rescue_type: val("p-conf-elec-type") || "",
+          electrolyte_rescue_helped_within: val("p-conf-elec-window") || "",
+
           nothing_unusual: checked("p-conf-none")
         },
 
@@ -2212,11 +2253,11 @@ function collectPilotPayload() {
         },
 
 fast_markers: {
-          near_fall: checked("p-fast-nearfall"),
-          leg_locking: checked("p-fast-electrolyte"),
-          spasm_or_clonus: checked("p-fast-spasm"),
+          near_fall_or_balance_scare: checked("p-fast-nearfall"),
+          electrolyte_rescue_required: checked("p-fast-electrolyte"),
+          spasm_or_clonus_episode: checked("p-fast-spasm"),
           night_pain_woke_me: checked("p-fast-nightpain"),
-          restless_legs: checked("p-fast-restless")
+          restless_legs_at_night: checked("p-fast-restless")
         },
 
         positive_events: readPositiveEvents(),
@@ -2317,21 +2358,25 @@ fast_markers: {
       if (!sd || typeof sd !== "object") return [];
       const order = [
         ["brain_fog","Brain fog"],
-        ["gait_effort","Step-by-step gait effort"],
-        ["gait_initiation","Gait initiation effort"],
-        ["sustained_walking","Sustained walking effort"],
+        ["step_gait_effort","Step-by-step gait effort"],
+        ["gait_initiation_effort","Gait initiation effort"],
+        ["sustained_walking_effort","Sustained walking effort"],
         ["neurologic_fatigue","Neurologic fatigue"],
         ["sleep_quality","Sleep quality"],
         ["leg_stiffness","Leg stiffness"],
         ["post_rest_stiffness","Post-rest stiffness"],
-        ["symptom_volatility","Symptom volatility"],
+        ["symptom_volatility","Symptom volatility"]
       ];
       const out = [];
-      for (const [k,label] of order) {
-        if (sd[k] === undefined || sd[k] === null || sd[k] === "") continue;
-        out.push(`  ${label}: ${sd[k]}`);
-      }
+      order.forEach(([k,label]) => {
+        const v = sd[k];
+        if (v !== null && v !== undefined && v !== "" && !Number.isNaN(Number(v))) {
+          out.push(`${label}: ${v}`);
+        }
+      });
       return out;
+    }
+//       return out;  // FIX: was causing "Return statements are only valid inside functions."
     }
 
     function _fmtPainImpact(pi) {
@@ -2358,36 +2403,52 @@ fast_markers: {
     function _fmtConfounders(cc) {
       if (!cc || typeof cc !== "object") return [];
       const out = [];
-      const checks = [
-        ["poor_sleep","Poor sleep last night"],
-        ["unusual_exertion","Unusual physical exertion"],
-        ["dose_change","Dose change"],
-        ["missed_dose","Missed dose"],
-        ["new_supplement","New supplement"],
-        ["new_medication","New medication"],
-        ["travel_or_schedule_change","Travel or disrupted schedule"],
-        ["infection_symptoms","Infection symptoms"],
-        ["gi_or_dehydration","GI upset or dehydration risk"],
-        ["night_pain_electrolyte_related","Night pain likely electrolyte-related"],
-        ["nothing_unusual","Nothing unusual"],
-      ];
-      const picked = [];
-      for (const [k,label] of checks) {
-        if (cc[k]) picked.push(label);
-      }
-      if (picked.length) out.push(`Confounders: ${picked.join("; ")}`);
-      else out.push("Confounders: None");
 
-      if (cc.high_stress !== undefined && cc.high_stress !== null && cc.high_stress !== "" && String(cc.high_stress) !== "0") {
-        out.push(`  High stress (0–3): ${cc.high_stress}`);
+      // Backwards compatibility: accept older key names
+      const pickCC = (...keys) => {
+        for (const k of keys) {
+          if (cc[k] !== undefined && cc[k] !== null) return cc[k];
+        }
+        return undefined;
+      };
+
+      const checks = [
+        ["poor_sleep_last_night", "Poor sleep last night", ["poor_sleep_last_night","poor_sleep"]],
+        ["unusual_physical_exertion", "Unusual exertion", ["unusual_physical_exertion","unusual_exertion"]],
+        ["medication_timing_change", "Medication timing change", ["medication_timing_change","medication_timing_change"]],
+        ["dose_change", "Dose change", ["dose_change","dose_change"]],
+        ["missed_dose", "Missed dose", ["missed_dose","missed_dose"]],
+        ["new_supplement_added", "New supplement", ["new_supplement_added","new_supplement"]],
+        ["new_medication_added", "New medication", ["new_medication_added","new_med"]],
+        ["travel_or_disrupted_schedule", "Travel or schedule change", ["travel_or_disrupted_schedule","travel_or_schedule_change"]],
+        ["infection_symptoms", "Infection symptoms", ["infection_symptoms","infection_symptoms"]],
+        ["gi_upset_or_dehydration_risk", "GI upset or dehydration risk", ["gi_upset_or_dehydration_risk","gi_or_dehydration"]]
+      ];
+
+      checks.forEach(([, label, keys]) => {
+        if (pickCC(...keys) === true) out.push(label);
+      });
+
+      const stress = pickCC("high_stress","high_stress");
+      if (stress !== undefined && stress !== null && stress !== "" && stress !== 0) out.push(`High stress: ${stress}`);
+
+      // Electrolyte-related (optional details)
+      if (pickCC("night_pain_likely_electrolyte_related","night_pain_likely_electrolyte_related") === true) {
+        const detail = [];
+        const win = pickCC("electrolyte_rescue_window");
+        const typ = pickCC("electrolyte_rescue_type");
+        const helped = pickCC("electrolyte_rescue_helped_within");
+        if (win) detail.push(`window: ${win}`);
+        if (typ) detail.push(`type: ${typ}`);
+        if (helped) detail.push(`helped: ${helped}`);
+        out.push(detail.length ? `Electrolyte rescue likely (${detail.join(", ")})` : "Electrolyte rescue likely");
       }
-      if (cc.electrolyte_window_min) out.push(`  Electrolyte window (min): ${cc.electrolyte_window_min}`);
-      if (cc.electrolyte_type) out.push(`  Electrolyte type: ${_safeTxt(cc.electrolyte_type)}`);
-      if (cc.quick_pick) out.push(`  Quick pick: ${_safeTxt(cc.quick_pick)}`);
-      if (cc.pharm_notes) out.push(`  Pharm notes: ${_safeTxt(cc.pharm_notes)}`);
-      if (cc.note) out.push(`  Notes: ${_safeTxt(cc.note)}`);
+
+      if (pickCC("nothing_unusual") === true) out.push("Nothing unusual");
+
       return out;
     }
+
     function _abbrBaseline(v) {
       switch (v) {
         case "much_worse": return "MW";
@@ -2472,7 +2533,7 @@ fast_markers: {
       if (dir === "desc") ordered.reverse();
 
       // Header
-      const pn = (patientMeta?.patientName || '').trim() || 'Patrick Fuellebeck';
+      const pn = (patientMeta?.patientName || '').trim() || 'Patrick Fuellbeck';
       const pdob = (patientMeta?.patientDob || '').trim();
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(15);
@@ -2753,212 +2814,373 @@ fast_markers: {
       return val ? "Yes" : "No";
     }
 
-    async function exportProtocolReport(profileId) {
-      const uid = window.CURRENT_UID;
-      if (!uid) {
-        alert("Must be logged in to export.");
-        return;
-      }
+    async function exportProtocolReport(profileId, opts = {}) {
+  const uid = window.CURRENT_UID;
+  if (!uid) {
+    alert("Must be logged in to export.");
+    return;
+  }
 
-      try {
-        // 1. Fetch data safely
-        const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
-        const snapshot = await logsRef.orderBy("date", "desc").get();
+  // Render helpers
+  const vr = (val, suffix = "") => {
+    if (val === null || val === undefined || val === "") return "N/A";
+    return String(val) + suffix;
+  };
+  const yn = (val) => {
+    if (val === true) return "Yes";
+    if (val === false) return "No";
+    return "N/A";
+  };
+  // For checkbox-style booleans where missing should render as "No" (not "N/A")
+  const ynb = (val) => (val === true ? "Yes" : "No");
+  const pick = (obj, ...keys) => {
+    for (const k of keys) {
+      if (!obj) continue;
+      const v = obj[k];
+      if (v !== undefined && v !== null && v !== "") return v;
+    }
+    return undefined;
+  };
+  const bpRender = (v) => {
+    if (!v || typeof v !== "object") return "";
+    if (v.bp) return v.bp;
+    if (v.bp_sys !== undefined && v.bp_dia !== undefined && v.bp_sys !== "" && v.bp_dia !== "") return `${v.bp_sys}/${v.bp_dia}`;
+    return "";
+  };
 
-        if (snapshot.empty) {
-          alert("No data found to export.");
-          return;
-        }
+  try {
+    // 1) Fetch data safely
+    const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
+    const orderDir = (opts?.dir === "asc" || opts?.dir === "desc") ? opts.dir : "desc";
+    const snapshot = await logsRef.orderBy("date", orderDir).get();
 
-        const logs = [];
-        snapshot.forEach(doc => logs.push(doc.data()));
-
-        // 2. Generate HTML Report
-        const pn = document.getElementById('export-patient-name')?.value || "Patient";
-        const dob = document.getElementById('export-patient-dob')?.value || "";
-
-        let html = `
-          <div class="report-header">
-            <h1>Protocol Report: ${pn}</h1>
-            ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ''}
-            <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-            <p><strong>Records:</strong> ${logs.length}</p>
-          </div>
-        `;
-
-        const bpRender = (v) => {
-          if (!v || typeof v !== 'object') return '';
-          if (v.bp) return v.bp;
-          if (v.bp_sys && v.bp_dia) return `${v.bp_sys}/${v.bp_dia}`;
-          return '';
-        };
-
-        logs.forEach(log => {
-          // Safely default objects (support both legacy + current schemas)
-          const vAm = log.vitals?.morning || {};
-          const vPm = log.vitals?.evening || {};
-
-          const rate = log.ratings || {
-            global_baseline: log.baseline_rating,
-            baseline_confidence: log.baseline_confidence,
-            energy_capacity: log.energy_capacity,
-            energy_confidence: log.energy_confidence,
-            pain_level: log.symptom_drift?.pain_level,
-            sleep_quality: log.symptom_drift?.sleep_quality,
-            leg_stiffness: log.symptom_drift?.leg_stiffness,
-            post_rest_stiffness: log.symptom_drift?.post_rest_stiffness,
-            symptom_volatility: log.symptom_drift?.symptom_volatility,
-            brain_fog: log.symptom_drift?.brain_fog,
-            neurologic_fatigue: log.symptom_drift?.neurologic_fatigue,
-            gait_effort: log.symptom_drift?.gait_effort
-          };
-
-          const pImp = log.pain_impact || {
-            severity: log.pain_impact?.severity,
-            primary_driver: log.pain_impact?.primary_driver,
-            interfered_with_sleep: log.pain_impact?.interfered_with_sleep,
-            limited_walking: log.pain_impact?.limited_walking,
-            forced_rest_breaks: log.pain_impact?.forced_rest_breaks,
-            required_meds: log.pain_impact?.required_meds,
-            changed_gait: log.pain_impact?.changed_gait
-          };
-
-          const legacyPain = log.pain_impact || {};
-          if (pImp.forced_rest_breaks === undefined && legacyPain.forced_extra_rest !== undefined) pImp.forced_rest_breaks = legacyPain.forced_extra_rest;
-          if (pImp.required_meds === undefined && legacyPain.required_rescue_meds !== undefined) pImp.required_meds = legacyPain.required_rescue_meds;
-          if (pImp.changed_gait === undefined && legacyPain.changed_gait_mechanics !== undefined) pImp.changed_gait = legacyPain.changed_gait_mechanics;
-
-          const conf = log.confounders || log.context_changes || {};
-          const shift = log.symptom_shift || log.symptom_drift || {};
-          const ext = log.external_variables || log.external_neuromuscular_training || {};
-          const labs = log.periodic_labs || log.lab || {};
-
-          const proto = log.protocol || log.protocol_adherence || {};
-
-          html += `<div class="report-day-block">
-            <div class="day-title">Date: ${valRender(log.date)}</div>`;
-
-          // 2. Protocol Adherence
-          html += `<div class="report-section"><h3>Protocol Adherence</h3>
-            <p>NA: ${yesNo(proto.nervonic_acid_taken)}, NAC: ${yesNo(proto.nac_taken)}, ALA: ${yesNo(proto.r_ala_taken)}, Vit E: ${yesNo(proto.vitamin_e_taken)}</p>
-          </div>`;
-
-          // 3. Vitals (Do not drop BP)
-          html += `<div class="report-section"><h3>Vitals AM & PM</h3>
-            <p><strong>AM:</strong> BP: ${valRender(bpRender(vAm))} | HR: ${valRender(vAm.hr, " bpm")}</p>
-            <p><strong>PM:</strong> BP: ${valRender(bpRender(vPm))} | HR: ${valRender(vPm.hr, " bpm")}</p>
-          </div>`;
-
-          // 4. Baseline & 5. Energy
-          html += `<div class="report-section"><h3>Global Status</h3>
-            <p>Baseline Rating: ${valRender(rate.global_baseline)} (Confidence: ${valRender(rate.baseline_confidence)})</p>
-            <p>Energy/Capacity: ${valRender(rate.energy_capacity)} (Confidence: ${valRender(rate.energy_confidence)})</p>
-          </div>`;
-
-          // 6. Fast Markers
-          html += `<div class="report-section"><h3>Fast Markers (0-10)</h3>
-            <ul>
-              <li>Pain: ${valRender(rate.pain_level)}</li>
-              <li>Sleep: ${valRender(rate.sleep_quality)}</li>
-              <li>Leg Stiffness: ${valRender(rate.leg_stiffness)}</li>
-              <li>Post-rest Stiffness: ${valRender(rate.post_rest_stiffness)}</li>
-              <li>Symptom Volatility: ${valRender(rate.symptom_volatility)}</li>
-              <li>Brain Fog: ${valRender(rate.brain_fog)}</li>
-              <li>Neuro Fatigue: ${valRender(rate.neurologic_fatigue)}</li>
-              <li>Gait Effort: ${valRender(rate.gait_effort)}</li>
-            </ul>
-          </div>`;
-
-          // 7. Pain Impact
-          html += `<div class="report-section"><h3>Pain Impact</h3>
-            <p>Severity: ${valRender(pImp.severity)} | Driver: ${valRender(pImp.primary_driver)}</p>
-            <p>Interfered sleep: ${yesNo(pImp.interfered_with_sleep)}, Limited walk: ${yesNo(pImp.limited_walking)}, Forced rest: ${yesNo(pImp.forced_rest_breaks)}, Meds: ${yesNo(pImp.required_meds)}, Changed gait: ${yesNo(pImp.changed_gait)}</p>
-          </div>`;
-
-          // 8. Confounders
-          html += `<div class="report-section"><h3>Confounders</h3>
-            <p>Missed dose: ${yesNo(conf.missed_dose)}, New supp: ${yesNo(conf.new_supplement)}, New med: ${yesNo(conf.new_medication)}, Travel/Schedule: ${yesNo(conf.travel_or_schedule_change)}, High stress: ${valRender(conf.high_stress)}, Infection: ${yesNo(conf.infection_symptoms)}, GI: ${yesNo(conf.gi_or_dehydration)}, None: ${yesNo(conf.nothing_unusual)}</p>
-          </div>`;
-
-          // 9. Symptom Shift
-          html += `<div class="report-section"><h3>Symptom Shift</h3>
-            <p>Motor: ${valRender(shift.motor_control)}, Sensory: ${valRender(shift.sensory)}, Cognitive: ${valRender(shift.cognitive)}, Bladder/Bowel: ${valRender(shift.bladder_bowel)}</p>
-          </div>`;
-
-          // 10. External Variables
-          html += `<div class="report-section"><h3>External Variables</h3>
-            <p>Neuro Training Level: ${valRender(ext.neuromuscular_training_level ?? ext.neuromuscular_training_level ?? ext.level)}</p>
-          </div>`;
-
-          // 11. Periodic Labs
-          const vlcfaVal = labs.vlcfa ?? labs.vlcfa_c26;
-          const liverVal = labs.liver_alt_ast;
-          const labsNotes = labs.notes;
-          if (vlcfaVal || liverVal || labsNotes) {
-            html += `<div class="report-section"><h3>Periodic Lab Results</h3>
-              <p>VLCFA: ${valRender(vlcfaVal)}</p>
-              <p>Liver (ALT/AST): ${valRender(liverVal)}</p>
-              <p>Notes: ${valRender(labsNotes)}</p>
-            </div>`;
-          }
-
-          // 12. Functional Tests
-          html += `<div class="report-section"><h3>Functional Tests</h3>`;
-          if (log.functional_tests && log.functional_tests.length > 0) {
-            log.functional_tests.forEach(ft => {
-              html += `<p>Type: ${valRender(ft.test_type)} | Duration: ${valRender(ft.duration_seconds)}s | Distance: ${valRender(ft.distance_meters)}m | Notes: ${valRender(ft.notes)}</p>`;
-            });
-          } else {
-            html += `<p>None</p>`;
-          }
-          html += `</div>`;
-
-          // 13. Food & 14. General
-          html += `<div class="report-section"><h3>Notes</h3>
-            <p><strong>Food:</strong> ${valRender(log.food_notes)}</p>
-            <p><strong>General:</strong> ${valRender(log.general_notes)}</p>
-          </div>`;
-
-          // 15. Adverse Events
-          html += `<div class="report-section"><h3>Adverse Events</h3>`;
-          if (log.adverse_events && log.adverse_events.length > 0) {
-            log.adverse_events.forEach(ae => html += `<p>• ${valRender(ae.description)} (Dur: ${valRender(ae.duration_min)}m, Trigger: ${valRender(ae.trigger)})</p>`);
-          } else { html += `<p>None</p>`; }
-          html += `</div>`;
-
-          // 16. Wins
-          html += `<div class="report-section"><h3>Wins</h3>`;
-          if (log.wins && log.wins.length > 0) {
-            log.wins.forEach(w => html += `<p>• ${valRender(w.description)} (Dur: ${valRender(w.duration_min)}m, Trigger: ${valRender(w.trigger)})</p>`);
-          } else { html += `<p>None</p>`; }
-          html += `</div>`;
-
-          // 17. Daily Summary
-          html += `<div class="report-section"><h3>Daily Summary</h3>
-            <p>${valRender(log.daily_summary)}</p>
-          </div>`;
-
-          html += `</div>`; // End day block
-        });
-
-        // 3. Inject and Print
-        const reportView = document.getElementById('report-view');
-        reportView.innerHTML = html;
-
-        // Trigger the native print dialog (saves to PDF styled cleanly via CSS)
-        window.print();
-
-        // Clean up memory after print
-        setTimeout(() => { reportView.innerHTML = ""; }, 1000);
-      } catch (err) {
-        console.error("Export error:", err);
-        alert("Export failed: " + err.message);
-      }
+    if (snapshot.empty) {
+      alert("No data found to export.");
+      return;
     }
 
+    let logs = [];
+    snapshot.forEach(doc => logs.push(doc.data()));
+
+    // Optional client-side date filter (if modal passes it)
+    const startDate = opts?.startDate || null;
+    const endDate = opts?.endDate || null;
+    if (startDate || endDate) {
+      logs = logs.filter(l => {
+        const d = String(l.date || "");
+        if (!d) return false;
+        if (startDate && d < startDate) return false;
+        if (endDate && d > endDate) return false;
+        return true;
+      });
+    }
+
+    if (!logs.length) {
+      alert("No data found for that date range.");
+      return;
+    }
+
+    // Functional tests are saved separately at: users/{uid}/profiles/{profile}/tests/{id}
+    // Map them by test_date so they appear in the correct day block.
+    const testsByDate = {};
+    try {
+      const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/tests`);
+      const testsSnap = await testsRef.get();
+      testsSnap.forEach(d => {
+        const t = d.data() || {};
+        const td = String(t.test_date || t.date || "").trim();
+        if (!td) return;
+        if (startDate && td < startDate) return;
+        if (endDate && td > endDate) return;
+        if (!testsByDate[td]) testsByDate[td] = [];
+        testsByDate[td].push(t);
+      });
+    } catch (e) {
+      console.warn("Could not load functional tests:", e);
+    }
+
+    // 2) Generate HTML report
+    const pn = (String(opts?.patientName || "").trim() || (document.getElementById("export-patient-name")?.value || "").trim() || "Patrick Fuellbeck");
+    const dob = (String(opts?.patientDob || "").trim() || (document.getElementById("export-patient-dob")?.value || "").trim() || "");
+
+    let html = `
+      <div class="report-header">
+        <h1>Protocol Report: ${pn}</h1>
+        ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
+        <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+        <p><strong>Records:</strong> ${logs.length}</p>
+      </div>
+    `;
+
+    logs.forEach(log => {
+      // Support both current + legacy schemas
+      const protocol = log.protocol_adherence || log.protocol || {};
+      const vitals = log.vitals || {};
+      const vAm = vitals.morning || {};
+      const vPm = vitals.evening || {};
+
+      const sd = log.symptom_drift || log.ratings || {};
+      const pi = log.pain_impact || {};
+      const ctx = log.context_changes || log.confounders || {};
+      const fm = log.fast_markers || log.fastMarkers || {};
+      const ext = log.external_neuromuscular_training || log.external_variables || {};
+
+      const labs = log.lab || log.periodic_labs || {};
+
+      // Wins can be stored as positive_events (current) or wins (legacy)
+      const winsArr = Array.isArray(log.positive_events) ? log.positive_events : (Array.isArray(log.wins) ? log.wins : []);
+      const adverseArr = Array.isArray(log.adverse_events) ? log.adverse_events : [];
+
+      const dayTitle = (log.date !== undefined && log.date !== null && log.date !== "") ? String(log.date) : "N/A";
+
+      html += `<div class="report-day-block">
+        <div class="day-title">Date: ${dayTitle}</div>`;
+
+      // Protocol adherence
+      html += `<div class="report-section"><h3>Protocol Adherence</h3>
+        <p>NA: ${yn(pick(protocol, "nervonic_acid_taken", "nervonic_acid"))}, NAC: ${yn(pick(protocol, "nac_taken", "nac"))}, ALA: ${yn(pick(protocol, "r_ala_taken", "ala"))}, Vit E: ${yn(pick(protocol, "vitamin_e_taken", "vit_e"))}</p>
+      </div>`;
+
+      // Vitals
+      html += `<div class="report-section"><h3>Vitals AM & PM</h3>
+        <p><strong>AM:</strong> BP: ${vr(bpRender(vAm) || "")} | HR: ${vr(pick(vAm, "hr"), " bpm")}</p>
+        <p><strong>PM:</strong> BP: ${vr(bpRender(vPm) || "")} | HR: ${vr(pick(vPm, "hr"), " bpm")}</p>
+      </div>`;
+
+      // Global status
+      html += `<div class="report-section"><h3>Global Status</h3>
+        <p>Baseline Rating: ${vr(pick(log, "baseline_rating", "global_baseline"))} (Confidence: ${vr(pick(log, "baseline_confidence"))})</p>
+        <p>Energy/Capacity: ${vr(pick(log, "energy_capacity"))} (Confidence: ${vr(pick(log, "energy_confidence"))})</p>
+      </div>`;
+
+      // Fast markers (checkboxes)
+      html += `<div class="report-section"><h3>Fast Markers</h3>
+        <ul>
+          <li>Near-fall or balance scare: ${yn(pick(fm, "near_fall_or_balance_scare", "near_fall"))}</li>
+          <li>Electrolyte rescue required: ${yn(pick(fm, "electrolyte_rescue_required", "electrolyte_rescue", "electrolyte_rescue_needed"))}</li>
+          <li>Spasm or clonus episode: ${yn(pick(fm, "spasm_or_clonus_episode", "spasm_or_clonus"))}</li>
+          <li>Night pain woke me: ${yn(pick(fm, "night_pain_woke_me"))}</li>
+          <li>Restless legs at night: ${yn(pick(fm, "restless_legs_at_night", "restless_legs"))}</li>
+        </ul>
+      </div>`;
+
+      // Symptom shift (0-10) (sliders)
+      html += `<div class="report-section"><h3>Symptom Shift (0-10)</h3>
+        <ul>
+          <li>Brain Fog: ${vr(pick(sd, "brain_fog"))}</li>
+          <li>Step-by-step gait effort: ${vr(pick(sd, "step_gait_effort", "gait_effort_step_by_step", "gait_effort"))}</li>
+          <li>Gait initiation effort: ${vr(pick(sd, "gait_initiation_effort", "gait_initiation"))}</li>
+          <li>Sustained walking effort: ${vr(pick(sd, "sustained_walking_effort", "sustained_walking"))}</li>
+          <li>Neurologic fatigue: ${vr(pick(sd, "neurologic_fatigue"))}</li>
+          <li>Sleep Quality: ${vr(pick(sd, "sleep_quality"))}</li>
+          <li>Leg Stiffness: ${vr(pick(sd, "leg_stiffness"))}</li>
+          <li>Post-rest stiffness: ${vr(pick(sd, "post_rest_stiffness"))}</li>
+          <li>Symptom volatility: ${vr(pick(sd, "symptom_volatility"))}</li>
+        </ul>
+      </div>`;
+
+      // Pain impact
+      html += `<div class="report-section"><h3>Pain Impact</h3>
+        <p>Severity: ${vr(pick(pi, "severity"))} | Driver: ${vr(pick(pi, "primary_driver", "driver"))}</p>
+        <p>Interfered sleep: ${yn(pick(pi, "interfered_with_sleep", "interfered_sleep"))},
+           Limited walk: ${yn(pick(pi, "limited_walking", "limited_walk"))},
+           Forced rest: ${yn(pick(pi, "forced_rest_breaks", "forced_extra_rest"))},
+           Meds: ${yn(pick(pi, "required_meds", "required_rescue_meds"))},
+           Changed gait: ${yn(pick(pi, "changed_gait", "changed_gait_mechanics"))}</p>
+      </div>`;
+
+      // Confounders / context changes
+      const helpedWithinRaw = pick(ctx, "electrolyte_rescue_helped_within", "electrolyte_rescue_window");
+      const helpedWithinLabel = (() => {
+        const v = String(helpedWithinRaw ?? "").trim();
+        if (!v) return null;
+        const map = { "15": "15 min", "30": "30 min", "60": "60 min", "120": "2+ hours" };
+        return map[v] || v;
+      })();
+
+      html += `<div class="report-section"><h3>Confounders</h3>
+        <p>Poor sleep: ${ynb(pick(ctx, "poor_sleep_last_night"))},
+           Unusual exertion: ${ynb(pick(ctx, "unusual_physical_exertion"))},
+
+           Pharmacologic changes: ${ynb(pick(ctx, "pharmacologic_changes", "pharmacological_changes", "pharm_changes"))},
+           Medication timing: ${ynb(pick(ctx, "medication_timing_change"))},
+           Dose change: ${ynb(pick(ctx, "dose_change"))},
+           Missed dose: ${ynb(pick(ctx, "missed_dose"))},
+           New supplement: ${ynb(pick(ctx, "new_supplement_added", "new_supplement_or_change"))},
+           New medication: ${ynb(pick(ctx, "new_medication_added"))},
+
+           Travel/Schedule: ${ynb(pick(ctx, "travel_or_disrupted_schedule", "travel_or_schedule_change"))},
+           High stress (0-3): ${vr(pick(ctx, "high_stress"))},
+           Infection: ${ynb(pick(ctx, "infection_symptoms"))},
+           GI/Dehydration: ${ynb(pick(ctx, "gi_upset_or_dehydration_risk", "gi_upset_or_dehydration"))},
+           Night pain likely electrolyte-related: ${ynb(pick(ctx, "night_pain_likely_electrolyte_related", "night_pain_electrolyte_related"))},
+           Nothing unusual: ${ynb(pick(ctx, "nothing_unusual"))}</p>
+
+        ${vr(pick(ctx, "pharmacologic_notes", "pharmacological_notes")) !== "N/A" ? `<p><strong>Pharmacologic notes:</strong> ${vr(pick(ctx, "pharmacologic_notes", "pharmacological_notes"))}</p>` : ""}
+
+        ${(vr(pick(ctx, "electrolyte_rescue_type")) !== "N/A" || helpedWithinLabel) ? `<p><strong>Electrolyte rescue details:</strong>
+           Type: ${vr(pick(ctx, "electrolyte_rescue_type"))}${helpedWithinLabel ? `, Helped within: ${helpedWithinLabel}` : ""}</p>` : ""}
+      // External Variables
+      html += `<div class="report-section"><h3>External Variables</h3>
+        <p>Neuromuscular training: ${vr(pick(ext, "label", "nmt_label"))} (Level: ${vr(pick(ext, "level", "nmt_level"))})</p>
+      </div>`;
+
+      // Periodic Lab Results
+      const labDate = pick(labs, "test_date", "lab_date", "date");
+      const vlcfa = pick(labs, "vlcfa_c26", "c26", "vlcfa");
+      const liver = pick(labs, "liver_alt_ast", "alt_ast", "liver");
+      const labNotes = pick(labs, "notes", "lab_notes");
+      html += `<div class="report-section"><h3>Periodic Lab Results</h3>
+        <p>Date: ${vr(labDate)}</p>
+        <p>VLCFA (C26:0): ${vr(vlcfa)} | Liver (ALT/AST): ${vr(liver)}</p>
+        <p><strong>Lab notes:</strong> ${vr(labNotes)}</p>
+      </div>`;
+
+      // Functional Tests
+      const dayTests = testsByDate[dayTitle] || testsByDate[String(log.date || "")] || [];
+      html += `<div class="report-section"><h3>Functional Tests</h3>`;
+      if (dayTests && dayTests.length) {
+        dayTests.forEach(t => {
+          const six = t.six_minute_walk || {};
+          const sts = t.sit_to_stand_5x || {};
+          html += `<p><strong>Test date:</strong> ${vr(pick(t, "test_date", "date"))}</p>
+            <ul>
+              <li>6-minute walk: ${vr(pick(six, "distance_m"))} m (Rest breaks: ${vr(pick(six, "rest_breaks_count"))}, Device: ${vr(pick(six, "assistive_device"))}, Course: ${vr(pick(six, "course_length_m"))} m, RPE: ${vr(pick(six, "perceived_exertion"))})</li>
+              <li>5x sit-to-stand: ${vr(pick(sts, "time_seconds"))} s (Used arms: ${vr(pick(sts, "used_arms"))}, Chair: ${vr(pick(sts, "chair_height_cm"))} cm)</li>
+              <li>Notes: ${vr(pick(t, "notes"))}</li>
+            </ul>`;
+        });
+      } else {
+        html += `<p>None</p>`;
+      }
+      html += `</div>`;
+
+
+
+      </div>`;
+
+
+
+      // Notes
+      html += `<div class="report-section"><h3>Notes</h3>
+        <p><strong>Food:</strong> ${vr(pick(log, "food_notes"))}</p>
+        <p><strong>General:</strong> ${vr(pick(log, "notes", "general_notes"))}</p>
+      </div>`;
+
+      // Adverse events
+      html += `<div class="report-section"><h3>Adverse Events</h3>`;
+      if (adverseArr.length > 0) {
+        adverseArr.forEach(ae => {
+          const what = pick(ae || {}, "desc", "description", "what_happened", "what", "event");
+          const dur = pick(ae || {}, "durationMin", "duration_minutes", "duration_min", "duration");
+          const trig = pick(ae || {}, "trigger", "suspected_driver", "trigger", "trigger_type");
+          const trigDetail = pick(ae || {}, "detail", "trigger_detail", "trigger_notes");
+          const durTxt = (dur === null || dur === undefined || dur === "") ? "N/A" : `${dur} min`;
+          html += `<p>• ${vr(what)} <span style="opacity:0.9;">[Duration: ${durTxt}, Trigger: ${vr(trig)}${trigDetail ? `, Detail: ${vr(trigDetail)}` : ""}]</span></p>`;
+        });
+      } else {
+        html += `<p>None</p>`;
+      }
+      html += `</div>`;
+
+
+      // Wins
+      html += `<div class="report-section"><h3>Wins</h3>`;
+      if (winsArr.length > 0) {
+        winsArr.forEach(w => {
+          const what = pick(w || {}, "desc", "description", "what_happened", "what", "event");
+          const dur = pick(w || {}, "durationMin", "duration_minutes", "duration_min", "duration");
+          const trig = pick(w || {}, "trigger", "suspected_driver", "trigger", "trigger_type");
+          const trigDetail = pick(w || {}, "detail", "trigger_detail", "trigger_notes");
+          const durTxt = (dur === null || dur === undefined || dur === "") ? "N/A" : `${dur} min`;
+          html += `<p>• ${vr(what)} <span style="opacity:0.9;">[Duration: ${durTxt}, Trigger: ${vr(trig)}${trigDetail ? `, Detail: ${vr(trigDetail)}` : ""}]</span></p>`;
+        });
+      } else {
+        html += `<p>None</p>`;
+      }
+      html += `</div>`;
+
+
+      // Daily summary
+      html += `<div class="report-section"><h3>Daily Summary</h3>
+        <p>${vr(pick(log, "daily_summary"))}</p>
+      </div>`;
+
+      html += `</div>`; // end day block
+    });
+    // 3) Inject and print
+    const reportView = document.getElementById("report-view");
+    reportView.innerHTML = html;
+
+    // Guard: don't print empty output
+    if (!reportView.textContent || !reportView.textContent.trim()) {
+      alert("Nothing to export (report is empty).");
+      return;
+    }
+
+    // Make sure it is visible before printing (some Safari paths ignore @media print display toggles)
+    reportView.style.display = "block";
+    document.title = "Protocol Report";
+
+    const cleanup = () => {
+      reportView.innerHTML = "";
+      reportView.style.display = "none";
+      window.removeEventListener("afterprint", cleanup);
+    };
+    window.addEventListener("afterprint", cleanup);
+
+    // If a print window was provided, render the report into that window and print from there.
+    if (opts?.printWindow && typeof opts.printWindow.print === "function") {
+      const w = opts.printWindow;
+      const doc = w.document;
+
+      // Copy current <style> content so the report CSS + print rules come along
+      const styleEl = document.querySelector("style");
+      const styleText = styleEl ? styleEl.innerHTML : "";
+
+      doc.open();
+      doc.write(`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Protocol Report</title>
+  <style>${styleText}</style>
+</head>
+<body>
+  <div id="report-view" style="display:block;">${html}</div>
+</body>
+</html>`);
+      doc.close();
+
+      // Wait for layout/fonts, then print
+      w.focus();
+      setTimeout(() => {
+        try { w.print(); } catch(e) { console.error(e); }
+        // Close the print window after a moment (optional)
+        setTimeout(() => { try { w.close(); } catch(e) {} }, 500);
+        cleanup();
+      }, 250);
+
+    } else {
+      // In-page print: wait for layout to settle (Safari race avoidance)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.print();
+          // Fallback cleanup if afterprint doesn't fire
+          setTimeout(cleanup, 5000);
+        });
+      });
+    }
+  } catch (err) {
+    console.error("Export error:", err);
+    alert("Export failed: " + err.message);
+  }
+}
+
     // Expose a single export runner to the non-module modal UI
-    window.__EXPORT_RUN = async function({ patientId }) {
-      await exportProtocolReport(patientId || "patrick");
+    window.__EXPORT_RUN = async function({ patientId, start, end, dir, patientName, patientDob, printWindow } = {}) {
+      await exportProtocolReport(patientId || "patrick", { startDate: start || null, endDate: end || null, dir: dir || "desc", patientName, patientDob, printWindow });
     };
 
     function setBtn(btnId, busy, text) {
@@ -3356,9 +3578,6 @@ fast_markers: {
       }
 
     });
-
-    // Close the Firebase-available branch opened earlier.
-    }
   </script>
 <script>
 </script>
