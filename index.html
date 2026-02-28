@@ -2324,6 +2324,8 @@ fast_markers: {
       }
     }
 
+    window.saveUserLog = saveUserLog;
+
     // --- PDF EXPORT (range + dense table + notes appendix) ---
     async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
       const q = db
