@@ -2,6 +2,7 @@
 
 <html lang="en">
 <head>
+TEST
 <script>window.__AUTH_MODULE_LOADED__ = false;</script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
@@ -847,7 +848,7 @@ body.modal-open {
           alert("Popup blocked. Please allow popups for this site to export PDF.");
           return;
         }
-        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob, printWindow: printWin });
+        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, startDate: start, endDate: end, dir, patientName, patientDob, printWindow: printWin });
         window.closeExportModal();
       } catch(e){
         console.error(e);
@@ -2293,8 +2294,6 @@ fast_markers: {
         throw err;
       }
     }
-    window.saveUserLog = saveUserLog;
-
 
     // --- PDF EXPORT (range + dense table + notes appendix) ---
     async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
@@ -3140,8 +3139,11 @@ async function exportPassengerReport(profileId, opts = {}) {
 }
 
     // Expose a single export runner to the non-module modal UI
-    window.__EXPORT_RUN = async function({ patientId, printWindow, startDate, endDate, dir } = {}) {
+    window.__EXPORT_RUN = async function({ patientId, printWindow, startDate, endDate, start, end, dir } = {}) {
       const pid = (patientId || "patrick");
+      // Back-compat: modal may pass {start,end} instead of {startDate,endDate}
+      if (!startDate && typeof start !== "undefined") startDate = start;
+      if (!endDate && typeof end !== "undefined") endDate = end;
       // Passenger (Nieve) uses the dedicated jsPDF Passenger generator
       if (String(pid).toLowerCase() === "nieve") {
         await exportPassengerReport(pid, { startDate, endDate, dir });
