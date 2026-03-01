@@ -2,6 +2,9 @@
 
 <html lang="en">
 <head>
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
 <script>window.__AUTH_MODULE_LOADED__ = false;</script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
@@ -3691,6 +3694,16 @@ async function exportPassengerReport(profileId, opts = {}) {
 
   updateLock();
 })();
+
+
+
+// Ensure critical functions are accessible from inline handlers (Safari/PWA scope quirks)
+try {
+  window.saveUserLog = saveUserLog;
+  window.collectPilotPayload = collectPilotPayload;
+  window.collectPassengerPayload = collectPassengerPayload;
+  window.collectLabPayload = collectLabPayload;
+} catch (e) { /* ignore */ }
 
 </script>
 </body>
