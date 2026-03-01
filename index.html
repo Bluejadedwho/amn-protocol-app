@@ -2,7 +2,6 @@
 
 <html lang="en">
 <head>
-TEST
 <script>window.__AUTH_MODULE_LOADED__ = false;</script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
@@ -10,8 +9,11 @@ TEST
 <meta content="yes" name="apple-mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <meta content="#000000" name="theme-color"/>
-<link href="icon.png" rel="icon" type="image/png"/>
-<link href="icon.png" rel="apple-touch-icon"/>
+
+<link rel="icon" type="image/png" href="/icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260301">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png?v=20260301">
+<meta name="apple-mobile-web-app-title" content="The Protocol">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&amp;display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -848,7 +850,7 @@ body.modal-open {
           alert("Popup blocked. Please allow popups for this site to export PDF.");
           return;
         }
-        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, startDate: start, endDate: end, dir, patientName, patientDob, printWindow: printWin });
+        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob, printWindow: printWin });
         window.closeExportModal();
       } catch(e){
         console.error(e);
@@ -967,7 +969,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 <button class="secondary" id="auth-signup" type="button">Create account</button>
 </div>
 <div class="row" style="margin-top:10px;">
-<button class="secondary" id="auth-demo" style="width:100%;" type="button">View demo (read-only)</button>
+<button class="secondary" id="auth-demo" style="width:100%;" type="button">View read-only</button>
 </div>
 <div id="auth-error"></div>
 </div>
@@ -1902,9 +1904,31 @@ function setAuthError(msg) {
       else o.setAttribute("hidden", "hidden");
     }
 
+    function setCloudActionsEnabled(enabled) {
+      // In demo mode, cloud actions stay disabled.
+      if (window.__DEMO_MODE__) enabled = false;
+      const ids = [
+        "p-save-log",
+        "n-save-log",
+        "lab-save-results-btn",
+        "clinician-export-btn",
+        "export-run-btn"
+      ];
+      ids.forEach((id) => {
+        const b = document.getElementById(id);
+        if (!b) return;
+        b.disabled = !enabled;
+        b.style.opacity = enabled ? "" : "0.5";
+        b.style.cursor = enabled ? "" : "not-allowed";
+        b.title = enabled ? "" : "Sign in required";
+      });
+    }
+
+
     function enterDemoMode() {
       window.__DEMO_MODE__ = true;
       showAuthOverlay(false);
+      setCloudActionsEnabled(false);
       // Disable cloud write actions
       const disableIds = [
         "p-save-log",
@@ -1964,7 +1988,9 @@ function setAuthError(msg) {
     // If you are not signed in, the app will prompt once and then stay signed in on this device.
     auth.onAuthStateChanged((user) => {
       window.CURRENT_UID = user?.uid || null;
+      setCloudActionsEnabled(!!window.CURRENT_UID);
       showAuthOverlay(!window.CURRENT_UID);
+      if (window.CURRENT_UID) { try { window.__DEMO_MODE__ = false; } catch(e){} }
     });
 
     // --- NO AUTH / NO DEVICE ID ---
@@ -2156,7 +2182,7 @@ function collectPilotPayload() {
 
       return {
         date,
-        baseline_rating: mustEnum(val("p-global-rating"), ["much_worse","worse","same","better","much_better"], null),
+        baseline_rating: mustEnum(val("p-global-rating"), ["much_worse","worse","slightly_worse","baseline","slightly_better","better","much_better"], null),
         baseline_confidence: mustEnum(val("p-global-confidence"), ["low","medium","high"], null),
 
         energy_capacity: asNumber(val("p-energy-capacity")),
@@ -2187,20 +2213,26 @@ function collectPilotPayload() {
         context_changes: {
           poor_sleep_last_night: checked("p-conf-sleep"),
           unusual_physical_exertion: checked("p-conf-exertion"),
+
+          // Pharmacologic changes (accordion)
+          pharmacologic_changes: checked("p-conf-pharm"),
           medication_timing_change: checked("p-conf-medtiming"),
           dose_change: checked("p-conf-dosechange"),
           missed_dose: checked("p-conf-misseddose"),
           new_supplement_added: checked("p-conf-newsupp"),
           new_medication_added: checked("p-conf-newmed"),
+          pharmacologic_notes: trimText(val("p-conf-pharm-notes")) || null,
+
           travel_or_disrupted_schedule: checked("p-conf-travel"),
           high_stress: (asNumber(val("p-conf-stress")) ?? 0),
           infection_symptoms: checked("p-conf-infection"),
           gi_upset_or_dehydration_risk: checked("p-conf-gi"),
+
+          // Electrolyte-related night pain quick pick
           night_pain_likely_electrolyte_related: checked("p-conf-elec"),
-          electrolyte_rescue_window: val("p-conf-elec-window") || "",
           electrolyte_rescue_type: val("p-conf-elec-type") || "",
-          electrolyte_rescue_helped_within: val("p-conf-elec-helped") || "",
-          electrolyte_rescue_notes: val("p-conf-elec-notes") || "",
+          electrolyte_rescue_helped_within: val("p-conf-elec-window") || "",
+
           nothing_unusual: checked("p-conf-none")
         },
 
@@ -2295,6 +2327,8 @@ fast_markers: {
       }
     }
 
+    window.saveUserLog = saveUserLog;
+
     // --- PDF EXPORT (range + dense table + notes appendix) ---
     async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
       const q = db
@@ -2322,6 +2356,13 @@ fast_markers: {
       return s.replace(/\s+/g, " ").trim();
     }
 
+
+    function _prettyEnum(v){
+      if(v == null) return null;
+      const s = String(v).trim();
+      if(!s) return null;
+      return s.replace(/_/g, " ").replace(/\w/g, c => c.toUpperCase());
+    }
 
     function _yesNo(v) { return v ? "Yes" : "No"; }
 
@@ -2424,7 +2465,9 @@ fast_markers: {
       switch (v) {
         case "much_worse": return "MW";
         case "worse": return "W";
-        case "same": return "S";
+        case "slightly_worse": return "sW";
+        case "baseline": return "BL";
+        case "slightly_better": return "sB";
         case "better": return "B";
         case "much_better": return "MB";
         default: return "-";
@@ -2775,55 +2818,6 @@ fast_markers: {
       pdf.save(`Passenger_${startDate}_to_${endDate}.pdf`);
     }
 
-
-// Export runner for Passenger (Nieve) using the dedicated Passenger PDF generator (jsPDF).
-// This avoids dumping Pilot-only sections into Passenger exports.
-async function exportPassengerReport(profileId, opts = {}) {
-  const uid = window.CURRENT_UID;
-  if (!uid) { alert("Must be logged in to export."); return; }
-
-  const orderDir = (opts?.dir === "asc" || opts?.dir === "desc") ? opts.dir : "desc";
-  const startDate = opts?.startDate || null;
-  const endDate = opts?.endDate || null;
-
-  // Pull logs for this profile
-  const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
-  const snapshot = await logsRef.orderBy("date", orderDir).get();
-  if (snapshot.empty) { alert("No data found to export."); return; }
-
-  let logs = [];
-  snapshot.forEach(doc => logs.push(doc.data() || {}));
-
-  // Optional client-side date filter (same behavior as Pilot export)
-  if (startDate || endDate) {
-    logs = logs.filter(l => {
-      const d = String(l.date || "");
-      if (!d) return false;
-      if (startDate && d < startDate) return false;
-      if (endDate && d > endDate) return false;
-      return true;
-    });
-  }
-  if (!logs.length) { alert("No data found for that date range."); return; }
-
-  // Meta from modal inputs (if present)
-  const pn = (document.getElementById("export-patient-name")?.value || "").trim() || "Nieve Fuellbeck";
-  const dob = (document.getElementById("export-patient-dob")?.value || "").trim();
-
-  // If the modal didn't pass dates, derive them from the data
-  const derivedStart = startDate || (orderDir === "asc" ? String(logs[0].date || "") : String(logs[logs.length-1].date || ""));
-  const derivedEnd = endDate || (orderDir === "asc" ? String(logs[logs.length-1].date || "") : String(logs[0].date || ""));
-
-  generatePassengerPDF(
-    logs,
-    "Passenger",
-    derivedStart || "N/A",
-    derivedEnd || "N/A",
-    orderDir,
-    { name: pn, dob }
-  );
-}
-
     // Helper to render blank instead of "null" or "undefined"
     function valRender(val, suffix = "") {
       if (val === null || val === undefined || val === "") return "";
@@ -2851,6 +2845,8 @@ async function exportPassengerReport(profileId, opts = {}) {
     if (val === false) return "No";
     return "N/A";
   };
+  // For checkbox-style booleans where missing should render as "No" (not "N/A")
+  const ynb = (val) => (val === true ? "Yes" : "No");
   const pick = (obj, ...keys) => {
     for (const k of keys) {
       if (!obj) continue;
@@ -2869,7 +2865,8 @@ async function exportPassengerReport(profileId, opts = {}) {
   try {
     // 1) Fetch data safely
     const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
-    const snapshot = await logsRef.orderBy("date", "desc").get();
+    const orderDir = (opts?.dir === "asc" || opts?.dir === "desc") ? opts.dir : "desc";
+    const snapshot = await logsRef.orderBy("date", orderDir).get();
 
     if (snapshot.empty) {
       alert("No data found to export.");
@@ -2897,9 +2894,53 @@ async function exportPassengerReport(profileId, opts = {}) {
       return;
     }
 
+    // Functional tests are saved separately at: users/{uid}/profiles/{profile}/tests/{id}
+    // Map them by test_date so they appear in the correct day block.
+    const testsByDate = {};
+    try {
+      const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/tests`);
+      const testsSnap = await testsRef.get();
+      const seen = new Set(); // de-dupe across accidental duplicates
+      testsSnap.forEach(d => {
+        const t = d.data() || {};
+        const td = String(t.test_date || t.date || "").trim();
+        if (!td) return;
+        if (startDate && td < startDate) return;
+        if (endDate && td > endDate) return;
+
+        // Build a stable signature (doc id + key metrics) so duplicate docs don't render twice.
+        const sig = [
+          d.id,
+          td,
+          t.six_minute_distance_m ?? t.six_minute_walk_m ?? "",
+          t.six_minute_rest_breaks ?? "",
+          t.six_minute_device ?? "",
+          t.six_minute_course_m ?? "",
+          t.six_minute_rpe ?? "",
+          t.sit_to_stand_time_s ?? "",
+          t.sit_to_stand_used_arms ?? "",
+          t.sit_to_stand_chair_height_cm ?? "",
+          (t.notes ?? "").trim()
+        ].join("|");
+
+        if (seen.has(sig)) return;
+        seen.add(sig);
+
+        if (!testsByDate[td]) testsByDate[td] = [];
+        testsByDate[td].push({ _id: d.id, ...t });
+      });
+
+      // Optional: keep most recent first if a user ran multiple tests same day.
+      Object.keys(testsByDate).forEach(k => {
+        testsByDate[k].sort((a,b) => String(b.created_at || b.ts || "").localeCompare(String(a.created_at || a.ts || "")));
+      });
+    } catch (e) {
+      console.warn("Could not load functional tests:", e);
+    }
+
     // 2) Generate HTML report
-    const pn = (document.getElementById("export-patient-name")?.value || '').trim() || 'Patrick Fuellbeck';
-    const dob = document.getElementById("export-patient-dob")?.value || "";
+    const pn = (String(opts?.patientName || "").trim() || (document.getElementById("export-patient-name")?.value || "").trim() || "Patrick Fuellbeck");
+    const dob = (String(opts?.patientDob || "").trim() || (document.getElementById("export-patient-dob")?.value || "").trim() || "");
 
     let html = `
       <div class="report-header">
@@ -2947,7 +2988,7 @@ async function exportPassengerReport(profileId, opts = {}) {
 
       // Global status
       html += `<div class="report-section"><h3>Global Status</h3>
-        <p>Baseline Rating: ${vr(pick(log, "baseline_rating", "global_baseline"))} (Confidence: ${vr(pick(log, "baseline_confidence"))})</p>
+        <p>Baseline Rating: ${vr(_prettyEnum(pick(log, "baseline_rating", "global_baseline")))} (Confidence: ${vr(_prettyEnum(pick(log, "baseline_confidence")))})</p>
         <p>Energy/Capacity: ${vr(pick(log, "energy_capacity"))} (Confidence: ${vr(pick(log, "energy_confidence"))})</p>
       </div>`;
 
@@ -2988,50 +3029,77 @@ async function exportPassengerReport(profileId, opts = {}) {
       </div>`;
 
       // Confounders / context changes
+      const helpedWithinRaw = pick(ctx, "electrolyte_rescue_helped_within", "electrolyte_rescue_window");
+      const helpedWithinLabel = (() => {
+        const v = String(helpedWithinRaw ?? "").trim();
+        if (!v) return null;
+        const map = { "15": "15 min", "30": "30 min", "60": "60 min", "120": "2+ hours" };
+        return map[v] || v;
+      })();
+
       html += `<div class="report-section"><h3>Confounders</h3>
-        <p>Poor sleep: ${yn(pick(ctx, "poor_sleep_last_night"))},
-           Unusual exertion: ${yn(pick(ctx, "unusual_physical_exertion"))},
-           Medication timing: ${yn(pick(ctx, "medication_timing_change"))},
-           Dose change: ${yn(pick(ctx, "dose_change"))},
-           Missed dose: ${yn(pick(ctx, "missed_dose"))},
-           New supplement: ${yn(pick(ctx, "new_supplement_or_change"))},
-           Travel/Schedule: ${yn(pick(ctx, "travel_or_schedule_change"))},
+        <p>Poor sleep: ${ynb(pick(ctx, "poor_sleep_last_night"))},
+           Unusual exertion: ${ynb(pick(ctx, "unusual_physical_exertion"))},
+
+           Pharmacologic changes: ${ynb(pick(ctx, "pharmacologic_changes", "pharmacological_changes", "pharm_changes"))},
+           Medication timing: ${ynb(pick(ctx, "medication_timing_change"))},
+           Dose change: ${ynb(pick(ctx, "dose_change"))},
+           Missed dose: ${ynb(pick(ctx, "missed_dose"))},
+           New supplement: ${ynb(pick(ctx, "new_supplement_added", "new_supplement_or_change"))},
+           New medication: ${ynb(pick(ctx, "new_medication_added"))},
+
+           Travel/Schedule: ${ynb(pick(ctx, "travel_or_disrupted_schedule", "travel_or_schedule_change"))},
            High stress (0-3): ${vr(pick(ctx, "high_stress"))},
-           Infection: ${yn(pick(ctx, "infection_symptoms"))},
-           GI/Dehydration: ${yn(pick(ctx, "gi_upset_or_dehydration"))},
-           Night pain likely electrolyte-related: ${yn(pick(ctx, "night_pain_electrolyte_related"))},
-           Nothing unusual: ${yn(pick(ctx, "nothing_unusual"))}</p>
+           Infection: ${ynb(pick(ctx, "infection_symptoms"))},
+           GI/Dehydration: ${ynb(pick(ctx, "gi_upset_or_dehydration_risk", "gi_upset_or_dehydration"))},
+           Night pain likely electrolyte-related: ${ynb(pick(ctx, "night_pain_likely_electrolyte_related", "night_pain_electrolyte_related"))},
+           Nothing unusual: ${ynb(pick(ctx, "nothing_unusual"))}</p>
+
+        ${vr(pick(ctx, "pharmacologic_notes", "pharmacological_notes")) !== "N/A" ? `<p><strong>Pharmacologic notes:</strong> ${vr(pick(ctx, "pharmacologic_notes", "pharmacological_notes"))}</p>` : ""}
+
+        ${(vr(pick(ctx, "electrolyte_rescue_type")) !== "N/A" || helpedWithinLabel) ? `<p><strong>Electrolyte rescue details:</strong>
+           Type: ${vr(pick(ctx, "electrolyte_rescue_type"))}${helpedWithinLabel ? `, Helped within: ${helpedWithinLabel}` : ""}</p>` : ""}
       </div>`;
 
-      // External variables
-      const extLevel = (ext && typeof ext.level !== "undefined") ? ext.level : (typeof ext.neuromuscular_training_level !== "undefined" ? ext.neuromuscular_training_level : undefined);
-      const extLabel = (ext && ext.label) ? ext.label : "";
+      // External Variables
       html += `<div class="report-section"><h3>External Variables</h3>
-        <p>Neuro Training Level: ${vr(extLevel)}${extLabel ? ` (${extLabel})` : ""}</p>
+        <p>Neuromuscular training: ${vr(pick(ext, "label", "nmt_label"))} (Level: ${vr(pick(ext, "level", "nmt_level"))})</p>
       </div>`;
 
-      // Periodic labs
-      const vlcfa = pick(labs, "vlcfa_c26", "vlcfa");
-      const liver = pick(labs, "liver_alt_ast");
-      const labNotes = pick(labs, "notes");
-      if (vlcfa !== undefined || liver !== undefined || labNotes !== undefined) {
-        html += `<div class="report-section"><h3>Periodic Lab Results</h3>
-          <p>VLCFA: ${vr(vlcfa)}</p>
-          <p>Liver (ALT/AST): ${vr(liver)}</p>
-          <p>Notes: ${vr(labNotes)}</p>
-        </div>`;
-      }
+      // Periodic Lab Results
+      const labDate = pick(labs, "test_date", "lab_date", "date");
+      const vlcfa = pick(labs, "vlcfa_c26", "c26", "vlcfa");
+      const liver = pick(labs, "liver_alt_ast", "alt_ast", "liver");
+      const labNotes = pick(labs, "notes", "lab_notes");
+      html += `<div class="report-section"><h3>Periodic Lab Results</h3>
+        <p>Date: ${vr(labDate)}</p>
+        <p>VLCFA (C26:0): ${vr(vlcfa)} | Liver (ALT/AST): ${vr(liver)}</p>
+        <p><strong>Lab notes:</strong> ${vr(labNotes)}</p>
+      </div>`;
 
-      // Functional tests
+      // Functional Tests
+      const dayTests = testsByDate[dayTitle] || testsByDate[String(log.date || "")] || [];
       html += `<div class="report-section"><h3>Functional Tests</h3>`;
-      if (Array.isArray(log.functional_tests) && log.functional_tests.length > 0) {
-        log.functional_tests.forEach(ft => {
-          html += `<p>Type: ${vr(ft?.test_type)} | Duration: ${vr(ft?.duration_seconds)}s | Distance: ${vr(ft?.distance_meters)}m | Notes: ${vr(ft?.notes)}</p>`;
+      if (dayTests && dayTests.length) {
+        dayTests.forEach(t => {
+          const six = t.six_minute_walk || {};
+          const sts = t.sit_to_stand_5x || {};
+          html += `<p><strong>Test date:</strong> ${vr(pick(t, "test_date", "date"))}</p>
+            <ul>
+              <li>6-minute walk: ${vr(pick(six, "distance_m"))} m (Rest breaks: ${vr(pick(six, "rest_breaks_count"))}, Device: ${vr(pick(six, "assistive_device"))}, Course: ${vr(pick(six, "course_length_m"))} m, RPE: ${vr(pick(six, "perceived_exertion"))})</li>
+              <li>5x sit-to-stand: ${vr(pick(sts, "time_seconds"))} s (Used arms: ${vr(pick(sts, "used_arms"))}, Chair: ${vr(pick(sts, "chair_height_cm"))} cm)</li>
+              <li>Notes: ${vr(pick(t, "notes"))}</li>
+            </ul>`;
         });
       } else {
         html += `<p>None</p>`;
       }
       html += `</div>`;
+
+
+
+
+
 
       // Notes
       html += `<div class="report-section"><h3>Notes</h3>
@@ -3043,23 +3111,35 @@ async function exportPassengerReport(profileId, opts = {}) {
       html += `<div class="report-section"><h3>Adverse Events</h3>`;
       if (adverseArr.length > 0) {
         adverseArr.forEach(ae => {
-          html += `<p>• ${vr(ae?.description)}${(ae?.time_of_day ? ` (${ae.time_of_day})` : "")} (Dur: ${vr(pick(ae || {}, "duration_minutes", "duration_min"))}m, Trigger: ${vr(pick(ae || {}, "suspected_driver", "trigger"))})</p>`;
+          const what = pick(ae || {}, "desc", "description", "what_happened", "what", "event");
+          const dur = pick(ae || {}, "durationMin", "duration_minutes", "duration_min", "duration");
+          const trig = pick(ae || {}, "trigger", "suspected_driver", "trigger", "trigger_type");
+          const trigDetail = pick(ae || {}, "detail", "trigger_detail", "trigger_notes");
+          const durTxt = (dur === null || dur === undefined || dur === "") ? "N/A" : `${dur} min`;
+          html += `<p>• ${vr(what)} <span style="opacity:0.9;">[Duration: ${durTxt}, Trigger: ${vr(trig)}${trigDetail ? `, Detail: ${vr(trigDetail)}` : ""}]</span></p>`;
         });
       } else {
         html += `<p>None</p>`;
       }
       html += `</div>`;
 
+
       // Wins
       html += `<div class="report-section"><h3>Wins</h3>`;
       if (winsArr.length > 0) {
         winsArr.forEach(w => {
-          html += `<p>• ${vr(w?.description)}${(w?.time_of_day ? ` (${w.time_of_day})` : "")} (Dur: ${vr(pick(w || {}, "duration_minutes", "duration_min"))}m, Trigger: ${vr(pick(w || {}, "suspected_driver", "trigger"))})</p>`;
+          const what = pick(w || {}, "desc", "description", "what_happened", "what", "event");
+          const dur = pick(w || {}, "durationMin", "duration_minutes", "duration_min", "duration");
+          const trig = pick(w || {}, "trigger", "suspected_driver", "trigger", "trigger_type");
+          const trigDetail = pick(w || {}, "detail", "trigger_detail", "trigger_notes");
+          const durTxt = (dur === null || dur === undefined || dur === "") ? "N/A" : `${dur} min`;
+          html += `<p>• ${vr(what)} <span style="opacity:0.9;">[Duration: ${durTxt}, Trigger: ${vr(trig)}${trigDetail ? `, Detail: ${vr(trigDetail)}` : ""}]</span></p>`;
         });
       } else {
         html += `<p>None</p>`;
       }
       html += `</div>`;
+
 
       // Daily summary
       html += `<div class="report-section"><h3>Daily Summary</h3>
@@ -3139,17 +3219,8 @@ async function exportPassengerReport(profileId, opts = {}) {
 }
 
     // Expose a single export runner to the non-module modal UI
-    window.__EXPORT_RUN = async function({ patientId, printWindow, startDate, endDate, start, end, dir } = {}) {
-      const pid = (patientId || "patrick");
-      // Back-compat: modal may pass {start,end} instead of {startDate,endDate}
-      if (!startDate && typeof start !== "undefined") startDate = start;
-      if (!endDate && typeof end !== "undefined") endDate = end;
-      // Passenger (Nieve) uses the dedicated jsPDF Passenger generator
-      if (String(pid).toLowerCase() === "nieve") {
-        await exportPassengerReport(pid, { startDate, endDate, dir });
-        return;
-      }
-      await exportProtocolReport(pid, { printWindow, startDate, endDate, dir });
+    window.__EXPORT_RUN = async function({ patientId, start, end, dir, patientName, patientDob, printWindow } = {}) {
+      await exportProtocolReport(patientId || "patrick", { startDate: start || null, endDate: end || null, dir: dir || "desc", patientName, patientDob, printWindow });
     };
 
     function setBtn(btnId, busy, text) {
