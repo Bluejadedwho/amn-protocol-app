@@ -5,7 +5,10 @@
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate"/>
   <meta http-equiv="Pragma" content="no-cache"/>
   <meta http-equiv="Expires" content="0"/>
-<script>window.__AUTH_MODULE_LOADED__ = false;</script>
+<script>
+// Ensure global saveUserLog exists early (iOS Safari can evaluate handlers before later scripts)
+window.saveUserLog = window.saveUserLog || function(){ throw new Error('saveUserLog not initialized'); };
+window.__AUTH_MODULE_LOADED__ = false;</script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 <title>The Protocol</title>
@@ -2268,7 +2271,7 @@ fast_markers: {
       };
     }
 
-    async function saveUserLog(profileId, payload) {
+    async function window.saveUserLog(profileId, payload) {
       try {
         const uid = window.CURRENT_UID;
         if (!uid) throw new Error("Not authenticated");
@@ -3280,7 +3283,7 @@ async function exportPassengerReport(profileId, opts = {}) {
     window.handlePilotSave = async function() {
       setBtn("p-save-log", true, "SAVING...");
       try {
-        await saveUserLog("patrick", collectPilotPayload());
+        await window.saveUserLog("patrick", collectPilotPayload());
         setBtn("p-save-log", false, "SAVED ✓");
         setTimeout(() => setBtn("p-save-log", false, "SAVE DAILY LOG"), 1200);
       } catch(e) {
@@ -3334,7 +3337,7 @@ async function exportPassengerReport(profileId, opts = {}) {
     window.handlePassengerSave = async function() {
       setBtn("n-save-log", true, "SAVING...");
       try {
-        await saveUserLog("nieve", collectPassengerPayload());
+        await window.saveUserLog("nieve", collectPassengerPayload());
         setBtn("n-save-log", false, "SAVED ✓");
         setTimeout(() => setBtn("n-save-log", false, "SAVE DAILY LOG"), 1200);
       } catch(e) {
@@ -3352,7 +3355,7 @@ async function exportPassengerReport(profileId, opts = {}) {
     window.handleLabSave = async function() {
       setBtn("lab-save-results-btn", true, "SAVING...");
       try {
-        await saveUserLog("patrick", collectLabPayload());
+        await window.saveUserLog("patrick", collectLabPayload());
         setBtn("lab-save-results-btn", false, "SAVED ✓");
         setTimeout(() => setBtn("lab-save-results-btn", false, "SAVE LAB RESULTS ONLY"), 1600);
       } catch(e) {
