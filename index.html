@@ -692,11 +692,11 @@ body.modal-open {
 
     window.selectProfile = function(profile) {
       window.ACTIVE_PROFILE = profile;
-      if (profile === 'patrick') {
+      if (profile === PILOT_PROFILE_ID) {
         window.setActiveView('patrick-view');
         const dateP = byId('date-display-p');
         if (dateP) dateP.innerText = new Date().toDateString();
-      } else if (profile === 'nieve') {
+      } else if (profile === PASSENGER_PROFILE_ID) {
         window.setActiveView('nieve-view');
       }
     };
@@ -781,7 +781,7 @@ body.modal-open {
       const dob = byId('export-patient-dob');
       const lsNameKey = `patient_name_${target?.patientId || 'unknown'}`;
       const lsDobKey = `patient_dob_${target?.patientId || 'unknown'}`;
-      const defaultName = (target?.patientId === 'patrick') ? 'Patrick Fuellbeck' : (target?.patientId === 'nieve' ? 'Nieve' : '');
+      const defaultName = (target?.patientId === PILOT_PROFILE_ID) ? 'Patrick Fuellbeck' : (target?.patientId === PASSENGER_PROFILE_ID ? 'Nieve' : '');
       if (pn) pn.value = localStorage.getItem(lsNameKey) || defaultName;
       if (dob) dob.value = localStorage.getItem(lsDobKey) || '';
 
@@ -794,7 +794,7 @@ body.modal-open {
     };
 
     window.runExportFromModal = async function(){
-      const target = window.__EXPORT_TARGET || { patientId: 'patrick', label: 'Pilot' };
+      const target = window.__EXPORT_TARGET || { patientId: PILOT_PROFILE_ID, label: 'Pilot' };
       const startRaw = byId('export-start')?.value;
       const endRaw = byId('export-end')?.value;
       const dir = byId('export-order')?.value || 'desc';
@@ -1175,11 +1175,11 @@ Conceptual Foundation and Mechanistic Framework
 </details>
 <button class="black-btn" onclick="window.openDevModal()">Protocol Development &amp; Validation</button>
 <div class="profile-select">
-<button class="card-btn" onclick="window.selectProfile('patrick')">
+<button class="card-btn" onclick="window.selectProfile('Patrick')">
 <h2>The Pilot</h2>
 <p>Patrick • Safety &amp; Margin Protocol</p>
 </button>
-<button class="card-btn" onclick="window.selectProfile('nieve')">
+<button class="card-btn" onclick="window.selectProfile('Nieve')">
 <h2>The Passenger</h2>
 <p>Nieve • Prophylactic Protocol</p>
 </button>
@@ -1607,7 +1607,7 @@ Conceptual Foundation and Mechanistic Framework
 <div id="trends-summary-pane">
 <div class="card">
 <h3>Change Detection Summary</h3>
-<button class="lab-save-btn" id="clinician-export-btn" onclick="window.openExportModal({patientId:'patrick', label:'Pilot'})" style="margin-top:12px;" type="button">DOWNLOAD PILOT HISTORY (PDF)</button>
+<button class="lab-save-btn" id="clinician-export-btn" onclick="window.openExportModal({patientId:'Patrick', label:'Pilot'})" style="margin-top:12px;" type="button">DOWNLOAD PILOT HISTORY (PDF)</button>
 <div id="change-summary" style="margin-top:12px; font-size:0.9rem; line-height:1.7; color:#E0E0E0;"></div>
 </div>
 </div>
@@ -1689,7 +1689,7 @@ Conceptual Foundation and Mechanistic Framework
 <h3>Notes (optional)</h3>
 <textarea class="notes" id="n-notes" placeholder="Optional notes..."></textarea>
 </div>
-<button class="mini-btn" id="passenger-export-btn" onclick="window.openExportModal({patientId:'nieve', label:'Passenger'})" style="margin-bottom:20px;" type="button">DOWNLOAD HISTORY (PDF)</button>
+<button class="mini-btn" id="passenger-export-btn" onclick="window.openExportModal({patientId:'Nieve', label:'Passenger'})" style="margin-bottom:20px;" type="button">DOWNLOAD HISTORY (PDF)</button>
 <button class="save-btn" id="n-save-log" onclick="window.handlePassengerSave()" type="button">SAVE DAILY LOG</button>
 </form>
 </section>
@@ -1961,7 +1961,6 @@ function setAuthError(msg) {
 
     // Gate all Firestore reads/writes behind authentication.
     // If you are not signed in, the app will prompt once and then stay signed in on this device.
-
     // Resolve once when Firebase has delivered the initial auth state.
     let __authReadyResolved = false;
     window.__AUTH_READY = new Promise((resolve) => { window.__RESOLVE_AUTH_READY__ = resolve; });
@@ -1976,8 +1975,12 @@ function setAuthError(msg) {
       }
     });
 
-    // Patient logs live here:
-    // patients/{uid}/logs/{date}
+    // --- AUTH + PER-USER PROFILES ---
+    // Profiles are fixed doc IDs under the signed-in user.
+    // IMPORTANT: These IDs must match your Firestore doc IDs exactly (case-sensitive).
+    const PILOT_PROFILE_ID = "Patrick";
+    const PASSENGER_PROFILE_ID = "Nieve";
+    // Path structure: users/{uid}/profiles/{profileId}/logs/{date}
 
     function userProfilePath(profile, ...rest) {
       // Secure path (requires Firebase Auth): users/{uid}/profiles/{profile}/...
@@ -2281,7 +2284,7 @@ fast_markers: {
 
         // Ensure date exists
         const dateStr = payload.date || localDateStr();
-        const docRef = db.collection("patients").doc(uid).collection("logs").doc(String(dateStr));
+        const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
 
         const finalPayload = {
           ...payload,
@@ -2303,18 +2306,19 @@ fast_markers: {
       }
     }
 window.saveUserLog = saveUserLog;
-    // --- LOG FETCHING ---
-    // Single source of truth for pulling logs from Firestore.
-    // Collection path: patients/{uid}/logs
-    async function fetchPatientLogs(uid) {
-      const snap = await db.collection("patients")
-        .doc(uid)
-        .collection("logs")
-        .orderBy("date", "asc")
-        .get();
-      return snap.docs.map(d => d.data());
-    }
 
+
+    // --- PDF EXPORT (range + dense table + notes appendix) ---
+
+
+    // Fetch ALL logs for a profile, ordered by date asc.
+    async function fetchPatientLogs(profileId) {
+      const q = db
+        .collection(userProfilePath(profileId, "logs"))
+        .orderBy("date", "asc");
+      const snapshot = await q.get();
+      return snapshot.docs.map((d) => d.data());
+    }
 
     function _safeTxt(v) {
       const s = String(v ?? "");
@@ -2817,16 +2821,20 @@ window.saveUserLog = saveUserLog;
   };
 
   try {
-    // 1) Fetch data safely (single fetch function)
+    // 1) Fetch data (single fetch function)
     await window.__AUTH_READY;
-    const uidAuthed = requireUid();
-    let logs = await fetchPatientLogs(uidAuthed);
+    let logs = await fetchPatientLogs(profileId);
+    logs = Array.isArray(logs) ? [...logs] : [];
+    const dir = opts?.dir || "desc";
+    if (dir === "desc") logs.reverse();
 
     if (!logs.length) {
       alert("No data found to export.");
       return;
     }
-// Optional client-side date filter (if modal passes it)
+
+
+    // Optional client-side date filter (if modal passes it)
     const startDate = opts?.startDate || null;
     const endDate = opts?.endDate || null;
     if (startDate || endDate) {
@@ -2843,12 +2851,6 @@ window.saveUserLog = saveUserLog;
       alert("No data found for that date range.");
       return;
     }
-
-
-    // Ensure requested ordering after filtering
-    const dir = opts?.dir || "desc";
-    logs = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
-    if (dir === "desc") logs.reverse();
 
     // 2) Generate HTML report
     const pn = (document.getElementById("export-patient-name")?.value || '').trim() || 'Patrick Fuellbeck';
@@ -3110,14 +3112,10 @@ async function exportPassengerReport(profileId, opts = {}) {
 
   try {
     await window.__AUTH_READY;
-    const uidAuthed = requireUid();
-    let logs = await fetchPatientLogs(uidAuthed);
-
-    // Apply requested order after loading
+    let logs = await fetchPatientLogs(profileId);
+    logs = Array.isArray(logs) ? [...logs] : [];
     const dir = opts?.dir || "desc";
-    logs = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
     if (dir === "desc") logs.reverse();
-
     // Optional range filter (from export modal)
     const startDate = opts?.startDate || null;
     const endDate = opts?.endDate || null;
@@ -3234,8 +3232,7 @@ async function exportPassengerReport(profileId, opts = {}) {
 }
 
 window.__EXPORT_RUN = async function(args = {}) {
-      await window.__AUTH_READY;
-      const patientId = requireUid();
+      const patientId = args.patientId || PILOT_PROFILE_ID;
       const label = args.label || "";
       const opts = {
         printWindow: args.printWindow,
@@ -3247,7 +3244,7 @@ window.__EXPORT_RUN = async function(args = {}) {
       };
 
       // Passenger export uses a smaller schema than the Pilot (full protocol) export.
-      const isPassenger = (label || "").toLowerCase() === "passenger";
+      const isPassenger = (label || "").toLowerCase() === "passenger" || patientId !== PILOT_PROFILE_ID;
       if (isPassenger) {
         await exportPassengerReport(patientId, opts);
       } else {
@@ -3288,7 +3285,7 @@ window.__EXPORT_RUN = async function(args = {}) {
     window.handlePilotSave = async function() {
       setBtn("p-save-log", true, "SAVING...");
       try {
-        await saveUserLog("patrick", collectPilotPayload());
+        await saveUserLog(PILOT_PROFILE_ID, collectPilotPayload());
         setBtn("p-save-log", false, "SAVED ✓");
         setTimeout(() => setBtn("p-save-log", false, "SAVE DAILY LOG"), 1200);
       } catch(e) {
@@ -3327,7 +3324,7 @@ window.__EXPORT_RUN = async function(args = {}) {
         const payload = collectFunctionalTestPayload();
         // Path: users/patrick/tests/{id}
         const id = `${payload.test_date}_${Date.now()}`;
-        const ref = db.doc(userProfilePath("patrick", "tests", id));
+        const ref = db.doc(userProfilePath(PILOT_PROFILE_ID, "tests", id));
         
         await ref.set({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() }, { merge: true });
         btns.forEach(b => { try { b.textContent = "SAVED ✓"; } catch(e){} });
@@ -3342,7 +3339,7 @@ window.__EXPORT_RUN = async function(args = {}) {
     window.handlePassengerSave = async function() {
       setBtn("n-save-log", true, "SAVING...");
       try {
-        await saveUserLog("nieve", collectPassengerPayload());
+        await saveUserLog(PASSENGER_PROFILE_ID, collectPassengerPayload());
         setBtn("n-save-log", false, "SAVED ✓");
         setTimeout(() => setBtn("n-save-log", false, "SAVE DAILY LOG"), 1200);
       } catch(e) {
@@ -3360,7 +3357,7 @@ window.__EXPORT_RUN = async function(args = {}) {
     window.handleLabSave = async function() {
       setBtn("lab-save-results-btn", true, "SAVING...");
       try {
-        await saveUserLog("patrick", collectLabPayload());
+        await saveUserLog(PILOT_PROFILE_ID, collectLabPayload());
         setBtn("lab-save-results-btn", false, "SAVED ✓");
         setTimeout(() => setBtn("lab-save-results-btn", false, "SAVE LAB RESULTS ONLY"), 1600);
       } catch(e) {
@@ -3418,10 +3415,7 @@ window.__EXPORT_RUN = async function(args = {}) {
     window.renderTrends = async function() {
       // lightweight summary text only (avoid blocking UI)
       try {
-        await window.__AUTH_READY;
-        const uid = requireUid();
-        const allLogs = await fetchPatientLogs(uid);
-        const logs = allLogs.slice(-30);
+        const logs = await fetchPatientLogs(PILOT_PROFILE_ID);
         const elSum = el("change-summary");
         if (!elSum) return;
 
@@ -3535,10 +3529,7 @@ window.__EXPORT_RUN = async function(args = {}) {
 
     window.renderTrendsCharts = async function() {
       try {
-        await window.__AUTH_READY;
-        const uid = requireUid();
-        const allLogs = await fetchPatientLogs(uid);
-        const logs = allLogs.slice(-30);
+        const logs = await fetchPatientLogs(PILOT_PROFILE_ID);
         const ordered = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
         const labels = ordered.map(l => l.date || "");
 
@@ -3575,10 +3566,7 @@ window.__EXPORT_RUN = async function(args = {}) {
       const host = el("trends-details-content");
       if (!host) return;
 
-      await window.__AUTH_READY;
-      const uid = requireUid();
-      const allLogs = await fetchPatientLogs(uid);
-      const logs = allLogs.slice(-365);
+      const logs = await fetchPatientLogs(PILOT_PROFILE_ID); // pilot history (same collection used in Trends)
       const rows = [];
 
       function pushMetric(key, label, getter) {
