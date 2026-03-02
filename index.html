@@ -1961,14 +1961,23 @@ function setAuthError(msg) {
 
     // Gate all Firestore reads/writes behind authentication.
     // If you are not signed in, the app will prompt once and then stay signed in on this device.
+
+    // Resolve once when Firebase has delivered the initial auth state.
+    let __authReadyResolved = false;
+    window.__AUTH_READY = new Promise((resolve) => { window.__RESOLVE_AUTH_READY__ = resolve; });
+
     auth.onAuthStateChanged((user) => {
       window.CURRENT_UID = user?.uid || null;
       showAuthOverlay(!window.CURRENT_UID);
+
+      if (!__authReadyResolved) {
+        __authReadyResolved = true;
+        if (typeof window.__RESOLVE_AUTH_READY__ === "function") window.__RESOLVE_AUTH_READY__();
+      }
     });
 
-    // --- NO AUTH / NO DEVICE ID ---
-    // Users are static profiles: "patrick" or "nieve".
-    // Path structure: users/{profileName}/logs/{date}
+    // Patient logs live here:
+    // patients/{uid}/logs/{date}
 
     function userProfilePath(profile, ...rest) {
       // Secure path (requires Firebase Auth): users/{uid}/profiles/{profile}/...
@@ -2272,7 +2281,7 @@ fast_markers: {
 
         // Ensure date exists
         const dateStr = payload.date || localDateStr();
-        const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
+        const docRef = db.collection("patients").doc(uid).collection("logs").doc(String(dateStr));
 
         const finalPayload = {
           ...payload,
@@ -2294,29 +2303,18 @@ fast_markers: {
       }
     }
 window.saveUserLog = saveUserLog;
-
-
-    // --- PDF EXPORT (range + dense table + notes appendix) ---
-    async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
-      const q = db
-        .collection(userProfilePath(patientId, "logs"))
-        .where("date", ">=", startDate)
-        .where("date", "<=", endDate)
-        .orderBy("date", dir);
-      const snapshot = await q.get();
-      return snapshot.docs.map((d) => d.data());
+    // --- LOG FETCHING ---
+    // Single source of truth for pulling logs from Firestore.
+    // Collection path: patients/{uid}/logs
+    async function fetchPatientLogs(uid) {
+      const snap = await db.collection("patients")
+        .doc(uid)
+        .collection("logs")
+        .orderBy("date", "asc")
+        .get();
+      return snap.docs.map(d => d.data());
     }
 
-
-    // Fetch last N logs (default 30), ordered by date desc.
-    async function fetchPatientLogs(patientId, days = 30) {
-      const q = db
-        .collection(userProfilePath(patientId, "logs"))
-        .orderBy("date", "desc")
-        .limit(days);
-      const snapshot = await q.get();
-      return snapshot.docs.map((d) => d.data());
-    }
 
     function _safeTxt(v) {
       const s = String(v ?? "");
@@ -2819,19 +2817,16 @@ window.saveUserLog = saveUserLog;
   };
 
   try {
-    // 1) Fetch data safely
-    const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
-    const snapshot = await logsRef.orderBy("date", "desc").get();
+    // 1) Fetch data safely (single fetch function)
+    await window.__AUTH_READY;
+    const uidAuthed = requireUid();
+    let logs = await fetchPatientLogs(uidAuthed);
 
-    if (snapshot.empty) {
+    if (!logs.length) {
       alert("No data found to export.");
       return;
     }
-
-    let logs = [];
-    snapshot.forEach(doc => logs.push(doc.data()));
-
-    // Optional client-side date filter (if modal passes it)
+// Optional client-side date filter (if modal passes it)
     const startDate = opts?.startDate || null;
     const endDate = opts?.endDate || null;
     if (startDate || endDate) {
@@ -2848,6 +2843,12 @@ window.saveUserLog = saveUserLog;
       alert("No data found for that date range.");
       return;
     }
+
+
+    // Ensure requested ordering after filtering
+    const dir = opts?.dir || "desc";
+    logs = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
+    if (dir === "desc") logs.reverse();
 
     // 2) Generate HTML report
     const pn = (document.getElementById("export-patient-name")?.value || '').trim() || 'Patrick Fuellbeck';
@@ -3108,9 +3109,14 @@ async function exportPassengerReport(profileId, opts = {}) {
   };
 
   try {
-    const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
-    const snapshot = await logsRef.orderBy("date", opts?.dir || "desc").get();
-    let logs = snapshot.docs.map(d => d.data());
+    await window.__AUTH_READY;
+    const uidAuthed = requireUid();
+    let logs = await fetchPatientLogs(uidAuthed);
+
+    // Apply requested order after loading
+    const dir = opts?.dir || "desc";
+    logs = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
+    if (dir === "desc") logs.reverse();
 
     // Optional range filter (from export modal)
     const startDate = opts?.startDate || null;
@@ -3228,7 +3234,8 @@ async function exportPassengerReport(profileId, opts = {}) {
 }
 
 window.__EXPORT_RUN = async function(args = {}) {
-      const patientId = args.patientId || "patrick";
+      await window.__AUTH_READY;
+      const patientId = requireUid();
       const label = args.label || "";
       const opts = {
         printWindow: args.printWindow,
@@ -3240,7 +3247,7 @@ window.__EXPORT_RUN = async function(args = {}) {
       };
 
       // Passenger export uses a smaller schema than the Pilot (full protocol) export.
-      const isPassenger = (label || "").toLowerCase() === "passenger" || patientId !== "patrick";
+      const isPassenger = (label || "").toLowerCase() === "passenger";
       if (isPassenger) {
         await exportPassengerReport(patientId, opts);
       } else {
@@ -3411,7 +3418,10 @@ window.__EXPORT_RUN = async function(args = {}) {
     window.renderTrends = async function() {
       // lightweight summary text only (avoid blocking UI)
       try {
-        const logs = await fetchPatientLogs("patrick", 30);
+        await window.__AUTH_READY;
+        const uid = requireUid();
+        const allLogs = await fetchPatientLogs(uid);
+        const logs = allLogs.slice(-30);
         const elSum = el("change-summary");
         if (!elSum) return;
 
@@ -3525,7 +3535,10 @@ window.__EXPORT_RUN = async function(args = {}) {
 
     window.renderTrendsCharts = async function() {
       try {
-        const logs = await fetchPatientLogs("patrick", 30);
+        await window.__AUTH_READY;
+        const uid = requireUid();
+        const allLogs = await fetchPatientLogs(uid);
+        const logs = allLogs.slice(-30);
         const ordered = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
         const labels = ordered.map(l => l.date || "");
 
@@ -3562,7 +3575,10 @@ window.__EXPORT_RUN = async function(args = {}) {
       const host = el("trends-details-content");
       if (!host) return;
 
-      const logs = await fetchPatientLogs("patrick", 365); // pilot history (same collection used in Trends)
+      await window.__AUTH_READY;
+      const uid = requireUid();
+      const allLogs = await fetchPatientLogs(uid);
+      const logs = allLogs.slice(-365);
       const rows = [];
 
       function pushMetric(key, label, getter) {
