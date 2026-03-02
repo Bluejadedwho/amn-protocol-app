@@ -692,11 +692,11 @@ body.modal-open {
 
     window.selectProfile = function(profile) {
       window.ACTIVE_PROFILE = profile;
-      if (profile === PILOT_PROFILE_ID) {
+      if (profile === 'patrick') {
         window.setActiveView('patrick-view');
         const dateP = byId('date-display-p');
         if (dateP) dateP.innerText = new Date().toDateString();
-      } else if (profile === PASSENGER_PROFILE_ID) {
+      } else if (profile === 'nieve') {
         window.setActiveView('nieve-view');
       }
     };
@@ -771,7 +771,8 @@ body.modal-open {
       if(title) title.textContent = `Export ${target?.label || 'History'} (PDF)`;
       const today = new Date();
       const startD = new Date();
-      startD.setDate(today.getDate() - 29); 
+      const days = Number(target?.days) || 30;
+      startD.setDate(today.getDate() - (days - 1)); 
       if(start) start.value = toISODate(startD);
       if(end) end.value = toISODate(today);
       if(order && !order.value) order.value = 'desc';
@@ -781,7 +782,7 @@ body.modal-open {
       const dob = byId('export-patient-dob');
       const lsNameKey = `patient_name_${target?.patientId || 'unknown'}`;
       const lsDobKey = `patient_dob_${target?.patientId || 'unknown'}`;
-      const defaultName = (target?.patientId === PILOT_PROFILE_ID) ? 'Patrick Fuellbeck' : (target?.patientId === PASSENGER_PROFILE_ID ? 'Nieve' : '');
+      const defaultName = (target?.patientId === 'patrick') ? 'Patrick Fuellbeck' : (target?.patientId === 'nieve' ? 'Nieve' : '');
       if (pn) pn.value = localStorage.getItem(lsNameKey) || defaultName;
       if (dob) dob.value = localStorage.getItem(lsDobKey) || '';
 
@@ -794,7 +795,7 @@ body.modal-open {
     };
 
     window.runExportFromModal = async function(){
-      const target = window.__EXPORT_TARGET || { patientId: PILOT_PROFILE_ID, label: 'Pilot' };
+      const target = window.__EXPORT_TARGET || { patientId: 'patrick', label: 'Pilot' };
       const startRaw = byId('export-start')?.value;
       const endRaw = byId('export-end')?.value;
       const dir = byId('export-order')?.value || 'desc';
@@ -1175,11 +1176,11 @@ Conceptual Foundation and Mechanistic Framework
 </details>
 <button class="black-btn" onclick="window.openDevModal()">Protocol Development &amp; Validation</button>
 <div class="profile-select">
-<button class="card-btn" onclick="window.selectProfile('Patrick')">
+<button class="card-btn" onclick="window.selectProfile('patrick')">
 <h2>The Pilot</h2>
 <p>Patrick • Safety &amp; Margin Protocol</p>
 </button>
-<button class="card-btn" onclick="window.selectProfile('Nieve')">
+<button class="card-btn" onclick="window.selectProfile('nieve')">
 <h2>The Passenger</h2>
 <p>Nieve • Prophylactic Protocol</p>
 </button>
@@ -1603,11 +1604,12 @@ Conceptual Foundation and Mechanistic Framework
 <div class="pill-btn" id="tab-charts" onclick="window.showTrendsTab('charts')">Charts</div>
 <div class="pill-btn" id="tab-details" onclick="window.showTrendsTab('details')">Details</div>
 </div>
+<div class="muted" style="margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:10px;"><span style="color: var(--text-secondary); font-size:0.9rem;">Range</span><select id="trends-range" style="background:#000; color:#fff; border:1px solid #333; border-radius:10px; padding:10px 12px; font-weight:600;"><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="30" selected>Last 30 days</option><option value="60">Last 60 days</option><option value="90">Last 90 days</option><option value="180">Last 180 days</option><option value="365">Last 365 days</option></select></div>
 </div>
 <div id="trends-summary-pane">
 <div class="card">
 <h3>Change Detection Summary</h3>
-<button class="lab-save-btn" id="clinician-export-btn" onclick="window.openExportModal({patientId:'Patrick', label:'Pilot'})" style="margin-top:12px;" type="button">DOWNLOAD PILOT HISTORY (PDF)</button>
+<button class="lab-save-btn" id="clinician-export-btn" onclick="window.openExportModal({patientId:'patrick', label:'Pilot', days: window.getTrendsRangeDays()})" style="margin-top:12px;" type="button">DOWNLOAD PILOT HISTORY (PDF)</button>
 <div id="change-summary" style="margin-top:12px; font-size:0.9rem; line-height:1.7; color:#E0E0E0;"></div>
 </div>
 </div>
@@ -1689,7 +1691,7 @@ Conceptual Foundation and Mechanistic Framework
 <h3>Notes (optional)</h3>
 <textarea class="notes" id="n-notes" placeholder="Optional notes..."></textarea>
 </div>
-<button class="mini-btn" id="passenger-export-btn" onclick="window.openExportModal({patientId:'Nieve', label:'Passenger'})" style="margin-bottom:20px;" type="button">DOWNLOAD HISTORY (PDF)</button>
+<button class="mini-btn" id="passenger-export-btn" onclick="window.openExportModal({patientId:'nieve', label:'Passenger'})" style="margin-bottom:20px;" type="button">DOWNLOAD HISTORY (PDF)</button>
 <button class="save-btn" id="n-save-log" onclick="window.handlePassengerSave()" type="button">SAVE DAILY LOG</button>
 </form>
 </section>
@@ -1961,26 +1963,14 @@ function setAuthError(msg) {
 
     // Gate all Firestore reads/writes behind authentication.
     // If you are not signed in, the app will prompt once and then stay signed in on this device.
-    // Resolve once when Firebase has delivered the initial auth state.
-    let __authReadyResolved = false;
-    window.__AUTH_READY = new Promise((resolve) => { window.__RESOLVE_AUTH_READY__ = resolve; });
-
     auth.onAuthStateChanged((user) => {
       window.CURRENT_UID = user?.uid || null;
       showAuthOverlay(!window.CURRENT_UID);
-
-      if (!__authReadyResolved) {
-        __authReadyResolved = true;
-        if (typeof window.__RESOLVE_AUTH_READY__ === "function") window.__RESOLVE_AUTH_READY__();
-      }
     });
 
-    // --- AUTH + PER-USER PROFILES ---
-    // Profiles are fixed doc IDs under the signed-in user.
-    // IMPORTANT: These IDs must match your Firestore doc IDs exactly (case-sensitive).
-    const PILOT_PROFILE_ID = "Patrick";
-    const PASSENGER_PROFILE_ID = "Nieve";
-    // Path structure: users/{uid}/profiles/{profileId}/logs/{date}
+    // --- NO AUTH / NO DEVICE ID ---
+    // Users are static profiles: "patrick" or "nieve".
+    // Path structure: users/{profileName}/logs/{date}
 
     function userProfilePath(profile, ...rest) {
       // Secure path (requires Firebase Auth): users/{uid}/profiles/{profile}/...
@@ -2277,47 +2267,130 @@ fast_markers: {
       };
     }
 
-    async function saveUserLog(profileId, payload) {
+    
+    // ----------------------------
+    // Local (offline) log storage
+    // ----------------------------
+    const _localLogsKey = (profileId) => `amn_local_logs_${profileId}`;
+    function _loadLocalLogs(profileId){
       try {
-        const uid = window.CURRENT_UID;
-        if (!uid) throw new Error("Not authenticated");
-
-        // Ensure date exists
-        const dateStr = payload.date || localDateStr();
-        const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
-
-        const finalPayload = {
-          ...payload,
-          date: dateStr,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          clientUpdatedAt: new Date().toISOString()
-        };
-
-        await docRef.set(finalPayload, { merge: true });
-      } catch (err) {
-        if (err?.message && String(err.message).toLowerCase().includes('terminated')) {
-          alert("Database connection interrupted. The page will now refresh to restore connection.");
-          window.location.reload();
-          return;
-        }
-        console.error("Save error:", err);
-        alert("Failed to save: " + (err?.message || err));
-        throw err;
+        const raw = localStorage.getItem(_localLogsKey(profileId));
+        const arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      } catch(e){
+        return [];
       }
     }
+    function _saveLocalLogs(profileId, arr){
+      try { localStorage.setItem(_localLogsKey(profileId), JSON.stringify(arr || [])); } catch(e){}
+    }
+    function _upsertLocalLog(profileId, payload){
+      const dateStr = (payload && payload.date) ? String(payload.date) : localDateStr();
+      const logs = _loadLocalLogs(profileId);
+      const idx = logs.findIndex(x => String(x?.date||"") === dateStr);
+      const next = { ...(idx>=0 ? logs[idx] : {}), ...payload, date: dateStr, _localOnly: !window.CURRENT_UID };
+      if (idx>=0) logs[idx] = next; else logs.push(next);
+      // sort asc for storage consistency
+      logs.sort((a,b)=> String(a.date).localeCompare(String(b.date)));
+      _saveLocalLogs(profileId, logs);
+      return next;
+    }
+    function _mergeByDate(primaryArr, secondaryArr){
+      const map = new Map();
+      (secondaryArr||[]).forEach(x=>{ if(x && x.date) map.set(String(x.date), x); });
+      (primaryArr||[]).forEach(x=>{ if(x && x.date) map.set(String(x.date), x); });
+      return Array.from(map.values()).sort((a,b)=> String(b.date).localeCompare(String(a.date)));
+    }
+
+
+    async function saveUserLog(profileId, payload) {
+      // Always write to local storage first so the app works even when not signed in.
+      const dateStr = (payload && payload.date) ? String(payload.date) : localDateStr();
+      const finalPayload = {
+        ...(payload || {}),
+        date: dateStr,
+        clientUpdatedAt: new Date().toISOString()
+      };
+      _upsertLocalLog(profileId, finalPayload);
+
+      // If authenticated + Firestore available, also sync to cloud.
+      const uid = window.CURRENT_UID;
+      if (!uid || typeof db === "undefined" || !db || typeof firebase === "undefined") return;
+
+      const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
+      const cloudPayload = {
+        ...finalPayload,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await docRef.set(cloudPayload, { merge: true });
+    }
+
 window.saveUserLog = saveUserLog;
 
 
     // --- PDF EXPORT (range + dense table + notes appendix) ---
+    
+    async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
+      const uid = window.CURRENT_UID;
+      const local = _loadLocalLogs(patientId).filter(l => {
+        const d = String(l?.date || "");
+        return d && d >= String(startDate) && d <= String(endDate);
+      });
 
+      if (!uid || typeof db === "undefined" || !db) {
+        const sorted = local.sort((a,b)=> dir==="asc" ? String(a.date).localeCompare(String(b.date)) : String(b.date).localeCompare(String(a.date)));
+        return sorted;
+      }
 
-    // Fetch ALL logs for a profile, ordered by date asc.
-    async function fetchPatientLogs(profileId) {
       const q = db
-        .collection(userProfilePath(profileId, "logs"))
-        .orderBy("date", "asc");
+        .collection(userProfilePath(patientId, "logs"))
+        .where("date", ">=", startDate)
+        .where("date", "<=", endDate)
+        .orderBy("date", dir);
       const snapshot = await q.get();
-      return snapshot.docs.map((d) => d.data());
+      const cloud = snapshot.docs.map((d) => d.data());
+      // Merge cloud over local by date (cloud wins if both exist)
+      const merged = _mergeByDate(cloud, local);
+      if (dir === "asc") merged.reverse();
+      return merged;
+    }
+
+
+
+    // Fetch last N logs (default 30), ordered by date desc.
+    
+    async function fetchPatientLogs(patientId, days = 30) {
+      const uid = window.CURRENT_UID;
+      const local = _loadLocalLogs(patientId).sort((a,b)=> String(b.date).localeCompare(String(a.date))).slice(0, days);
+
+      if (!uid || typeof db === "undefined" || !db) return local;
+
+      const q = db
+        .collection(userProfilePath(patientId, "logs"))
+        .orderBy("date", "desc")
+        .limit(days);
+      const snapshot = await q.get();
+      const cloud = snapshot.docs.map((d) => d.data());
+      return _mergeByDate(cloud, local).slice(0, days);
+    }
+
+
+    const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    // Safer wrapper: waits briefly for auth/db to be ready, then retries once on transient failures.
+    async function fetchPatientLogsSafe(patientId, days = 30) {
+      // Wait up to ~4s for auth/module initialization
+      for (let i = 0; i < 26; i++) {
+        if (window.__AUTH_MODULE_LOADED__ && typeof db !== "undefined" && db) break;
+        await _sleep(150);
+      }
+      try {
+        return await fetchPatientLogs(patientId, days);
+      } catch (e) {
+        // One retry after a short pause (helps on slow mobile startup)
+        await _sleep(300);
+        return await fetchPatientLogs(patientId, days);
+      }
     }
 
     function _safeTxt(v) {
@@ -2800,6 +2873,11 @@ window.saveUserLog = saveUserLog;
     if (val === null || val === undefined || val === "") return "N/A";
     return String(val) + suffix;
   };
+  const vrHr = (val) => {
+    const n = Number(val);
+    if (!Number.isFinite(n) || n <= 0) return "N/A";
+    return String(n) + " bpm";
+  };
   const yn = (val) => {
     if (val === true) return "Yes";
     if (val === false) return "No";
@@ -2815,24 +2893,29 @@ window.saveUserLog = saveUserLog;
   };
   const bpRender = (v) => {
     if (!v || typeof v !== "object") return "";
-    if (v.bp) return v.bp;
-    if (v.bp_sys !== undefined && v.bp_dia !== undefined && v.bp_sys !== "" && v.bp_dia !== "") return `${v.bp_sys}/${v.bp_dia}`;
+    if (v.bp && String(v.bp).trim() !== "") return String(v.bp).trim();
+
+    const sys = Number(v.bp_sys);
+    const dia = Number(v.bp_dia);
+    const hasSys = Number.isFinite(sys) && sys > 0;
+    const hasDia = Number.isFinite(dia) && dia > 0;
+
+    if (hasSys && hasDia) return `${sys}/${dia}`;
     return "";
   };
 
   try {
-    // 1) Fetch data (single fetch function)
-    await window.__AUTH_READY;
-    let logs = await fetchPatientLogs(profileId);
-    logs = Array.isArray(logs) ? [...logs] : [];
-    const dir = opts?.dir || "desc";
-    if (dir === "desc") logs.reverse();
+    // 1) Fetch data safely
+    const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
+    const snapshot = await logsRef.orderBy("date", "desc").get();
 
-    if (!logs.length) {
+    if (snapshot.empty) {
       alert("No data found to export.");
       return;
     }
 
+    let logs = [];
+    snapshot.forEach(doc => logs.push(doc.data()));
 
     // Optional client-side date filter (if modal passes it)
     const startDate = opts?.startDate || null;
@@ -2896,8 +2979,8 @@ window.saveUserLog = saveUserLog;
 
       // Vitals
       html += `<div class="report-section"><h3>Vitals AM & PM</h3>
-        <p><strong>AM:</strong> BP: ${vr(bpRender(vAm) || "")} | HR: ${vr(pick(vAm, "hr"), " bpm")}</p>
-        <p><strong>PM:</strong> BP: ${vr(bpRender(vPm) || "")} | HR: ${vr(pick(vPm, "hr"), " bpm")}</p>
+        <p><strong>AM:</strong> BP: ${vr(bpRender(vAm) || "")} | HR: ${vrHr(pick(vAm, "hr"))}</p>
+        <p><strong>PM:</strong> BP: ${vr(bpRender(vPm) || "")} | HR: ${vrHr(pick(vPm, "hr"))}</p>
       </div>`;
 
       // Global status
@@ -3064,6 +3147,27 @@ window.saveUserLog = saveUserLog;
 </head>
 <body>
   <div id="report-view" style="display:block;">${html}</div>
+
+
+<!-- Fix: ensure fetchPatientLogs / fetchPatientLogsSafe exist in global scope (Safari/inline handlers) -->
+<script>
+(function(){
+  try {
+    if (typeof window.fetchPatientLogs !== "function" && typeof fetchPatientLogs === "function") {
+      window.fetchPatientLogs = fetchPatientLogs;
+    }
+    if (typeof window.fetchPatientLogsSafe !== "function") {
+      if (typeof fetchPatientLogsSafe === "function") {
+        window.fetchPatientLogsSafe = fetchPatientLogsSafe;
+      } else if (typeof window.fetchPatientLogs === "function") {
+        window.fetchPatientLogsSafe = function(patientId, days){
+          return window.fetchPatientLogs(patientId, days);
+        };
+      }
+    }
+  } catch(e) {}
+})();
+</script>
 </body>
 </html>`);
       doc.close();
@@ -3111,11 +3215,10 @@ async function exportPassengerReport(profileId, opts = {}) {
   };
 
   try {
-    await window.__AUTH_READY;
-    let logs = await fetchPatientLogs(profileId);
-    logs = Array.isArray(logs) ? [...logs] : [];
-    const dir = opts?.dir || "desc";
-    if (dir === "desc") logs.reverse();
+    const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
+    const snapshot = await logsRef.orderBy("date", opts?.dir || "desc").get();
+    let logs = snapshot.docs.map(d => d.data());
+
     // Optional range filter (from export modal)
     const startDate = opts?.startDate || null;
     const endDate = opts?.endDate || null;
@@ -3207,6 +3310,27 @@ async function exportPassengerReport(profileId, opts = {}) {
 </head>
 <body>
   <div id="report-view" style="display:block;">${html}</div>
+
+
+<!-- Fix: ensure fetchPatientLogs / fetchPatientLogsSafe exist in global scope (Safari/inline handlers) -->
+<script>
+(function(){
+  try {
+    if (typeof window.fetchPatientLogs !== "function" && typeof fetchPatientLogs === "function") {
+      window.fetchPatientLogs = fetchPatientLogs;
+    }
+    if (typeof window.fetchPatientLogsSafe !== "function") {
+      if (typeof fetchPatientLogsSafe === "function") {
+        window.fetchPatientLogsSafe = fetchPatientLogsSafe;
+      } else if (typeof window.fetchPatientLogs === "function") {
+        window.fetchPatientLogsSafe = function(patientId, days){
+          return window.fetchPatientLogs(patientId, days);
+        };
+      }
+    }
+  } catch(e) {}
+})();
+</script>
 </body>
 </html>`);
       doc.close();
@@ -3232,7 +3356,7 @@ async function exportPassengerReport(profileId, opts = {}) {
 }
 
 window.__EXPORT_RUN = async function(args = {}) {
-      const patientId = args.patientId || PILOT_PROFILE_ID;
+      const patientId = args.patientId || "patrick";
       const label = args.label || "";
       const opts = {
         printWindow: args.printWindow,
@@ -3244,7 +3368,7 @@ window.__EXPORT_RUN = async function(args = {}) {
       };
 
       // Passenger export uses a smaller schema than the Pilot (full protocol) export.
-      const isPassenger = (label || "").toLowerCase() === "passenger" || patientId !== PILOT_PROFILE_ID;
+      const isPassenger = (label || "").toLowerCase() === "passenger" || patientId !== "patrick";
       if (isPassenger) {
         await exportPassengerReport(patientId, opts);
       } else {
@@ -3285,7 +3409,7 @@ window.__EXPORT_RUN = async function(args = {}) {
     window.handlePilotSave = async function() {
       setBtn("p-save-log", true, "SAVING...");
       try {
-        await saveUserLog(PILOT_PROFILE_ID, collectPilotPayload());
+        await saveUserLog("patrick", collectPilotPayload());
         setBtn("p-save-log", false, "SAVED ✓");
         setTimeout(() => setBtn("p-save-log", false, "SAVE DAILY LOG"), 1200);
       } catch(e) {
@@ -3324,7 +3448,7 @@ window.__EXPORT_RUN = async function(args = {}) {
         const payload = collectFunctionalTestPayload();
         // Path: users/patrick/tests/{id}
         const id = `${payload.test_date}_${Date.now()}`;
-        const ref = db.doc(userProfilePath(PILOT_PROFILE_ID, "tests", id));
+        const ref = db.doc(userProfilePath("patrick", "tests", id));
         
         await ref.set({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() }, { merge: true });
         btns.forEach(b => { try { b.textContent = "SAVED ✓"; } catch(e){} });
@@ -3339,7 +3463,7 @@ window.__EXPORT_RUN = async function(args = {}) {
     window.handlePassengerSave = async function() {
       setBtn("n-save-log", true, "SAVING...");
       try {
-        await saveUserLog(PASSENGER_PROFILE_ID, collectPassengerPayload());
+        await saveUserLog("nieve", collectPassengerPayload());
         setBtn("n-save-log", false, "SAVED ✓");
         setTimeout(() => setBtn("n-save-log", false, "SAVE DAILY LOG"), 1200);
       } catch(e) {
@@ -3357,7 +3481,7 @@ window.__EXPORT_RUN = async function(args = {}) {
     window.handleLabSave = async function() {
       setBtn("lab-save-results-btn", true, "SAVING...");
       try {
-        await saveUserLog(PILOT_PROFILE_ID, collectLabPayload());
+        await saveUserLog("patrick", collectLabPayload());
         setBtn("lab-save-results-btn", false, "SAVED ✓");
         setTimeout(() => setBtn("lab-save-results-btn", false, "SAVE LAB RESULTS ONLY"), 1600);
       } catch(e) {
@@ -3409,35 +3533,218 @@ window.__EXPORT_RUN = async function(args = {}) {
       t1.classList.add("active");
     };
 
+
+    // Trends range helpers
+    window.getTrendsRangeDays = function() {
+      const sel = el("trends-range");
+      const n = sel ? Number(sel.value) : 30;
+      return Number.isFinite(n) && n > 0 ? n : 30;
+    };
+
+    window.refreshTrendsForActiveTab = function() {
+      // Determine which tab is active and re-render the right pane
+      const t1 = el("tab-summary");
+      const t2 = el("tab-charts");
+      const t3 = el("tab-details");
+      if (t2 && t2.classList.contains("active")) {
+        if (typeof window.renderTrendsCharts === "function") window.renderTrendsCharts();
+        return;
+      }
+      if (t3 && t3.classList.contains("active")) {
+        if (typeof window.renderTrendsDetails === "function") window.renderTrendsDetails();
+        return;
+      }
+      if (typeof window.renderTrends === "function") window.renderTrends();
+    };
+
     // Basic trends rendering (safe/no-crash)
     let _globalChart = null;
 
     window.renderTrends = async function() {
-      // lightweight summary text only (avoid blocking UI)
       try {
-        const logs = await fetchPatientLogs(PILOT_PROFILE_ID);
+        const days = window.getTrendsRangeDays();
+        const sel = el("trends-range");
+        if (sel && !sel.dataset.bound) {
+          sel.dataset.bound = "1";
+          sel.addEventListener("change", () => window.refreshTrendsForActiveTab());
+        }
+
+        const logs = await fetchPatientLogsSafe("patrick", days);
         const elSum = el("change-summary");
         if (!elSum) return;
 
-        const withRating = logs.filter(l => !!l.baseline_rating);
-        const total = logs.length;
-        const rated = withRating.length;
+        if (!logs || !logs.length) {
+          elSum.innerHTML = `
+            <div style="font-weight:700;">No logs found for the last ${days} days.</div>
+            <div style="margin-top:8px; color:var(--text-secondary);">
+              If you are not signed in yet, logs will now save locally on this device (offline mode). After you save at least one daily log, Trends and Reports will populate.
+            </div>
+          `;
+          return;
+        }
 
-        // simple counts
+        const ratingScore = (r) => ({
+          much_better:  2,
+          better:       1,
+          same:         0,
+          worse:       -1,
+          much_worse:  -2
+        }[r] ?? null);
+
+        const safeNum = (v) => (v === null || v === undefined || v === "" || Number.isNaN(Number(v))) ? null : Number(v);
+
+        const total = logs.length;
+
+        // Baseline rating distribution
+        const withRating = logs.filter(l => !!l.baseline_rating);
         const counts = { much_worse:0, worse:0, same:0, better:0, much_better:0 };
         withRating.forEach(l => { if (counts[l.baseline_rating] !== undefined) counts[l.baseline_rating]++; });
 
+        // Core numeric series
+        const series = logs.map(l => ({
+          date: String(l.date || ""),
+          baseline: ratingScore(l.baseline_rating),
+          energy: safeNum(l.energy_capacity),
+          pain: safeNum(l?.pain_episode?.severity),
+          sleepShift: safeNum(l?.symptom_drift?.sleep_quality),
+          gaitShift: safeNum(l?.symptom_drift?.step_gait_effort),
+          stiffnessShift: safeNum(l?.symptom_drift?.leg_stiffness),
+          fogShift: safeNum(l?.symptom_drift?.brain_fog),
+          neuroFatigueShift: safeNum(l?.symptom_drift?.neurologic_fatigue),
+          protocol: l?.protocol_adherence || {}
+        })).filter(x => x.date);
+
+        // Adherence rates
+        const adhKeys = [
+          ["nervonic_acid_taken", "Nervonic Acid"],
+          ["nac_taken", "NAC"],
+          ["r_ala_taken", "R-ALA"],
+          ["vitamin_e_taken", "Vitamin E"]
+        ];
+        const adh = {};
+        adhKeys.forEach(([k,label]) => {
+          const yes = series.filter(s => s.protocol && s.protocol[k] === true).length;
+          const known = series.filter(s => s.protocol && (s.protocol[k] === true || s.protocol[k] === false)).length;
+          adh[label] = { yes, known, pct: known ? Math.round(100*yes/known) : null };
+        });
+        const allTaken = series.filter(s => adhKeys.every(([k]) => s.protocol && s.protocol[k] === true)).length;
+        const allKnown = series.filter(s => adhKeys.every(([k]) => s.protocol && (s.protocol[k] === true || s.protocol[k] === false))).length;
+        const allPct = allKnown ? Math.round(100*allTaken/allKnown) : null;
+
+        // Composite day score (heuristic, primarily for ranking days)
+        const comp = (s) => {
+          const b = s.baseline ?? 0;
+          const e = (s.energy === null) ? 0 : (s.energy - 5) / 5;
+          const p = (s.pain === null) ? 0 : (5 - s.pain) / 5;
+          const sl = (s.sleepShift === null) ? 0 : (s.sleepShift) / 5;
+          return b*2 + e + p + sl;
+        };
+
+        const ranked = [...series].map(s => ({...s, score: comp(s)}))
+          .sort((a,b)=> b.score - a.score);
+
+        const top10 = ranked.slice(0, 10);
+        const bottom10 = ranked.slice(-10).reverse();
+
+        const avg = (arr) => {
+          const xs = arr.filter(x => x!==null && x!==undefined && Number.isFinite(Number(x))).map(Number);
+          if (!xs.length) return null;
+          return xs.reduce((a,b)=>a+b,0)/xs.length;
+        };
+
+        const avgEnergy = avg(series.map(s=>s.energy));
+        const avgPain = avg(series.map(s=>s.pain));
+        const avgSleepShift = avg(series.map(s=>s.sleepShift));
+
+        const fmt = (v, digits=1) => (v===null || v===undefined) ? "N/A" : Number(v).toFixed(digits);
+
+        const tableRows = (arr) => arr.map(s => `
+          <tr>
+            <td>${s.date}</td>
+            <td>${s.baseline === null ? "—" : s.baseline}</td>
+            <td>${s.energy === null ? "N/A" : s.energy}</td>
+            <td>${s.pain === null ? "N/A" : s.pain}</td>
+            <td>${s.sleepShift === null ? "N/A" : s.sleepShift}</td>
+            <td>${fmt(s.score,2)}</td>
+          </tr>
+        `).join("");
+
         elSum.innerHTML = `
-          <div>Last 30 days: <strong>${total}</strong> logs found. Baseline rating recorded on <strong>${rated}</strong> days.</div>
-          <div style="margin-top:10px;">
-            much better: ${counts.much_better} • better: ${counts.better} • same: ${counts.same} • worse: ${counts.worse} • much worse: ${counts.much_worse}
-          </div>
-          <div style="margin-top:10px; color: var(--text-secondary); font-size: 0.85rem;">
-            Note: This is descriptive only. It does not adjust for confounders or missing data.
+          <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start;">
+            <div style="flex:1; min-width:260px;">
+              <div style="font-weight:800; font-size:18px;">Trends Summary (last ${days} days)</div>
+              <div style="margin-top:8px;">
+                Logs found: <strong>${total}</strong>. Baseline rating recorded on <strong>${withRating.length}</strong> days.
+              </div>
+              <div style="margin-top:10px; line-height:1.6;">
+                <strong>Baseline distribution</strong><br>
+                Much better: ${counts.much_better} • Better: ${counts.better} • Same: ${counts.same} • Worse: ${counts.worse} • Much worse: ${counts.much_worse}
+              </div>
+
+              <div style="margin-top:12px; line-height:1.6;">
+                <strong>Key averages</strong><br>
+                Energy capacity: ${fmt(avgEnergy)} / 10<br>
+                Pain severity: ${fmt(avgPain)} / 10<br>
+                Sleep quality shift: ${fmt(avgSleepShift)}
+              </div>
+
+              <div style="margin-top:12px; line-height:1.6;">
+                <strong>Protocol adherence</strong><br>
+                ${Object.entries(adh).map(([label,o]) => `${label}: ${o.pct===null ? "N/A" : (o.pct+"%")} (${o.yes}/${o.known || 0})`).join("<br>")}
+                <br>All core taken (same day): ${allPct===null ? "N/A" : (allPct+"%")} (${allTaken}/${allKnown || 0})
+              </div>
+
+              <div style="margin-top:10px; color:var(--text-secondary); font-size:12px;">
+                Notes: day ranking is a heuristic score used only to surface “top” and “bottom” days quickly. It weights baseline rating most heavily, then energy, pain, and sleep shift.
+              </div>
+            </div>
+
+            <div style="flex:1; min-width:300px;">
+              <div style="font-weight:700; margin-bottom:6px;">Top 10 days</div>
+              <div style="overflow:auto; border:1px solid #e5e5e5; border-radius:10px;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                  <thead>
+                    <tr style="background:#fafafa;">
+                      <th style="text-align:left; padding:8px;">Date</th>
+                      <th style="text-align:left; padding:8px;">Baseline</th>
+                      <th style="text-align:left; padding:8px;">Energy</th>
+                      <th style="text-align:left; padding:8px;">Pain</th>
+                      <th style="text-align:left; padding:8px;">Sleep Δ</th>
+                      <th style="text-align:left; padding:8px;">Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${tableRows(top10)}
+                  </tbody>
+                </table>
+              </div>
+
+              <div style="font-weight:700; margin:14px 0 6px;">Bottom 10 days</div>
+              <div style="overflow:auto; border:1px solid #e5e5e5; border-radius:10px;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                  <thead>
+                    <tr style="background:#fafafa;">
+                      <th style="text-align:left; padding:8px;">Date</th>
+                      <th style="text-align:left; padding:8px;">Baseline</th>
+                      <th style="text-align:left; padding:8px;">Energy</th>
+                      <th style="text-align:left; padding:8px;">Pain</th>
+                      <th style="text-align:left; padding:8px;">Sleep Δ</th>
+                      <th style="text-align:left; padding:8px;">Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${tableRows(bottom10)}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         `;
-      } catch(e) {
+
+      } catch (e) {
         console.error(e);
+        const elSum = el("change-summary");
+        if (elSum) elSum.innerHTML = `<div style="color:#b00020;">Trends failed to render: ${String(e?.message || e)}</div>`;
       }
     };
 
@@ -3529,7 +3836,8 @@ window.__EXPORT_RUN = async function(args = {}) {
 
     window.renderTrendsCharts = async function() {
       try {
-        const logs = await fetchPatientLogs(PILOT_PROFILE_ID);
+        const days = window.getTrendsRangeDays();
+        const logs = await fetchPatientLogsSafe("patrick", days);
         const ordered = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
         const labels = ordered.map(l => l.date || "");
 
@@ -3566,7 +3874,7 @@ window.__EXPORT_RUN = async function(args = {}) {
       const host = el("trends-details-content");
       if (!host) return;
 
-      const logs = await fetchPatientLogs(PILOT_PROFILE_ID); // pilot history (same collection used in Trends)
+      const logs = await fetchPatientLogs("patrick", 365); // pilot history (same collection used in Trends)
       const rows = [];
 
       function pushMetric(key, label, getter) {
@@ -3700,6 +4008,27 @@ window.__EXPORT_RUN = async function(args = {}) {
   updateLock();
 })();
 
+</script>
+
+
+<!-- Fix: ensure fetchPatientLogs / fetchPatientLogsSafe exist in global scope (Safari/inline handlers) -->
+<script>
+(function(){
+  try {
+    if (typeof window.fetchPatientLogs !== "function" && typeof fetchPatientLogs === "function") {
+      window.fetchPatientLogs = fetchPatientLogs;
+    }
+    if (typeof window.fetchPatientLogsSafe !== "function") {
+      if (typeof fetchPatientLogsSafe === "function") {
+        window.fetchPatientLogsSafe = fetchPatientLogsSafe;
+      } else if (typeof window.fetchPatientLogs === "function") {
+        window.fetchPatientLogsSafe = function(patientId, days){
+          return window.fetchPatientLogs(patientId, days);
+        };
+      }
+    }
+  } catch(e) {}
+})();
 </script>
 </body>
 </html>
