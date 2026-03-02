@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>90-Day Fake Data Sandbox (No Firebase)</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 18px; background:#0b0c10; color:#e6e6e6; }
+    h1 { font-size: 20px; margin: 0 0 10px; }
+    .card { background:#12131a; border:1px solid #23253a; border-radius: 12px; padding: 14px; margin: 12px 0; }
+    .row { display:flex; gap:12px; flex-wrap: wrap; align-items: end; }
+    label { font-size: 12px; opacity: 0.85; display:block; margin-bottom: 6px; }
+    input, select, button, textarea { background:#0f1020; color:#e6e6e6; border:1px solid #2b2e4a; border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+    input[type="number"] { width: 110px; }
+    input[type="date"] { width: 170px; }
+    button { cursor:pointer; }
+    button.primary { background:#2563eb; border-color:#2563eb; }
+    button.secondary { background:#1f2937; }
+    button.danger { background:#7f1d1d; border-color:#7f1d1d; }
+    .muted { opacity: 0.75; font-size: 13px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #23253a; padding: 8px 6px; font-size: 12px; text-align:left; vertical-align: top; }
+    th { opacity: 0.85; position: sticky; top: 0; background:#12131a; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#1f2937; font-size:12px; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 900px){ .grid { grid-template-columns: 1fr; } }
+    .chart { height: 180px; border:1px solid #23253a; border-radius: 10px; padding: 8px; background:#0f1020; }
+    .hint { font-size:12px; opacity:0.8; }
+    .small { font-size: 12px; }
+    .nowrap { white-space: nowrap; }
+    .right { text-align:right; }
+    .footer { margin-top: 14px; opacity:0.8; font-size:12px; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#0f1020; border:1px solid #2b2e4a; padding:1px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>90-Day Fake Data Sandbox <span class="pill">No Firebase</span></h1>
+  <div class="muted">Generates synthetic daily logs + weekly functional tests in-memory so you can validate report layout and trend logic without touching Firestore.</div>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label>Days</label>
+        <input id="days" type="number" min="7" max="365" value="90" />
+      </div>
+      <div>
+        <label>End date (inclusive)</label>
+        <input id="endDate" type="date" />
+      </div>
+      <div>
+        <label>Trend shape</label>
+        <select id="trend">
+          <option value="improve">Mild improvement</option>
+          <option value="worsen">Mild worsening</option>
+          <option value="flat">Flat</option>
+          <option value="volatile">Volatile</option>
+        </select>
+      </div>
+      <div>
+        <label>Include weekly functional tests</label>
+        <select id="includeTests">
+          <option value="yes" selected>Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <div>
+        <button class="primary" id="gen">Generate</button>
+      </div>
+      <div>
+        <button class="secondary" id="export">Export printable report (PDF via Print)</button>
+      </div>
+      <div>
+        <button class="danger" id="clear">Clear</button>
+      </div>
+    </div>
+    <div class="hint" style="margin-top:10px;">
+      Export uses your browser print dialog. On desktop: choose “Save as PDF”. On iOS: Share → Print → pinch-out preview → Share → Save to Files.
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="row" style="justify-content: space-between;">
+        <div>
+          <div class="small muted">Summary</div>
+          <div id="summary" style="font-size:14px;margin-top:4px;">No data yet.</div>
+        </div>
+        <div class="right">
+          <div class="small muted">Storage</div>
+          <div class="small"><span class="pill" id="storeState">in-memory</span></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="small muted">Mini trend chart (Energy/Capacity)</div>
+        <canvas id="cEnergy" class="chart" width="800" height="240"></canvas>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="small muted">Mini trend chart (Leg Stiffness)</div>
+        <canvas id="cStiff" class="chart" width="800" height="240"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="small muted">Generated data preview</div>
+      <div class="muted" style="margin-top:4px;">First 10 days shown. Export prints all days.</div>
+      <div style="max-height: 520px; overflow:auto; margin-top:10px;">
+        <table>
+          <thead>
+            <tr>
+              <th class="nowrap">Date</th>
+              <th>Baseline</th>
+              <th>Energy</th>
+              <th>Sleep</th>
+              <th>Leg stiffness</th>
+              <th>Confounders</th>
+              <th>AE/Wins</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Tip: if you want to compare against the real app’s logic, open both pages and line up the report sections.
+    This sandbox intentionally avoids Firebase and only uses <span class="kbd">window.print()</span> for PDF.
+  </div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+
+  // Default end date = today
+  const today = new Date();
+  $("endDate").value = toDateInput(today);
+
+  // In-memory data
+  let DATA = {
+    days: [],    // daily logs
+    tests: []    // functional tests
+  };
+
+  const baselineLabels = {
+    slightly_worse: "Slightly worse",
+    baseline: "Baseline",
+    slightly_better: "Slightly better",
+    better: "Better"
+  };
+
+  function toDateInput(d){
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  function fromDateInput(s){
+    const [y,m,d] = s.split("-").map(Number);
+    return new Date(y, m-1, d);
+  }
+  function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+  function r(min, max){ return Math.random()*(max-min)+min; }
+  function ri(min, max){ return Math.floor(r(min, max+1)); }
+  function pick(arr){ return arr[ri(0, arr.length-1)]; }
+  function maybe(p){ return Math.random() < p; }
+
+  function trendValue(t, shape){
+    // t in [0,1]
+    if (shape === "flat") return 0;
+    if (shape === "improve") return +t;
+    if (shape === "worsen") return -t;
+    // volatile
+    return Math.sin(t*10)*0.7 + (Math.random()-0.5)*0.6;
+  }
+
+  function makeDay(dateStr, i, n, shape){
+    const t = (n <= 1) ? 0 : i/(n-1);
+    const drift = trendValue(t, shape);
+
+    // Scales are 0-10 for many sliders
+    const energy = clamp(Math.round(5 + drift*2 + r(-1,1)), 0, 10);
+    const sleep = clamp(Math.round(5 + drift*1 + r(-2,2)), 0, 10);
+    const stiff = clamp(Math.round(6 - drift*1.5 + r(-1.5,1.5)), 0, 10);
+
+    const baseline = (drift > 0.35) ? pick(["slightly_better","better"]) :
+                     (drift < -0.35) ? pick(["slightly_worse","baseline"]) :
+                                      pick(["baseline","slightly_better","slightly_worse"]);
+
+    // Protocol adherence (booleans)
+    const protocol = {
+      nervonic_acid_taken: maybe(0.9),
+      nac_taken: maybe(0.86),
+      r_ala_taken: maybe(0.82),
+      vitamin_e_taken: maybe(0.86)
+    };
+
+    // Vitals (AM/PM)
+    const bpSysAM = ri(105, 145);
+    const bpDiaAM = ri(65, 92);
+    const hrAM = ri(62, 98);
+    const bpSysPM = clamp(bpSysAM + ri(-12, 12), 90, 170);
+    const bpDiaPM = clamp(bpDiaAM + ri(-10, 10), 55, 110);
+    const hrPM = clamp(hrAM + ri(-12, 12), 45, 120);
+    const vitals = {
+      morning: { bp_sys: bpSysAM, bp_dia: bpDiaAM, hr: hrAM },
+      evening: { bp_sys: bpSysPM, bp_dia: bpDiaPM, hr: hrPM }
+    };
+
+    // Fast markers (checkboxes)
+    const fast = {
+      near_fall_or_balance_scare: maybe(0.12),
+      electrolyte_rescue_required: maybe(0.18),
+      spasm_or_clonus_episode: maybe(0.10),
+      night_pain_woke_me: maybe(0.16),
+      restless_legs_at_night: maybe(0.14)
+    };
+
+    // Symptom shift (0-10)
+    const symptom = {
+      brain_fog: clamp(Math.round(5 - drift*0.8 + r(-2,2)), 0, 10),
+      step_gait_effort: clamp(Math.round(6 - drift*1.0 + r(-1.5,1.5)), 0, 10),
+      gait_initiation_effort: clamp(Math.round(6 - drift*0.9 + r(-1.5,1.5)), 0, 10),
+      sustained_walking_effort: clamp(Math.round(7 - drift*1.1 + r(-1.5,1.5)), 0, 10),
+      neurologic_fatigue: clamp(Math.round(6 - drift*0.8 + r(-1.5,1.5)), 0, 10),
+      sleep_quality: sleep,
+      leg_stiffness: stiff,
+      post_rest_stiffness: clamp(Math.round(6 - drift*0.9 + r(-1.5,1.5)), 0, 10),
+      symptom_volatility: clamp(Math.round(4 + Math.abs(drift)*2 + r(-2,2)), 0, 10)
+    };
+
+    // Pain impact
+    const pain = {
+      severity: clamp(Math.round(4 - drift*0.6 + r(-2,2)), 0, 10),
+      primary_driver: pick(["piriformis_glute","low_back","hip","thigh","calf","foot","other"]),
+      interfered_with_sleep: maybe(0.24),
+      limited_walking: maybe(0.30),
+      forced_extra_rest: maybe(0.18),
+      required_rescue_meds: maybe(0.14),
+      changed_gait_mechanics: maybe(0.20)
+    };
+
+    // Confounders (context changes)
+    const nightPainElectro = maybe(0.18);
+    const conf = {
+      poor_sleep_last_night: maybe(0.22),
+      unusual_physical_exertion: maybe(0.12),
+
+      pharmacologic_changes: maybe(0.08),
+      medication_timing_change: maybe(0.08),
+      dose_change: maybe(0.06),
+      missed_dose: maybe(0.05),
+      new_supplement_added: maybe(0.08),
+      new_medication_added: maybe(0.05),
+      pharmacologic_notes: maybe(0.05) ? "Seed note: pharmacologic adjustment." : "",
+
+      travel_or_disrupted_schedule: maybe(0.06),
+      high_stress: ri(0,3),
+      infection_symptoms: maybe(0.05),
+      gi_upset_or_dehydration_risk: maybe(0.08),
+
+      night_pain_likely_electrolyte_related: nightPainElectro,
+      electrolyte_rescue_type: nightPainElectro ? pick(["k","na","mg","unsure"]) : "",
+      electrolyte_rescue_helped_within: nightPainElectro ? pick(["15 min","30 min","60 min","2+ hours"]) : "",
+
+      nothing_unusual: false
+    };
+
+    // External variables
+    const external = {
+      label: pick(["none","light","full"]),
+      level: ri(0,3)
+    };
+
+    // Periodic labs (sparse, e.g. every 30 days)
+    const labs = (i % 30 === 0) ? {
+      test_date: dateStr,
+      vlcfa_c26: (Math.round((r(0.45, 1.30) + (shape==="improve"? -0.05*t : 0))*100)/100).toFixed(2),
+      liver_alt_ast: `${ri(12,45)}/${ri(12,45)}`,
+      notes: maybe(0.4) ? "Seed lab note." : ""
+    } : null;
+
+    const ae = maybe(0.14) ? [{ desc:"Seed adverse event", durationMin: ri(15,180), trigger: pick(["stress","sleep","electrolyte","dose","unknown"]), detail:"Seed detail"}] : [];
+    const win = maybe(0.16) ? [{ desc:"Seed win", durationMin: ri(15,180), trigger: pick(["rest","nervonic","electrolyte","stretching","unknown"]), detail:"Seed detail"}] : [];
+
+    const notes = {
+      food_notes: maybe(0.22) ? "Seed food notes." : "",
+      general_notes: maybe(0.28) ? "Seed general notes." : ""
+    };
+
+    return {
+      date: dateStr,
+      protocol_adherence: protocol,
+      vitals,
+      global_status: {
+        baseline_rating: baseline,
+        baseline_confidence: pick(["low","medium","high"]),
+        energy_capacity: energy,
+        energy_confidence: pick(["low","medium","high"])
+      },
+      fast_markers: fast,
+      symptom_shift: symptom,
+      pain_impact: pain,
+      confounders: conf,
+      external_variables: external,
+      periodic_labs: labs,
+      adverse_events: ae,
+      wins: win,
+      notes
+    };
+  }
+
+
+  function makeWeeklyTest  function makeWeeklyTest(dateStr){
+    return {
+      test_date: dateStr,
+      six_minute_walk: {
+        distance_m: ri(40,120),
+        rest_breaks: ri(0,10),
+        device: pick(["walker","cane","crutches","none"]),
+        course_m: pick([50,67,88,100]),
+        rpe: ri(2,9)
+      },
+      five_x_sit_to_stand: {
+        time_s: ri(30,90),
+        used_arms: pick(["yes","no"]),
+        chair_cm: pick([45,56,66,67])
+      },
+      notes: "Seed functional test"
+    };
+  }
+
+  function generate(){
+    const days = clamp(parseInt($("days").value || "90", 10), 7, 365);
+    const end = fromDateInput($("endDate").value);
+    const shape = $("trend").value;
+    const includeTests = $("includeTests").value === "yes";
+
+    const start = new Date(end);
+    start.setDate(end.getDate() - (days-1));
+
+    const daily = [];
+    const tests = [];
+
+    for (let i=0;i<days;i++){
+      const d = new Date(start);
+      d.setDate(start.getDate()+i);
+      const dateStr = toDateInput(d);
+      daily.push(makeDay(dateStr, i, days, shape));
+      if (includeTests && i % 7 === 0) tests.push(makeWeeklyTest(dateStr));
+    }
+
+    DATA = { days: daily, tests };
+    render();
+  }
+
+  function summarize(){
+    if (!DATA.days.length) return "No data yet.";
+
+    const n = DATA.days.length;
+    const avg = (arr) => arr.reduce((a,b)=>a+b,0)/arr.length;
+
+    const energy = avg(DATA.days.map(d => d.global_status.energy_capacity));
+    const sleep = avg(DATA.days.map(d => d.symptom_shift.sleep_quality));
+    const stiff = avg(DATA.days.map(d => d.symptom_shift.leg_stiffness));
+
+    const aes = DATA.days.reduce((a,d)=>a+((d.adverse_events && d.adverse_events.length)||0),0);
+    const wins = DATA.days.reduce((a,d)=>a+((d.wins && d.wins.length)||0),0);
+
+    return `${n} days • Avg energy ${energy.toFixed(1)} • Avg sleep ${sleep.toFixed(1)} • Avg stiffness ${stiff.toFixed(1)} • AEs ${aes} • Wins ${wins} • Tests ${DATA.tests.length}`;
+  }
+
+  function renderTable(){
+    const tbody = $("rows");
+    tbody.innerHTML = "";
+    const first = DATA.days.slice(0,10);
+
+    for (const d of first){
+      const conf = d.confounders;
+      const confStr = [
+        conf.poor_sleep_last_night ? "poor sleep" : null,
+        conf.unusual_physical_exertion ? "exertion" : null,
+        conf.pharmacologic_changes ? "pharm" : null,
+        conf.travel_or_disrupted_schedule ? "travel" : null,
+        conf.high_stress ? `stress:${conf.high_stress}` : "stress:0",
+        conf.night_pain_likely_electrolyte_related ? "electro pain" : null
+      ].filter(Boolean).join(", ");
+
+      const aeWin = `${d.adverse_events.length}/${d.wins.length}`;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="nowrap">${d.date}</td>
+        <td>${baselineLabels[d.global_status.baseline_rating] || d.global_status.baseline_rating}</td>
+        <td>${d.global_status.energy_capacity}</td>
+        <td>${d.symptom_shift.sleep_quality}</td>
+        <td>${d.symptom_shift.leg_stiffness}</td>
+        <td>${confStr || "none"}</td>
+        <td>${aeWin}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function drawLine(canvas, values){
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0,0,W,H);
+
+    // padding
+    const padL=40, padR=10, padT=10, padB=30;
+    const w = W - padL - padR;
+    const h = H - padT - padB;
+
+    // axes
+    ctx.strokeStyle = "#2b2e4a";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT);
+    ctx.lineTo(padL, padT+h);
+    ctx.lineTo(padL+w, padT+h);
+    ctx.stroke();
+
+    // y labels 0..10
+    ctx.fillStyle = "#b8b8b8";
+    ctx.font = "12px system-ui";
+    for (let y=0;y<=10;y+=2){
+      const yy = padT + h - (y/10)*h;
+      ctx.fillText(String(y), 10, yy+4);
+      ctx.strokeStyle = "#1f2237";
+      ctx.beginPath();
+      ctx.moveTo(padL, yy);
+      ctx.lineTo(padL+w, yy);
+      ctx.stroke();
+    }
+
+    if (!values.length) return;
+
+    // line
+    ctx.strokeStyle = "#60a5fa";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i=0;i<values.length;i++){
+      const x = padL + (i/(values.length-1 || 1))*w;
+      const y = padT + h - (clamp(values[i],0,10)/10)*h;
+      if (i===0) ctx.moveTo(x,y);
+      else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    // start/end labels
+    ctx.fillStyle = "#b8b8b8";
+    ctx.fillText("oldest", padL, padT+h+20);
+    ctx.fillText("newest", padL+w-50, padT+h+20);
+  }
+
+  function exportPrintable(){
+    if (!DATA.days.length){
+      alert("Generate data first.");
+      return;
+    }
+
+    let win = window.open("", "_blank");
+    // Popup blockers can prevent window.open(), especially for file:// pages.
+    // Fallback: create a hidden iframe and print from it.
+    let iframe = null;
+    if (!win) {
+      iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      document.body.appendChild(iframe);
+      win = iframe.contentWindow;
+    }
+    const css = `
+      <style>
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; color:#111; }
+        h1 { font-size: 18px; margin:0 0 6px; }
+        .muted { color:#444; font-size:12px; }
+        .day { border-top: 2px solid #2563eb; padding-top: 10px; margin-top: 14px; }
+        .h { color:#1d4ed8; font-weight:800; margin: 10px 0 6px; letter-spacing: 0.5px; text-transform: uppercase; font-size: 12px; }
+        ul { margin: 6px 0 10px 18px; }
+        li { margin: 3px 0; font-size: 12px; }
+        .line { font-size: 12px; margin: 2px 0; }
+        .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; background:#eef2ff; font-size:12px; }
+        @media print { .noprint { display:none; } }
+      </style>
+    `;
+
+    const yn = (v) => (v === true ? "Yes" : "No");
+    const vr = (v) => (v === null || v === undefined || String(v).trim() === "" ? "N/A" : String(v));
+    const bp = (x) => (x && (x.bp_sys || x.bp_dia)) ? `${vr(x.bp_sys)}/${vr(x.bp_dia)}` : "N/A";
+    const enumMap = (v) => baselineLabels[v] || v || "N/A";
+
+    const header = `
+      <h1>Protocol Sandbox Report <span class="pill">Synthetic</span></h1>
+      <div class="muted">${summarize()}</div>
+      <div class="muted noprint" style="margin-top:8px;">Use the browser print dialog to save as PDF.</div>
+    `;
+
+    const dayBlocks = DATA.days.map(d => {
+      const gs = d.global_status || {};
+      const conf = d.confounders || {};
+      const fast = d.fast_markers || {};
+      const symptom = d.symptom_shift || {};
+      const pain = d.pain_impact || {};
+      const prot = d.protocol_adherence || {};
+      const vit = d.vitals || {};
+      const ext = d.external_variables || {};
+      const labs = d.periodic_labs;
+
+      const tests = DATA.tests.filter(t => t.test_date === d.date);
+
+      const confParts = [
+        `Poor sleep: ${yn(conf.poor_sleep_last_night)}`,
+        `Unusual exertion: ${yn(conf.unusual_physical_exertion)}`,
+        `Pharmacologic changes: ${yn(conf.pharmacologic_changes)}`,
+        `Medication timing: ${yn(conf.medication_timing_change)}`,
+        `Dose change: ${yn(conf.dose_change)}`,
+        `Missed dose: ${yn(conf.missed_dose)}`,
+        `New supplement: ${yn(conf.new_supplement_added)}`,
+        `New medication: ${yn(conf.new_medication_added)}`,
+        `Travel/Schedule: ${yn(conf.travel_or_disrupted_schedule)}`,
+        `High stress (0-3): ${vr(conf.high_stress)}`,
+        `Infection: ${yn(conf.infection_symptoms)}`,
+        `GI/Dehydration: ${yn(conf.gi_upset_or_dehydration_risk)}`,
+        `Night pain likely electrolyte-related: ${yn(conf.night_pain_likely_electrolyte_related)}`,
+        `Nothing unusual: ${yn(conf.nothing_unusual)}`
+      ].join(", ");
+
+      const electroLine = (conf.electrolyte_rescue_type || conf.electrolyte_rescue_helped_within)
+        ? `<div class="line"><b>Electrolyte rescue details:</b> Type: ${vr(conf.electrolyte_rescue_type)}${conf.electrolyte_rescue_helped_within ? `, Helped within: ${vr(conf.electrolyte_rescue_helped_within)}` : ""}</div>`
+        : ``;
+
+      const pharmNotes = conf.pharmacologic_notes ? `<div class="line"><b>Pharmacologic notes:</b> ${vr(conf.pharmacologic_notes)}</div>` : ``;
+
+      const labsHtml = labs ? `
+        <div class="line">Date: ${vr(labs.test_date)}</div>
+        <div class="line">VLCFA (C26:0): ${vr(labs.vlcfa_c26)} | Liver (ALT/AST): ${vr(labs.liver_alt_ast)}</div>
+        <div class="line"><b>Lab notes:</b> ${vr(labs.notes)}</div>
+      ` : `<div class="line">None</div>`;
+
+      const testsHtml = tests.length ? `
+        ${tests.map(t => `
+          <div class="line"><b>Test date:</b> ${vr(t.test_date)}</div>
+          <ul>
+            <li>6-minute walk: ${vr(t.six_minute_walk.distance_m)} m (Rest breaks: ${vr(t.six_minute_walk.rest_breaks)}, Device: ${vr(t.six_minute_walk.device)}, Course: ${vr(t.six_minute_walk.course_m)} m, RPE: ${vr(t.six_minute_walk.rpe)})</li>
+            <li>5x sit-to-stand: ${vr(t.five_x_sit_to_stand.time_s)} s (Used arms: ${vr(t.five_x_sit_to_stand.used_arms)}, Chair: ${vr(t.five_x_sit_to_stand.chair_cm)} cm)</li>
+            <li>Notes: ${vr(t.notes)}</li>
+          </ul>
+        `).join("")}
+      ` : `<div class="line">None</div>`;
+
+      const ae = ((d.adverse_events && d.adverse_events.length))
+        ? `<ul>${d.adverse_events.map(x => `<li>${vr(x.desc)} • ${vr(x.durationMin)} min • ${vr(x.trigger)}${x.detail ? ` • ${vr(x.detail)}` : ""}</li>`).join("")}</ul>`
+        : `<div class="line">None</div>`;
+
+      const wins = ((d.wins && d.wins.length))
+        ? `<ul>${d.wins.map(x => `<li>${vr(x.desc)} • ${vr(x.durationMin)} min • ${vr(x.trigger)}${x.detail ? ` • ${vr(x.detail)}` : ""}</li>`).join("")}</ul>`
+        : `<div class="line">None</div>`;
+
+      return `
+        <div class="day">
+          <div class="line"><b>Date:</b> ${d.date}</div>
+
+          <div class="h">Protocol Adherence</div>
+          <div class="line">NA: ${yn(prot.nervonic_acid_taken)}, NAC: ${yn(prot.nac_taken)}, ALA: ${yn(prot.r_ala_taken)}, Vit E: ${yn(prot.vitamin_e_taken)}</div>
+
+          <div class="h">Vitals AM &amp; PM</div>
+          <div class="line"><b>AM:</b> BP: ${bp(vit.morning)} | HR: ${vr((vit.morning && vit.morning.hr))} bpm</div>
+          <div class="line"><b>PM:</b> BP: ${bp(vit.evening)} | HR: ${vr((vit.evening && vit.evening.hr))} bpm</div>
+
+          <div class="h">Global Status</div>
+          <div class="line">Baseline Rating: ${enumMap(gs.baseline_rating)} (Confidence: ${vr(gs.baseline_confidence)})</div>
+          <div class="line">Energy/Capacity: ${vr(gs.energy_capacity)} (Confidence: ${vr(gs.energy_confidence)})</div>
+
+          <div class="h">Fast Markers</div>
+          <ul>
+            <li>Near-fall or balance scare: ${yn(fast.near_fall_or_balance_scare)}</li>
+            <li>Electrolyte rescue required: ${yn(fast.electrolyte_rescue_required)}</li>
+            <li>Spasm or clonus episode: ${yn(fast.spasm_or_clonus_episode)}</li>
+            <li>Night pain woke me: ${yn(fast.night_pain_woke_me)}</li>
+            <li>Restless legs at night: ${yn(fast.restless_legs_at_night)}</li>
+          </ul>
+
+          <div class="h">Symptom Shift (0-10)</div>
+          <ul>
+            <li>Brain Fog: ${vr(symptom.brain_fog)}</li>
+            <li>Step-by-step gait effort: ${vr(symptom.step_gait_effort)}</li>
+            <li>Gait initiation effort: ${vr(symptom.gait_initiation_effort)}</li>
+            <li>Sustained walking effort: ${vr(symptom.sustained_walking_effort)}</li>
+            <li>Neurologic fatigue: ${vr(symptom.neurologic_fatigue)}</li>
+            <li>Sleep Quality: ${vr(symptom.sleep_quality)}</li>
+            <li>Leg Stiffness: ${vr(symptom.leg_stiffness)}</li>
+            <li>Post-rest stiffness: ${vr(symptom.post_rest_stiffness)}</li>
+            <li>Symptom volatility: ${vr(symptom.symptom_volatility)}</li>
+          </ul>
+
+          <div class="h">Pain Impact</div>
+          <div class="line">Severity: ${vr(pain.severity)} | Driver: ${vr(pain.primary_driver)}</div>
+          <div class="line">Interfered sleep: ${yn(pain.interfered_with_sleep)}, Limited walk: ${yn(pain.limited_walking)}, Forced rest: ${yn(pain.forced_extra_rest)}, Meds: ${yn(pain.required_rescue_meds)}, Changed gait: ${yn(pain.changed_gait_mechanics)}</div>
+
+          <div class="h">Confounders</div>
+          <div class="line">${confParts}</div>
+          ${pharmNotes}
+          ${electroLine}
+
+          <div class="h">External Variables</div>
+          <div class="line">Neuromuscular training: ${vr(ext.label)} (Level: ${vr(ext.level)})</div>
+
+          <div class="h">Periodic Lab Results</div>
+          ${labsHtml}
+
+          <div class="h">Functional Tests</div>
+          ${testsHtml}
+
+          <div class="h">Notes</div>
+          <div class="line"><b>Food:</b> ${vr((d.notes && d.notes.food_notes))}</div>
+          <div class="line"><b>General:</b> ${vr((d.notes && d.notes.general_notes))}</div>
+
+          <div class="h">Adverse Events</div>
+          ${ae}
+
+          <div class="h">Wins</div>
+          ${wins}
+        </div>
+      `;
+    }).join("");
+
+    win.document.open();
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8">${css}</head><body>${header}${dayBlocks}</body></html>`);
+    win.document.close();
+    win.focus();
+
+    setTimeout(() => win.print(), 350);
+  }
+
+
+  function clearAll(){
+    DATA = { days: [], tests: [] };
+    render();
+  }
+
+  function render(){
+    $("summary").textContent = summarize();
+    renderTable();
+
+    const energySeries = DATA.days.map(d => d.global_status.energy_capacity);
+    const stiffSeries = DATA.days.map(d => d.symptom_shift.leg_stiffness);
+    drawLine($("cEnergy"), energySeries);
+    drawLine($("cStiff"), stiffSeries);
+  }
+
+  $("gen").addEventListener("click", generate);
+  $("export").addEventListener("click", exportPrintable);
+  $("clear").addEventListener("click", clearAll);
+
+  render();
+})();
+</script>
+</body>
+</html>
