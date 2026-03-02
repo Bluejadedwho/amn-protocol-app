@@ -2,13 +2,7 @@
 
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate"/>
-  <meta http-equiv="Pragma" content="no-cache"/>
-  <meta http-equiv="Expires" content="0"/>
-<script>
-// Ensure global saveUserLog exists early (iOS Safari can evaluate handlers before later scripts)
-window.saveUserLog = window.saveUserLog || function(){ throw new Error('saveUserLog not initialized'); };
-window.__AUTH_MODULE_LOADED__ = false;</script>
+<script>window.__AUTH_MODULE_LOADED__ = false;</script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 <title>The Protocol</title>
@@ -968,7 +962,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 <label for="auth-pass">Password</label>
 <input autocomplete="current-password" id="auth-pass" type="password"/>
 <div class="row">
-<button id="auth-signin" type="button">Sign in</button>
+<button id="auth-signin" type="button" onclick="window.__doSignIn && window.__doSignIn()">Sign in</button>
 <button class="secondary" id="auth-signup" type="button">Create account</button>
 </div>
 <div class="row" style="margin-top:10px;">
@@ -1832,7 +1826,7 @@ function setAuthError(msg) {
     } else {
     // Persist login on device/browser (one-time login per device).
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
-      console.warn("Auth persistence not set:", err?.code || err);
+      console.warn("Auth persistence not set:", (err && err.code) ? err.code : err);
     });
 
     var CURRENT_UID = null;
@@ -1962,7 +1956,7 @@ function setAuthError(msg) {
 
 
     db.enablePersistence().catch((err) => {
-      console.warn("Firestore persistence not enabled:", err?.code || err);
+      console.warn("Firestore persistence not enabled:", (err && err.code) ? err.code : err);
     });
 
     // Gate all Firestore reads/writes behind authentication.
@@ -2271,7 +2265,7 @@ fast_markers: {
       };
     }
 
-    async function window.saveUserLog(profileId, payload) {
+    async function saveUserLog(profileId, payload) {
       try {
         const uid = window.CURRENT_UID;
         if (!uid) throw new Error("Not authenticated");
@@ -2299,6 +2293,8 @@ fast_markers: {
         throw err;
       }
     }
+window.saveUserLog = saveUserLog;
+
 
     // --- PDF EXPORT (range + dense table + notes appendix) ---
     async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
@@ -2854,8 +2850,8 @@ fast_markers: {
     }
 
     // 2) Generate HTML report
-    const pn = (String(opts?.patientName || (document.getElementById("export-patient-name")?.value || ""))).trim() || (profileId === "nieve" ? "Nieve" : "Patrick Fuellbeck");
-    const dob = String(opts?.patientDob || (document.getElementById("export-patient-dob")?.value || "")).trim();
+    const pn = (document.getElementById("export-patient-name")?.value || '').trim() || 'Patrick Fuellbeck';
+    const dob = document.getElementById("export-patient-dob")?.value || "";
 
     let html = `
       <div class="report-header">
@@ -3094,160 +3090,9 @@ fast_markers: {
   }
 }
 
-
-async function exportPassengerReport(profileId, opts = {}) {
-  const uid = window.CURRENT_UID;
-  if (!uid) {
-    alert("Must be logged in to export.");
-    return;
-  }
-
-  const yn = (val) => (val === true ? "Yes" : (val === false ? "No" : "N/A"));
-  const vr = (val, suffix = "") => {
-    if (val === null || val === undefined || val === "") return "N/A";
-    return String(val) + suffix;
-  };
-
-  try {
-    const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
-    const snapshot = await logsRef.orderBy("date", opts?.dir || "desc").get();
-    let logs = snapshot.docs.map(d => d.data());
-
-    // Optional range filter (from export modal)
-    const startDate = opts?.startDate || null;
-    const endDate = opts?.endDate || null;
-    if (startDate || endDate) {
-      logs = logs.filter(l => {
-        const d = l?.date || "";
-        if (!d) return false;
-        if (startDate && d < startDate) return false;
-        if (endDate && d > endDate) return false;
-        return true;
-      });
-    }
-
-    if (!logs.length) {
-      alert("No data found for that date range.");
-      return;
-    }
-
-    const pn = (String(opts?.patientName || (document.getElementById("export-patient-name")?.value || ""))).trim() || "Nieve";
-    const dob = String(opts?.patientDob || (document.getElementById("export-patient-dob")?.value || "")).trim();
-
-    let html = `
-      <div class="report-header">
-        <h1>Passenger Report: ${pn}</h1>
-        ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
-        <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-        <p><strong>Records:</strong> ${logs.length}</p>
-      </div>
-    `;
-
-    logs.forEach(log => {
-      const protocol = log.protocol_adherence || {};
-      const safety = log.safety || {};
-      const dayTitle = (log.date || "Unknown date");
-
-      html += `<div class="day-block">`;
-      html += `<div class="day-title">Date: ${dayTitle}</div>`;
-
-      html += `<div class="report-section">
-        <h3>Protocol Adherence</h3>
-        <p>NA: ${yn(protocol.nervonic_acid_taken)} | NAC: ${yn(protocol.nac_taken)} | ALA: ${yn(protocol.r_ala_taken)} | Vit E: ${yn(protocol.vitamin_e_taken)}</p>
-      </div>`;
-
-      html += `<div class="report-section">
-        <h3>Safety / Anything different?</h3>
-        <p>Feels different: ${yn(safety.feels_different)}</p>
-        <p><strong>Details:</strong> ${vr(safety.details)}</p>
-      </div>`;
-
-      html += `<div class="report-section">
-        <h3>Notes</h3>
-        <p>${vr(log.notes)}</p>
-      </div>`;
-
-      html += `</div>`;
-    });
-
-    // Inject and print (same mechanics as main report)
-    const reportView = document.getElementById("report-view");
-    reportView.innerHTML = html;
-    if (!reportView.textContent || !reportView.textContent.trim()) {
-      alert("Nothing to export (report is empty).");
-      return;
-    }
-    reportView.style.display = "block";
-    document.title = "Passenger Report";
-
-    const cleanup = () => {
-      reportView.innerHTML = "";
-      reportView.style.display = "none";
-      window.removeEventListener("afterprint", cleanup);
-    };
-    window.addEventListener("afterprint", cleanup);
-
-    if (opts?.printWindow && typeof opts.printWindow.print === "function") {
-      const w = opts.printWindow;
-      const doc = w.document;
-      const styleEl = document.querySelector("style");
-      const styleText = styleEl ? styleEl.innerHTML : "";
-
-      doc.open();
-      doc.write(`<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Passenger Report</title>
-  <style>${styleText}</style>
-</head>
-<body>
-  <div id="report-view" style="display:block;">${html}</div>
-</body>
-</html>`);
-      doc.close();
-
-      w.focus();
-      setTimeout(() => {
-        try { w.print(); } catch(e) { console.error(e); }
-        setTimeout(() => { try { w.close(); } catch(e) {} }, 500);
-        cleanup();
-      }, 250);
-    } else {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.print();
-          setTimeout(cleanup, 5000);
-        });
-      });
-    }
-  } catch (err) {
-    console.error("Passenger export error:", err);
-    alert("Export failed: " + (err?.message || err));
-  }
-}
-
     // Expose a single export runner to the non-module modal UI
-    window.__EXPORT_RUN = async function(args = {}) {
-      const patientId = args.patientId || "patrick";
-      const label = args.label || "";
-      const opts = {
-        printWindow: args.printWindow,
-        startDate: args.start || args.startDate || null,
-        endDate: args.end || args.endDate || null,
-        dir: args.dir || "desc",
-        patientName: args.patientName || "",
-        patientDob: args.patientDob || ""
-      };
-
-      // Passenger (child) export is intentionally a smaller schema.
-      const isPassenger = (label || "").toLowerCase() === "passenger" || patientId === "nieve";
-      if (isPassenger) {
-        await exportPassengerReport(patientId, opts);
-      } else {
-        await exportProtocolReport(patientId, opts);
-      }
+    window.__EXPORT_RUN = async function({ patientId, printWindow } = {}) {
+      await exportProtocolReport(patientId || "patrick", { printWindow });
     };
 
     function setBtn(btnId, busy, text) {
@@ -3283,7 +3128,7 @@ async function exportPassengerReport(profileId, opts = {}) {
     window.handlePilotSave = async function() {
       setBtn("p-save-log", true, "SAVING...");
       try {
-        await window.saveUserLog("patrick", collectPilotPayload());
+        await saveUserLog("patrick", collectPilotPayload());
         setBtn("p-save-log", false, "SAVED ✓");
         setTimeout(() => setBtn("p-save-log", false, "SAVE DAILY LOG"), 1200);
       } catch(e) {
@@ -3337,7 +3182,7 @@ async function exportPassengerReport(profileId, opts = {}) {
     window.handlePassengerSave = async function() {
       setBtn("n-save-log", true, "SAVING...");
       try {
-        await window.saveUserLog("nieve", collectPassengerPayload());
+        await saveUserLog("nieve", collectPassengerPayload());
         setBtn("n-save-log", false, "SAVED ✓");
         setTimeout(() => setBtn("n-save-log", false, "SAVE DAILY LOG"), 1200);
       } catch(e) {
@@ -3355,7 +3200,7 @@ async function exportPassengerReport(profileId, opts = {}) {
     window.handleLabSave = async function() {
       setBtn("lab-save-results-btn", true, "SAVING...");
       try {
-        await window.saveUserLog("patrick", collectLabPayload());
+        await saveUserLog("patrick", collectLabPayload());
         setBtn("lab-save-results-btn", false, "SAVED ✓");
         setTimeout(() => setBtn("lab-save-results-btn", false, "SAVE LAB RESULTS ONLY"), 1600);
       } catch(e) {
@@ -3697,16 +3542,6 @@ async function exportPassengerReport(profileId, opts = {}) {
 
   updateLock();
 })();
-
-
-
-// Ensure critical functions are accessible from inline handlers (Safari/PWA scope quirks)
-try {
-  window.saveUserLog = saveUserLog;
-  window.collectPilotPayload = collectPilotPayload;
-  window.collectPassengerPayload = collectPassengerPayload;
-  window.collectLabPayload = collectLabPayload;
-} catch (e) { /* ignore */ }
 
 </script>
 </body>
