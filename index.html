@@ -6,27 +6,6 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 <title>The Protocol</title>
-<script>
-  // App version bump to reduce "stale state after deploy" issues on mobile Safari.
-  // Update this string whenever you deploy changes that touch data schema or auth flows.
-  window.APP_VERSION = "2026-03-03-1";
-  (function() {
-    try {
-      const k = "amn_app_version";
-      const prev = localStorage.getItem(k);
-      if (prev && prev !== window.APP_VERSION) {
-        // Clear only known app keys. Firebase auth persistence is managed by Firebase.
-        // We still clear local UI flags to avoid mismatches after updates.
-        localStorage.removeItem("amn_demo_mode");
-      }
-      localStorage.setItem(k, window.APP_VERSION);
-    } catch(e) {
-      // Ignore storage errors (private mode, etc.)
-      console.warn("Version guard storage unavailable:", e);
-    }
-  })();
-</script>
-
 <meta content="yes" name="apple-mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <meta content="#000000" name="theme-color"/>
@@ -634,25 +613,6 @@ body.modal-open {
 }
 .report-header h1 { font-size: 24px; margin: 0 0 5px 0; font-weight: 800; color: #000; }
 .report-header p { margin: 2px 0; font-size: 12px; color: #333; }
-.report-summary {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-left: 4px solid var(--accent-blue);
-  background: #fafafa;
-}
-.report-summary h2 {
-  margin: 0 0 6px 0;
-  font-size: 14px;
-  font-weight: 800;
-  color: #000;
-}
-.report-summary p {
-  margin: 3px 0;
-  font-size: 12px;
-  color: #333;
-}
-
 
 .report-day-block {
   page-break-after: always;
@@ -998,9 +958,9 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 <h2>Sign in</h2>
 <p>Sign in once on this device to sync and protect your logs.</p>
 <label for="auth-email">Email</label>
-<input autocomplete="email" id="auth-email" inputmode="email" type="email"/>
+<input id="auth-email" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" inputmode="email" type="email"/>
 <label for="auth-pass">Password</label>
-<input autocomplete="current-password" id="auth-pass" type="password"/>
+<input id="auth-pass" name="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" type="password"/>
 <div class="row">
 <button id="auth-signin" type="button" onclick="window.__doSignIn && window.__doSignIn()">Sign in</button>
 <button class="secondary" id="auth-signup" type="button">Create account</button>
@@ -2858,8 +2818,63 @@ window.saveUserLog = saveUserLog;
     return "";
   };
 
+  // Episode (wins/adverse) normalizer across schema versions
+  const episodeDesc = (e) => pick(e, "desc", "description", "what_happened", "what_improved") || "";
+  const episodeDur = (e) => pick(e, "durationMin", "duration_minutes", "duration_min", "duration", "duration_minutes") ?? null;
+  const episodeTrig = (e) => pick(e, "trigger", "suspected_driver", "what_drove_it", "what_helped") || null;
+  const episodeDetail = (e) => pick(e, "detail", "trigger_detail", "detail_text", "notes") || null;
+  const episodeLine = (e) => {
+    const d = episodeDesc(e);
+    const dur = episodeDur(e);
+    const trig = episodeTrig(e);
+    const det = episodeDetail(e);
+    const parts = [];
+    if (dur !== null && dur !== undefined && dur !== "" && !Number.isNaN(Number(dur))) parts.push(`Dur: ${dur} min`);
+    if (trig) parts.push(`Trigger: ${trig}`);
+    if (det) parts.push(`Detail: ${det}`);
+    const tail = parts.length ? ` (${parts.join(", ")})` : "";
+    return `${d || "N/A"}${tail}`;
+  };
+
+  // Functional test renderer (weekly/monthly anchors)
+  const renderFunctionalTest = (ft) => {
+    if (!ft || typeof ft !== "object") return "";
+    const six = ft.six_minute_walk || ft.sixMinuteWalk || null;
+    const sts = ft.sit_to_stand_5x || ft.five_x_sit_to_stand || ft.sitToStand5x || null;
+
+    let out = `<div class="report-section"><h3>Functional Test Anchor</h3>
+      <p><strong>Test Date:</strong> ${vr(pick(ft, "test_date", "date"))}</p>`;
+
+    if (six) {
+      out += `<p><strong>6-Minute Walk Test</strong></p>
+        <ul>
+          <li>Distance (m): ${vr(pick(six, "distance_m", "distance_meters"))}</li>
+          <li>Rest breaks (count): ${vr(pick(six, "rest_breaks_count", "rest_breaks"))}</li>
+          <li>Assistive device: ${vr(pick(six, "assistive_device"))}</li>
+          <li>Course length (m): ${vr(pick(six, "course_length_m", "course_length_meters"))}</li>
+          <li>Perceived exertion (0-10): ${vr(pick(six, "perceived_exertion", "rpe"))}</li>
+        </ul>`;
+    }
+
+    if (sts) {
+      const arms = pick(sts, "used_arms");
+      const armsTxt = (arms === "yes" ? "Yes" : (arms === "no" ? "No" : vr(arms)));
+      out += `<p><strong>5x Sit-to-Stand</strong></p>
+        <ul>
+          <li>Time (seconds): ${vr(pick(sts, "time_seconds"))}</li>
+          <li>Used arms: ${armsTxt}</li>
+          <li>Chair height (cm): ${vr(pick(sts, "chair_height_cm"))}</li>
+        </ul>`;
+    }
+
+    const notes = pick(ft, "notes");
+    if (notes) out += `<p><strong>Notes:</strong> ${vr(notes)}</p>`;
+    out += `</div>`;
+    return out;
+  };
+
   try {
-    // 1) Fetch data safely
+    // 1) Fetch logs
     const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
     const snapshot = await logsRef.orderBy("date", "desc").get();
 
@@ -2868,8 +2883,7 @@ window.saveUserLog = saveUserLog;
       return;
     }
 
-    let logs = [];
-    snapshot.forEach(doc => logs.push(doc.data()));
+    let logs = snapshot.docs.map(d => d.data());
 
     // Optional client-side date filter (if modal passes it)
     const startDate = opts?.startDate || null;
@@ -2889,108 +2903,51 @@ window.saveUserLog = saveUserLog;
       return;
     }
 
+    // 1b) Fetch functional test anchors (stored separately from daily logs)
+    let tests = [];
+    try {
+      const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/tests`);
+      const testsSnap = await testsRef.orderBy("test_date", "desc").get();
+      tests = testsSnap.docs.map(d => d.data());
+
+      if (startDate || endDate) {
+        tests = tests.filter(t => {
+          const d = String(t.test_date || t.date || "");
+          if (!d) return false;
+          if (startDate && d < startDate) return false;
+          if (endDate && d > endDate) return false;
+          return true;
+        });
+      }
+    } catch(e) {
+      console.warn("Functional tests fetch skipped:", e);
+      tests = [];
+    }
+
     // 2) Generate HTML report
     const pn = (document.getElementById("export-patient-name")?.value || '').trim() || 'Patrick Fuellbeck';
     const dob = document.getElementById("export-patient-dob")?.value || "";
-
-
-    // 2a) Compute a compact overall summary (counts, averages, key flags)
-    const summary = (() => {
-      const acc = {
-        count: 0,
-        naYes: 0, nacYes: 0, alaYes: 0, vitEYes: 0,
-        nearFallYes: 0, elecRescueYes: 0, spasmYes: 0, nightPainYes: 0, restlessYes: 0,
-        nightElecRelatedYes: 0,
-        baselineVals: [], energyVals: [], painSeverityVals: [],
-        adverseCount: 0, winCount: 0
-      };
-      const asNum = (v) => {
-        const n = Number(v);
-        return Number.isFinite(n) ? n : null;
-      };
-      const yes = (v) => v === true;
-      logs.forEach(l => {
-        acc.count += 1;
-        const protocol = l.protocol_adherence || l.protocol || {};
-        if (yes(pick(protocol, "nervonic_acid_taken", "nervonic_acid"))) acc.naYes += 1;
-        if (yes(pick(protocol, "nac_taken", "nac"))) acc.nacYes += 1;
-        if (yes(pick(protocol, "r_ala_taken", "ala"))) acc.alaYes += 1;
-        if (yes(pick(protocol, "vitamin_e_taken", "vit_e"))) acc.vitEYes += 1;
-
-        const fm = l.fast_markers || l.fastMarkers || {};
-        if (yes(pick(fm, "near_fall_or_balance_scare", "near_fall"))) acc.nearFallYes += 1;
-        if (yes(pick(fm, "electrolyte_rescue_required", "electrolyte_rescue", "electrolyte_rescue_needed"))) acc.elecRescueYes += 1;
-        if (yes(pick(fm, "spasm_or_clonus_episode", "spasm_or_clonus"))) acc.spasmYes += 1;
-        if (yes(pick(fm, "night_pain_woke_me"))) acc.nightPainYes += 1;
-        if (yes(pick(fm, "restless_legs_at_night", "restless_legs"))) acc.restlessYes += 1;
-
-        const ctx = l.context_changes || l.confounders || {};
-        if (yes(pick(ctx, "night_pain_electrolyte_related"))) acc.nightElecRelatedYes += 1;
-
-        const b = asNum(pick(l, "baseline_rating", "global_baseline"));
-        if (b !== null) acc.baselineVals.push(b);
-        const e = asNum(pick(l, "energy_capacity"));
-        if (e !== null) acc.energyVals.push(e);
-
-        const pi = l.pain_impact || {};
-        const ps = asNum(pick(pi, "severity"));
-        if (ps !== null) acc.painSeverityVals.push(ps);
-
-        const winsArr = Array.isArray(l.positive_events) ? l.positive_events : (Array.isArray(l.wins) ? l.wins : []);
-        const adverseArr = Array.isArray(l.adverse_events) ? l.adverse_events : [];
-        acc.winCount += winsArr.length;
-        acc.adverseCount += adverseArr.length;
-      });
-
-      const avg = (arr) => arr.length ? (arr.reduce((a,b)=>a+b,0) / arr.length) : null;
-      const pct = (num) => acc.count ? Math.round((num / acc.count) * 100) : 0;
-
-      return {
-        count: acc.count,
-        adherence: {
-          naPct: pct(acc.naYes),
-          nacPct: pct(acc.nacYes),
-          alaPct: pct(acc.alaYes),
-          vitEPct: pct(acc.vitEYes)
-        },
-        flags: {
-          nearFallDays: acc.nearFallYes,
-          elecRescueDays: acc.elecRescueYes,
-          nightPainDays: acc.nightPainYes,
-          nightElecRelatedDays: acc.nightElecRelatedYes
-        },
-        avgs: {
-          baseline: avg(acc.baselineVals),
-          energy: avg(acc.energyVals),
-          painSeverity: avg(acc.painSeverityVals)
-        },
-        events: {
-          adverseCount: acc.adverseCount,
-          winCount: acc.winCount
-        }
-      };
-    })();
-
 
     let html = `
       <div class="report-header">
         <h1>Protocol Report: ${pn}</h1>
         ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
         <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-        <p><strong>Records:</strong> ${logs.length}</p>
-        <div class="report-summary">
-          <h2>Summary</h2>
-          <p><strong>Protocol adherence (percent of days):</strong> NA ${summary.adherence.naPct}%, NAC ${summary.adherence.nacPct}%, ALA ${summary.adherence.alaPct}%, Vit E ${summary.adherence.vitEPct}%</p>
-          <p><strong>Key flags (days):</strong> Near-fall ${summary.flags.nearFallDays}, Electrolyte rescue ${summary.flags.elecRescueDays}, Night pain woke me ${summary.flags.nightPainDays}, Night pain electrolyte-related ${summary.flags.nightElecRelatedDays}</p>
-          <p><strong>Averages:</strong> Baseline ${summary.avgs.baseline === null ? "N/A" : summary.avgs.baseline.toFixed(1)}, Energy ${summary.avgs.energy === null ? "N/A" : summary.avgs.energy.toFixed(1)}, Pain severity ${summary.avgs.painSeverity === null ? "N/A" : summary.avgs.painSeverity.toFixed(1)}</p>
-          <p><strong>Events:</strong> Adverse events ${summary.events.adverseCount}, Wins ${summary.events.winCount}</p>
-        </div>
-
+        <p><strong>Daily Records:</strong> ${logs.length}</p>
+        <p><strong>Functional Test Anchors:</strong> ${tests.length}</p>
       </div>
     `;
 
-    logs.forEach(log => {
-      // Support both current + legacy schemas
+    if (tests.length) {
+      html += `<div class="report-day-block">
+        <div class="day-title">Functional Tests (Weekly or Monthly Anchors)</div>`;
+      tests.slice().sort((a,b) => String(a.test_date||"").localeCompare(String(b.test_date||""))).forEach(ft => {
+        html += renderFunctionalTest(ft);
+      });
+      html += `</div>`;
+    }
+
+    logs.slice().sort((a,b) => String(a.date||"").localeCompare(String(b.date||""))).forEach(log => {
       const protocol = log.protocol_adherence || log.protocol || {};
       const vitals = log.vitals || {};
       const vAm = vitals.morning || {};
@@ -3001,12 +2958,10 @@ window.saveUserLog = saveUserLog;
       const ctx = log.context_changes || log.confounders || {};
       const fm = log.fast_markers || log.fastMarkers || {};
       const ext = log.external_neuromuscular_training || log.external_variables || {};
-
       const labs = log.lab || log.periodic_labs || {};
 
-      // Wins can be stored as positive_events (current) or wins (legacy)
       const winsArr = Array.isArray(log.positive_events) ? log.positive_events : (Array.isArray(log.wins) ? log.wins : []);
-      const adverseArr = Array.isArray(log.adverse_events) ? log.adverse_events : [];
+      const adverseArr = Array.isArray(log.adverse_events) ? log.adverse_events : (Array.isArray(log.adverse) ? log.adverse : []);
 
       const dayTitle = (log.date !== undefined && log.date !== null && log.date !== "") ? String(log.date) : "N/A";
 
@@ -3030,7 +2985,7 @@ window.saveUserLog = saveUserLog;
         <p>Energy/Capacity: ${vr(pick(log, "energy_capacity"))} (Confidence: ${vr(pick(log, "energy_confidence"))})</p>
       </div>`;
 
-      // Fast markers (checkboxes)
+      // Fast markers
       html += `<div class="report-section"><h3>Fast Markers</h3>
         <ul>
           <li>Near-fall or balance scare: ${yn(pick(fm, "near_fall_or_balance_scare", "near_fall"))}</li>
@@ -3041,7 +2996,7 @@ window.saveUserLog = saveUserLog;
         </ul>
       </div>`;
 
-      // Symptom shift (0-10) (sliders)
+      // Symptom shift
       html += `<div class="report-section"><h3>Symptom Shift (0-10)</h3>
         <ul>
           <li>Brain Fog: ${vr(pick(sd, "brain_fog"))}</li>
@@ -3061,33 +3016,32 @@ window.saveUserLog = saveUserLog;
         <p>Severity: ${vr(pick(pi, "severity"))} | Driver: ${vr(pick(pi, "primary_driver", "driver"))}</p>
         <p>Interfered sleep: ${yn(pick(pi, "interfered_with_sleep", "interfered_sleep"))},
            Limited walk: ${yn(pick(pi, "limited_walking", "limited_walk"))},
-           Forced rest: ${yn(pick(pi, "forced_rest_breaks", "forced_extra_rest"))},
-           Meds: ${yn(pick(pi, "required_meds", "required_rescue_meds"))},
-           Changed gait: ${yn(pick(pi, "changed_gait", "changed_gait_mechanics"))}</p>
+           Forced rest: ${yn(pick(pi, "forced_extra_rest", "forced_rest_breaks", "forced_extra_rest"))},
+           Meds: ${yn(pick(pi, "required_rescue_meds", "required_meds", "required_rescue_meds"))},
+           Changed gait: ${yn(pick(pi, "changed_gait_mechanics", "changed_gait"))}</p>
       </div>`;
 
-      // Confounders / context changes
-      const elecType = pick(ctx, "electrolyte_rescue_type");
-      const elecHelped = pick(ctx, "electrolyte_rescue_helped_within");
-      const elecNotes = pick(ctx, "electrolyte_rescue_notes");
-      const elecDetail = (elecType || elecHelped || elecNotes) ? `
-        <p><strong>Electrolyte rescue detail:</strong>
-          Type: ${vr(elecType)}${elecHelped ? ` | Helped within: ${vr(elecHelped)}` : ""}${elecNotes ? ` | Notes: ${vr(elecNotes)}` : ""}</p>` : "";
-
+      // Confounders / context changes (+ electrolyte rescue detail)
       html += `<div class="report-section"><h3>Confounders</h3>
         <p>Poor sleep: ${yn(pick(ctx, "poor_sleep_last_night"))},
            Unusual exertion: ${yn(pick(ctx, "unusual_physical_exertion"))},
            Medication timing: ${yn(pick(ctx, "medication_timing_change"))},
            Dose change: ${yn(pick(ctx, "dose_change"))},
            Missed dose: ${yn(pick(ctx, "missed_dose"))},
-           New supplement: ${yn(pick(ctx, "new_supplement_or_change"))},
-           Travel/Schedule: ${yn(pick(ctx, "travel_or_schedule_change"))},
+           New supplement: ${yn(pick(ctx, "new_supplement_added", "new_supplement_or_change"))},
+           New medication: ${yn(pick(ctx, "new_medication_added"))},
+           Travel/Schedule: ${yn(pick(ctx, "travel_or_disrupted_schedule", "travel_or_schedule_change"))},
            High stress (0-3): ${vr(pick(ctx, "high_stress"))},
            Infection: ${yn(pick(ctx, "infection_symptoms"))},
-           GI/Dehydration: ${yn(pick(ctx, "gi_upset_or_dehydration"))},
-           Night pain likely electrolyte-related: ${yn(pick(ctx, "night_pain_electrolyte_related"))},
+           GI/Dehydration: ${yn(pick(ctx, "gi_upset_or_dehydration_risk", "gi_upset_or_dehydration"))},
+           Night pain likely electrolyte-related: ${yn(pick(ctx, "night_pain_likely_electrolyte_related", "night_pain_electrolyte_related"))},
            Nothing unusual: ${yn(pick(ctx, "nothing_unusual"))}</p>
-        ${elecDetail}
+        <p><strong>Electrolyte rescue detail:</strong>
+           Type: ${vr(pick(ctx, "electrolyte_rescue_type"))},
+           Helped within: ${vr(pick(ctx, "electrolyte_rescue_helped_within"))},
+           Window: ${vr(pick(ctx, "electrolyte_rescue_window"))},
+           Notes: ${vr(pick(ctx, "electrolyte_rescue_notes"))}
+        </p>
       </div>`;
 
       // External variables
@@ -3099,7 +3053,7 @@ window.saveUserLog = saveUserLog;
 
       // Periodic labs
       const vlcfa = pick(labs, "vlcfa_c26", "vlcfa");
-      const liver = pick(labs, "liver_alt_ast");
+      const liver = pick(labs, "liver_alt_ast", "liver");
       const labNotes = pick(labs, "notes");
       if (vlcfa !== undefined || liver !== undefined || labNotes !== undefined) {
         html += `<div class="report-section"><h3>Periodic Lab Results</h3>
@@ -3108,17 +3062,6 @@ window.saveUserLog = saveUserLog;
           <p>Notes: ${vr(labNotes)}</p>
         </div>`;
       }
-
-      // Functional tests
-      html += `<div class="report-section"><h3>Functional Tests</h3>`;
-      if (Array.isArray(log.functional_tests) && log.functional_tests.length > 0) {
-        log.functional_tests.forEach(ft => {
-          html += `<p>Type: ${vr(ft?.test_type)} | Duration: ${vr(ft?.duration_seconds)}s | Distance: ${vr(ft?.distance_meters)}m | Notes: ${vr(ft?.notes)}</p>`;
-        });
-      } else {
-        html += `<p>None</p>`;
-      }
-      html += `</div>`;
 
       // Notes
       html += `<div class="report-section"><h3>Notes</h3>
@@ -3129,9 +3072,7 @@ window.saveUserLog = saveUserLog;
       // Adverse events
       html += `<div class="report-section"><h3>Adverse Events</h3>`;
       if (adverseArr.length > 0) {
-        adverseArr.forEach(ae => {
-          html += `<p>• ${vr(ae?.description)}${(ae?.time_of_day ? ` (${ae.time_of_day})` : "")} (Dur: ${vr(pick(ae || {}, "duration_minutes", "duration_min"))}m, Trigger: ${vr(pick(ae || {}, "suspected_driver", "trigger"))})</p>`;
-        });
+        adverseArr.forEach(ae => { html += `<p>• ${episodeLine(ae)}</p>`; });
       } else {
         html += `<p>None</p>`;
       }
@@ -3140,9 +3081,7 @@ window.saveUserLog = saveUserLog;
       // Wins
       html += `<div class="report-section"><h3>Wins</h3>`;
       if (winsArr.length > 0) {
-        winsArr.forEach(w => {
-          html += `<p>• ${vr(w?.description)}${(w?.time_of_day ? ` (${w.time_of_day})` : "")} (Dur: ${vr(pick(w || {}, "duration_minutes", "duration_min"))}m, Trigger: ${vr(pick(w || {}, "suspected_driver", "trigger"))})</p>`;
-        });
+        winsArr.forEach(w => { html += `<p>• ${episodeLine(w)}</p>`; });
       } else {
         html += `<p>None</p>`;
       }
@@ -3155,17 +3094,16 @@ window.saveUserLog = saveUserLog;
 
       html += `</div>`; // end day block
     });
+
     // 3) Inject and print
     const reportView = document.getElementById("report-view");
     reportView.innerHTML = html;
 
-    // Guard: don't print empty output
     if (!reportView.textContent || !reportView.textContent.trim()) {
       alert("Nothing to export (report is empty).");
       return;
     }
 
-    // Make sure it is visible before printing (some Safari paths ignore @media print display toggles)
     reportView.style.display = "block";
     document.title = "Protocol Report";
 
@@ -3176,12 +3114,9 @@ window.saveUserLog = saveUserLog;
     };
     window.addEventListener("afterprint", cleanup);
 
-    // If a print window was provided, render the report into that window and print from there.
     if (opts?.printWindow && typeof opts.printWindow.print === "function") {
       const w = opts.printWindow;
       const doc = w.document;
-
-      // Copy current <style> content so the report CSS + print rules come along
       const styleEl = document.querySelector("style");
       const styleText = styleEl ? styleEl.innerHTML : "";
 
@@ -3200,28 +3135,23 @@ window.saveUserLog = saveUserLog;
 </html>`);
       doc.close();
 
-      // Wait for layout/fonts, then print
       w.focus();
       setTimeout(() => {
         try { w.print(); } catch(e) { console.error(e); }
-        // Close the print window after a moment (optional)
         setTimeout(() => { try { w.close(); } catch(e) {} }, 500);
         cleanup();
       }, 250);
-
     } else {
-      // In-page print: wait for layout to settle (Safari race avoidance)
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           window.print();
-          // Fallback cleanup if afterprint doesn't fire
           setTimeout(cleanup, 5000);
         });
       });
     }
   } catch (err) {
     console.error("Export error:", err);
-    alert("Export failed: " + err.message);
+    alert("Export failed: " + (err?.message || err));
   }
 }
 
@@ -3274,14 +3204,6 @@ async function exportPassengerReport(profileId, opts = {}) {
         ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
         <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
         <p><strong>Records:</strong> ${logs.length}</p>
-        <div class="report-summary">
-          <h2>Summary</h2>
-          <p><strong>Protocol adherence (percent of days):</strong> NA ${summary.adherence.naPct}%, NAC ${summary.adherence.nacPct}%, ALA ${summary.adherence.alaPct}%, Vit E ${summary.adherence.vitEPct}%</p>
-          <p><strong>Key flags (days):</strong> Near-fall ${summary.flags.nearFallDays}, Electrolyte rescue ${summary.flags.elecRescueDays}, Night pain woke me ${summary.flags.nightPainDays}, Night pain electrolyte-related ${summary.flags.nightElecRelatedDays}</p>
-          <p><strong>Averages:</strong> Baseline ${summary.avgs.baseline === null ? "N/A" : summary.avgs.baseline.toFixed(1)}, Energy ${summary.avgs.energy === null ? "N/A" : summary.avgs.energy.toFixed(1)}, Pain severity ${summary.avgs.painSeverity === null ? "N/A" : summary.avgs.painSeverity.toFixed(1)}</p>
-          <p><strong>Events:</strong> Adverse events ${summary.events.adverseCount}, Wins ${summary.events.winCount}</p>
-        </div>
-
       </div>
     `;
 
