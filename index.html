@@ -660,6 +660,21 @@ body.modal-open {
   }
 }
 
+
+    /* --- ATTRIBUTION FOOTER --- */
+    .app-attribution{
+      text-align:center;
+      color: rgba(255,255,255,0.65);
+      font-size: 12px;
+      padding: 18px 12px 26px;
+      line-height: 1.35;
+    }
+    .app-attribution a{ color: rgba(255,255,255,0.75); text-decoration:none; }
+    .app-attribution a:active, .app-attribution a:hover{ text-decoration:underline; }
+    @media print {
+      .app-attribution{ display:none !important; }
+    }
+
 </style>
 <script>
     function byId(id){ return document.getElementById(id); }
@@ -771,8 +786,7 @@ body.modal-open {
       if(title) title.textContent = `Export ${target?.label || 'History'} (PDF)`;
       const today = new Date();
       const startD = new Date();
-      const days = Number(target?.days) || 30;
-      startD.setDate(today.getDate() - (days - 1)); 
+      startD.setDate(today.getDate() - 29); 
       if(start) start.value = toISODate(startD);
       if(end) end.value = toISODate(today);
       if(order && !order.value) order.value = 'desc';
@@ -842,9 +856,13 @@ body.modal-open {
       const btn = byId('export-run-btn');
       if(btn){ btn.disabled = true; btn.textContent = 'GENERATING...'; }
       try{
-        // iOS Safari blocks popups for window.open() if any async work happened first.
-        // Use in-page printing instead (exportProtocolReport/exportPassengerReport already support this).
-        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob });
+        // Open a dedicated print window immediately (keeps print allowed on Safari)
+        const printWin = window.open("", "_blank");
+        if(!printWin){
+          alert("Popup blocked. Please allow popups for this site to export PDF.");
+          return;
+        }
+        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob, printWindow: printWin });
         window.closeExportModal();
       } catch(e){
         console.error(e);
@@ -954,34 +972,45 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 <div id="auth-card">
 <h2>Sign in</h2>
 <p>Sign in once on this device to sync and protect your logs.</p>
-<form id="auth-form" autocomplete="on" onsubmit="event.preventDefault(); (window.__doSignIn && window.__doSignIn()); return false;">
-<label for="auth-email">Email</label>
-<input
-  id="auth-email"
-  type="email"
-  name="username"
-  inputmode="email"
-  autocomplete="username"
-  autocapitalize="none"
-  autocorrect="off"
-  spellcheck="false"
-/>
-<label for="auth-pass">Password</label>
-<input
-  id="auth-pass"
-  type="password"
-  name="password"
-  autocomplete="current-password"
-/>
-<div class="row">
-<button id="auth-signin" type="submit">Sign in</button>
-<button class="secondary" id="auth-signup" type="button">Create account</button>
-</div>
-<div class="row" style="margin-top:10px;">
-<button class="secondary" id="auth-demo" style="width:100%;" type="button">View demo (read-only)</button>
-</div>
+
+<!-- Use a real <form> + standard field names so iOS Passwords/AutoFill recognizes this as a login. -->
+<form id="auth-form" autocomplete="on" onsubmit="event.preventDefault(); window.__doSignIn && window.__doSignIn();">
+  <label for="auth-email">Email</label>
+  <input
+    id="auth-email"
+    name="username"
+    type="email"
+    inputmode="email"
+    autocomplete="username"
+    autocapitalize="none"
+    autocorrect="off"
+    spellcheck="false"
+    enterkeyhint="go"
+  />
+
+  <label for="auth-pass">Password</label>
+  <input
+    id="auth-pass"
+    name="password"
+    type="password"
+    autocomplete="current-password"
+    autocapitalize="none"
+    autocorrect="off"
+    spellcheck="false"
+    enterkeyhint="go"
+  />
+
+  <div class="row">
+    <button id="auth-signin" type="submit">Sign in</button>
+    <button class="secondary" id="auth-signup" type="button">Create account</button>
+  </div>
+
+  <div class="row" style="margin-top:10px;">
+    <button class="secondary" id="auth-demo" style="width:100%;" type="button">View demo (read-only)</button>
+  </div>
+
+  <div id="auth-error"></div>
 </form>
-<div id="auth-error"></div>
 </div>
 </div>
 <div id="splash-overlay">
@@ -1197,6 +1226,11 @@ Conceptual Foundation and Mechanistic Framework
 <p>Nieve • Prophylactic Protocol</p>
 </button>
 </div>
+
+  <div class="app-attribution" id="app-attribution">
+    Researched and Prepared By: Patrick Shipp Nutrition RNCP<br/>
+    <a href="https://www.patrickshipp.com" target="_blank" rel="noopener">www.patrickshipp.com</a>
+  </div>
 </section>
 <section class="view hidden" id="patrick-view">
 <header>
@@ -1616,12 +1650,11 @@ Conceptual Foundation and Mechanistic Framework
 <div class="pill-btn" id="tab-charts" onclick="window.showTrendsTab('charts')">Charts</div>
 <div class="pill-btn" id="tab-details" onclick="window.showTrendsTab('details')">Details</div>
 </div>
-<div class="muted" style="margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:10px;"><span style="color: var(--text-secondary); font-size:0.9rem;">Range</span><select id="trends-range" style="background:#000; color:#fff; border:1px solid #333; border-radius:10px; padding:10px 12px; font-weight:600;"><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="30" selected>Last 30 days</option><option value="60">Last 60 days</option><option value="90">Last 90 days</option><option value="180">Last 180 days</option><option value="365">Last 365 days</option></select></div>
 </div>
 <div id="trends-summary-pane">
 <div class="card">
 <h3>Change Detection Summary</h3>
-<button class="lab-save-btn" id="clinician-export-btn" onclick="window.openExportModal({patientId:'patrick', label:'Pilot', days: window.getTrendsRangeDays()})" style="margin-top:12px;" type="button">DOWNLOAD PILOT HISTORY (PDF)</button>
+<button class="lab-save-btn" id="clinician-export-btn" onclick="window.openExportModal({patientId:'patrick', label:'Pilot'})" style="margin-top:12px;" type="button">DOWNLOAD PILOT HISTORY (PDF)</button>
 <div id="change-summary" style="margin-top:12px; font-size:0.9rem; line-height:1.7; color:#E0E0E0;"></div>
 </div>
 </div>
@@ -2332,29 +2365,6 @@ window.saveUserLog = saveUserLog;
       return snapshot.docs.map((d) => d.data());
     }
 
-    const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-    // Safer wrapper: waits briefly for auth/db to be ready, then retries once on transient failures.
-    async function fetchPatientLogsSafe(patientId, days = 30) {
-      // Wait up to ~4s for auth/module initialization
-      for (let i = 0; i < 26; i++) {
-        if (window.__AUTH_MODULE_LOADED__ && typeof db !== "undefined" && db) break;
-        await _sleep(150);
-      }
-      try {
-        return await fetchPatientLogs(patientId, days);
-      } catch (e) {
-        // One retry after a short pause (helps on slow mobile startup)
-        await _sleep(300);
-        return await fetchPatientLogs(patientId, days);
-      }
-    }
-
-    // Ensure these helpers are available in global scope (iOS/Safari can be strict about lookup)
-    window.fetchPatientLogsInRange = fetchPatientLogsInRange;
-    window.fetchPatientLogs = fetchPatientLogs;
-    window.fetchPatientLogsSafe = fetchPatientLogsSafe;
-
     function _safeTxt(v) {
       const s = String(v ?? "");
       return s.replace(/\s+/g, " ").trim();
@@ -2835,11 +2845,6 @@ window.saveUserLog = saveUserLog;
     if (val === null || val === undefined || val === "") return "N/A";
     return String(val) + suffix;
   };
-  const vrHr = (val) => {
-    const n = Number(val);
-    if (!Number.isFinite(n) || n <= 0) return "N/A";
-    return String(n) + " bpm";
-  };
   const yn = (val) => {
     if (val === true) return "Yes";
     if (val === false) return "No";
@@ -2855,14 +2860,8 @@ window.saveUserLog = saveUserLog;
   };
   const bpRender = (v) => {
     if (!v || typeof v !== "object") return "";
-    if (v.bp && String(v.bp).trim() !== "") return String(v.bp).trim();
-
-    const sys = Number(v.bp_sys);
-    const dia = Number(v.bp_dia);
-    const hasSys = Number.isFinite(sys) && sys > 0;
-    const hasDia = Number.isFinite(dia) && dia > 0;
-
-    if (hasSys && hasDia) return `${sys}/${dia}`;
+    if (v.bp) return v.bp;
+    if (v.bp_sys !== undefined && v.bp_dia !== undefined && v.bp_sys !== "" && v.bp_dia !== "") return `${v.bp_sys}/${v.bp_dia}`;
     return "";
   };
 
@@ -2897,6 +2896,31 @@ window.saveUserLog = saveUserLog;
       return;
     }
 
+    
+    // Fetch functional tests (stored separately under /tests)
+    const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/tests`);
+    let tests = [];
+    try {
+      const testsSnap = await testsRef.orderBy("test_date", "desc").get();
+      testsSnap.forEach(doc => tests.push(doc.data()));
+    } catch (e) {
+      // If no index or orderBy fails, fall back to un-ordered fetch
+      try {
+        const testsSnap2 = await testsRef.get();
+        testsSnap2.forEach(doc => tests.push(doc.data()));
+      } catch (e2) {
+        console.warn("Could not fetch functional tests:", e2);
+        tests = [];
+      }
+    }
+    const testsByDate = {};
+    for (const t of tests) {
+      const d = String(t?.test_date || t?.date || t?.testDate || "").trim();
+      if (!d) continue;
+      if (!testsByDate[d]) testsByDate[d] = [];
+      testsByDate[d].push(t);
+    }
+
     // 2) Generate HTML report
     const pn = (document.getElementById("export-patient-name")?.value || '').trim() || 'Patrick Fuellbeck';
     const dob = document.getElementById("export-patient-dob")?.value || "";
@@ -2907,8 +2931,64 @@ window.saveUserLog = saveUserLog;
         ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
         <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
         <p><strong>Records:</strong> ${logs.length}</p>
+        <p style="margin-top:6px;color:#555;font-size:12px;"><strong>Researched and Prepared By:</strong> Patrick Shipp Nutrition RNCP<br/><a href="https://www.patrickshipp.com" target="_blank" rel="noopener" style="color:#555;text-decoration:none;">www.patrickshipp.com</a></p>
       </div>
     `;
+    // 2A) Summary block (top of report)
+    const mean = (arr) => {
+      const xs = arr.filter(v => typeof v === "number" && !Number.isNaN(v));
+      if (!xs.length) return "N/A";
+      const m = xs.reduce((a,b)=>a+b,0) / xs.length;
+      return (Math.round(m * 10) / 10).toFixed(1);
+    };
+
+    const baselineVals = [];
+    const energyVals = [];
+    const painVals = [];
+    let cntNearFall = 0, cntElectro = 0, cntNightWoke = 0, cntNightElectro = 0;
+    let cntAdverse = 0, cntWins = 0;
+    let cntNa = 0, cntNac = 0, cntAla = 0, cntVitE = 0;
+
+    for (const log of logs) {
+      const protocol = log.protocol_adherence || log.protocol || {};
+      const fm = log.fast_markers || log.fastMarkers || {};
+      const ctx = log.context_changes || log.confounders || {};
+      const pi = log.pain_impact || {};
+
+      const b = pick(log, "baseline_rating", "global_baseline");
+      const e = pick(log, "energy_capacity");
+      const p = pick(pi, "severity");
+      if (typeof b === "number") baselineVals.push(b);
+      if (typeof e === "number") energyVals.push(e);
+      if (typeof p === "number") painVals.push(p);
+
+      if (pick(fm, "near_fall_or_balance_scare", "near_fall")) cntNearFall++;
+      if (pick(fm, "electrolyte_rescue_required", "electrolyte_rescue", "electrolyte_rescue_needed")) cntElectro++;
+      if (pick(fm, "night_pain_woke_me")) cntNightWoke++;
+      if (pick(ctx, "night_pain_electrolyte_related")) cntNightElectro++;
+
+      const winsArr = Array.isArray(log.positive_events) ? log.positive_events : (Array.isArray(log.wins) ? log.wins : []);
+      const adverseArr = Array.isArray(log.adverse_events) ? log.adverse_events : (Array.isArray(log.adverseEvents) ? log.adverseEvents : []);
+      cntWins += winsArr.length;
+      cntAdverse += adverseArr.length;
+
+      if (pick(protocol, "nervonic_acid_taken", "nervonic_acid") === true) cntNa++;
+      if (pick(protocol, "nac_taken", "nac") === true) cntNac++;
+      if (pick(protocol, "r_ala_taken", "ala") === true) cntAla++;
+      if (pick(protocol, "vitamin_e_taken", "vit_e") === true) cntVitE++;
+    }
+
+    html += `
+      <div class="report-section" style="border:1px solid #ddd; border-radius:10px; padding:12px; margin: 12px 0 18px 0;">
+        <h2 style="margin:0 0 8px 0;">Summary</h2>
+        <p><strong>Date range:</strong> ${logs[logs.length-1]?.date || "?"} to ${logs[0]?.date || "?"}</p>
+        <p><strong>Averages:</strong> Baseline ${mean(baselineVals)} | Energy ${mean(energyVals)} | Pain severity ${mean(painVals)}</p>
+        <p><strong>Flags (count):</strong> Near-fall ${cntNearFall} | Electrolyte rescue ${cntElectro} | Night pain woke ${cntNightWoke} | Night pain electrolyte-related ${cntNightElectro}</p>
+        <p><strong>Totals:</strong> Adverse events ${cntAdverse} | Wins ${cntWins}</p>
+        <p><strong>Protocol adherence days:</strong> NA ${cntNa}/${logs.length} | NAC ${cntNac}/${logs.length} | ALA ${cntAla}/${logs.length} | Vit E ${cntVitE}/${logs.length}</p>
+      </div>
+    `;
+
 
     logs.forEach(log => {
       // Support both current + legacy schemas
@@ -2927,7 +3007,7 @@ window.saveUserLog = saveUserLog;
 
       // Wins can be stored as positive_events (current) or wins (legacy)
       const winsArr = Array.isArray(log.positive_events) ? log.positive_events : (Array.isArray(log.wins) ? log.wins : []);
-      const adverseArr = Array.isArray(log.adverse_events) ? log.adverse_events : [];
+      const adverseArr = Array.isArray(log.adverse_events) ? log.adverse_events : (Array.isArray(log.adverseEvents) ? log.adverseEvents : (Array.isArray(log.adverse) ? log.adverse : []));
 
       const dayTitle = (log.date !== undefined && log.date !== null && log.date !== "") ? String(log.date) : "N/A";
 
@@ -2941,8 +3021,8 @@ window.saveUserLog = saveUserLog;
 
       // Vitals
       html += `<div class="report-section"><h3>Vitals AM & PM</h3>
-        <p><strong>AM:</strong> BP: ${vr(bpRender(vAm) || "")} | HR: ${vrHr(pick(vAm, "hr"))}</p>
-        <p><strong>PM:</strong> BP: ${vr(bpRender(vPm) || "")} | HR: ${vrHr(pick(vPm, "hr"))}</p>
+        <p><strong>AM:</strong> BP: ${vr(bpRender(vAm) || "")} | HR: ${vr(pick(vAm, "hr"), " bpm")}</p>
+        <p><strong>PM:</strong> BP: ${vr(bpRender(vPm) || "")} | HR: ${vr(pick(vPm, "hr"), " bpm")}</p>
       </div>`;
 
       // Global status
@@ -3003,6 +3083,15 @@ window.saveUserLog = saveUserLog;
            Nothing unusual: ${yn(pick(ctx, "nothing_unusual"))}</p>
       </div>`;
 
+      // Electrolyte rescue detail (optional)
+      const erType = pick(ctx, "electrolyte_quick_pick", "quick_pick", "electrolyte_rescue_type");
+      const erHelp = pick(ctx, "electrolyte_helped_within", "helped_within");
+      const erNote = pick(ctx, "electrolyte_notes", "electrolyte_rescue_notes", "notes");
+      if (erType !== undefined || erHelp !== undefined || erNote !== undefined) {
+        html += `<div class="report-section"><p><strong>Electrolyte rescue detail:</strong> Type: ${vr(erType)}${erHelp !== undefined ? ` | Helped within: ${vr(erHelp)}` : ""}${erNote !== undefined ? ` | Notes: ${vr(erNote)}` : ""}</p></div>`;
+      }
+
+
       // External variables
       const extLevel = (ext && typeof ext.level !== "undefined") ? ext.level : (typeof ext.neuromuscular_training_level !== "undefined" ? ext.neuromuscular_training_level : undefined);
       const extLabel = (ext && ext.label) ? ext.label : "";
@@ -3024,9 +3113,27 @@ window.saveUserLog = saveUserLog;
 
       // Functional tests
       html += `<div class="report-section"><h3>Functional Tests</h3>`;
-      if (Array.isArray(log.functional_tests) && log.functional_tests.length > 0) {
-        log.functional_tests.forEach(ft => {
-          html += `<p>Type: ${vr(ft?.test_type)} | Duration: ${vr(ft?.duration_seconds)}s | Distance: ${vr(ft?.distance_meters)}m | Notes: ${vr(ft?.notes)}</p>`;
+      const dayTests = testsByDate[dayTitle] || [];
+      if (dayTests.length > 0) {
+        dayTests.forEach(ft => {
+          const tType = pick(ft || {}, "test_type", "type", "testName", "name");
+          // Support both 6MWT + Sit-to-Stand schemas
+          const dist = pick(ft || {}, "distance_meters", "distance", "distance_m");
+          const breaks = pick(ft || {}, "rest_breaks_count", "rest_breaks", "breaks");
+          const device = pick(ft || {}, "assistive_device", "device");
+          const course = pick(ft || {}, "course_length_meters", "course_length", "course_m");
+          const exert = pick(ft || {}, "perceived_exertion", "exertion");
+          const stsTime = pick(ft || {}, "sit_to_stand_time_seconds", "time_seconds", "time", "sts_time_seconds");
+          const stsArms = pick(ft || {}, "sit_to_stand_used_arms", "used_arms");
+          const chairH = pick(ft || {}, "chair_height_cm", "chair_height");
+          const notes = pick(ft || {}, "notes");
+          html += `<p><strong>${vr(tType)}</strong> | Distance: ${vr(dist, " m")} | Rest breaks: ${vr(breaks)} | Device: ${vr(device)} | Course: ${vr(course, " m")} | Exertion: ${vr(exert)}</p>`;
+          if (stsTime !== undefined || stsArms !== undefined || chairH !== undefined) {
+            html += `<p>5x Sit-to-Stand: Time: ${vr(stsTime, " s")} | Used arms: ${vr(stsArms)} | Chair height: ${vr(chairH, " cm")}</p>`;
+          }
+          if (notes !== undefined) {
+            html += `<p>Notes: ${vr(notes)}</p>`;
+          }
         });
       } else {
         html += `<p>None</p>`;
@@ -3040,10 +3147,16 @@ window.saveUserLog = saveUserLog;
       </div>`;
 
       // Adverse events
+      const fmtDur = (v) => (v === null || v === undefined || v === "" ? "N/A" : `${v} min`);
       html += `<div class="report-section"><h3>Adverse Events</h3>`;
       if (adverseArr.length > 0) {
         adverseArr.forEach(ae => {
-          html += `<p>• ${vr(ae?.description)}${(ae?.time_of_day ? ` (${ae.time_of_day})` : "")} (Dur: ${vr(pick(ae || {}, "duration_minutes", "duration_min"))}m, Trigger: ${vr(pick(ae || {}, "suspected_driver", "trigger"))})</p>`;
+          const desc = pick(ae || {}, "description", "what_happened", "whatHappened", "event", "name");
+          const tod = pick(ae || {}, "time_of_day", "timeOfDay");
+          const dur = pick(ae || {}, "duration_minutes", "duration_min", "duration", "durationMin");
+          const trig = pick(ae || {}, "suspected_driver", "trigger", "what_drove_it", "driver", "whatDroveIt");
+          const detail = pick(ae || {}, "trigger_detail", "detail", "notes");
+          html += `<p>• ${vr(desc)}${(tod ? ` (${tod})` : "")} (Dur: ${fmtDur(dur)}, Trigger: ${vr(trig)}${detail ? `, Detail: ${vr(detail)}` : ""})</p>`;
         });
       } else {
         html += `<p>None</p>`;
@@ -3054,7 +3167,12 @@ window.saveUserLog = saveUserLog;
       html += `<div class="report-section"><h3>Wins</h3>`;
       if (winsArr.length > 0) {
         winsArr.forEach(w => {
-          html += `<p>• ${vr(w?.description)}${(w?.time_of_day ? ` (${w.time_of_day})` : "")} (Dur: ${vr(pick(w || {}, "duration_minutes", "duration_min"))}m, Trigger: ${vr(pick(w || {}, "suspected_driver", "trigger"))})</p>`;
+          const desc = pick(w || {}, "description", "what_improved", "whatImproved", "win", "name");
+          const tod = pick(w || {}, "time_of_day", "timeOfDay");
+          const dur = pick(w || {}, "duration_minutes", "duration_min", "duration", "durationMin");
+          const helped = pick(w || {}, "suspected_driver", "trigger", "what_helped", "helped", "whatHelped");
+          const detail = pick(w || {}, "trigger_detail", "detail", "notes");
+          html += `<p>• ${vr(desc)}${(tod ? ` (${tod})` : "")} (Dur: ${fmtDur(dur)}, Helped: ${vr(helped)}${detail ? `, Detail: ${vr(detail)}` : ""})</p>`;
         });
       } else {
         html += `<p>None</p>`;
@@ -3083,15 +3201,11 @@ window.saveUserLog = saveUserLog;
     document.title = "Protocol Report";
 
     const cleanup = () => {
-      try { if (typeof __cleanupTimer !== "undefined") clearTimeout(__cleanupTimer); } catch(e) {}
       reportView.innerHTML = "";
       reportView.style.display = "none";
       window.removeEventListener("afterprint", cleanup);
     };
     window.addEventListener("afterprint", cleanup);
-    // iOS Safari often fires afterprint unreliably; keep a generous fallback window.
-    const __cleanupTimer = setTimeout(cleanup, 20000);
-
 
     // If a print window was provided, render the report into that window and print from there.
     if (opts?.printWindow && typeof opts.printWindow.print === "function") {
@@ -3112,19 +3226,31 @@ window.saveUserLog = saveUserLog;
   <style>${styleText}</style>
 </head>
 <body>
+  <div style="position:sticky;top:0;z-index:9999;background:#fff;border-bottom:1px solid #ddd;padding:10px 12px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <button id="btnPrint" style="padding:10px 14px;border-radius:10px;border:1px solid #0a84ff;background:#0a84ff;color:#fff;font-weight:700;cursor:pointer;">Print / Save PDF</button>
+      <button id="btnClose" style="padding:10px 14px;border-radius:10px;border:1px solid #ddd;background:#f3f3f3;color:#111;font-weight:600;cursor:pointer;">Close</button>
+      <span style="font-size:13px;color:#444;">
+        Tip (iPhone): after Print opens, use the Share icon. If you only see a preview, pinch-to-zoom the page preview to open the PDF viewer.
+      </span>
+    </div>
+  </div>
   <div id="report-view" style="display:block;">${html}</div>
+  <script>
+    (function(){
+      var bp = document.getElementById('btnPrint');
+      var bc = document.getElementById('btnClose');
+      if (bp) bp.addEventListener('click', function(){ try{ window.print(); }catch(e){} });
+      if (bc) bc.addEventListener('click', function(){ try{ window.close(); }catch(e){} });
+    })();
+  </script>
 </body>
 </html>`);
       doc.close();
 
-      // Wait for layout/fonts, then print
+      // Show a preview window with an explicit "Print / Save PDF" button.
+      // iOS Safari can behave inconsistently when auto-triggering print; user-initiated print is more reliable.
       w.focus();
-      setTimeout(() => {
-        try { w.print(); } catch(e) { console.error(e); }
-        // Close the print window after a moment (optional)
-        setTimeout(() => { try { w.close(); } catch(e) {} }, 500);
-        cleanup();
-      }, 250);
 
     } else {
       // In-page print: wait for layout to settle (Safari race avoidance)
@@ -3132,7 +3258,7 @@ window.saveUserLog = saveUserLog;
         requestAnimationFrame(() => {
           window.print();
           // Fallback cleanup if afterprint doesn't fire
-          setTimeout(cleanup, 20000);
+          setTimeout(cleanup, 5000);
         });
       });
     }
@@ -3191,6 +3317,7 @@ async function exportPassengerReport(profileId, opts = {}) {
         ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
         <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
         <p><strong>Records:</strong> ${logs.length}</p>
+        <p style="margin-top:6px;color:#555;font-size:12px;"><strong>Researched and Prepared By:</strong> Patrick Shipp Nutrition RNCP<br/><a href="https://www.patrickshipp.com" target="_blank" rel="noopener" style="color:#555;text-decoration:none;">www.patrickshipp.com</a></p>
       </div>
     `;
 
@@ -3232,15 +3359,11 @@ async function exportPassengerReport(profileId, opts = {}) {
     document.title = "Passenger Report";
 
     const cleanup = () => {
-      try { if (typeof __cleanupTimer !== "undefined") clearTimeout(__cleanupTimer); } catch(e) {}
       reportView.innerHTML = "";
       reportView.style.display = "none";
       window.removeEventListener("afterprint", cleanup);
     };
     window.addEventListener("afterprint", cleanup);
-    // iOS Safari often fires afterprint unreliably; keep a generous fallback window.
-    const __cleanupTimer = setTimeout(cleanup, 20000);
-
 
     if (opts?.printWindow && typeof opts.printWindow.print === "function") {
       const w = opts.printWindow;
@@ -3258,7 +3381,24 @@ async function exportPassengerReport(profileId, opts = {}) {
   <style>${styleText}</style>
 </head>
 <body>
+  <div style="position:sticky;top:0;z-index:9999;background:#fff;border-bottom:1px solid #ddd;padding:10px 12px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <button id="btnPrint" style="padding:10px 14px;border-radius:10px;border:1px solid #0a84ff;background:#0a84ff;color:#fff;font-weight:700;cursor:pointer;">Print / Save PDF</button>
+      <button id="btnClose" style="padding:10px 14px;border-radius:10px;border:1px solid #ddd;background:#f3f3f3;color:#111;font-weight:600;cursor:pointer;">Close</button>
+      <span style="font-size:13px;color:#444;">
+        Tip (iPhone): after Print opens, use the Share icon. If you only see a preview, pinch-to-zoom the page preview to open the PDF viewer.
+      </span>
+    </div>
+  </div>
   <div id="report-view" style="display:block;">${html}</div>
+  <script>
+    (function(){
+      var bp = document.getElementById('btnPrint');
+      var bc = document.getElementById('btnClose');
+      if (bp) bp.addEventListener('click', function(){ try{ window.print(); }catch(e){} });
+      if (bc) bc.addEventListener('click', function(){ try{ window.close(); }catch(e){} });
+    })();
+  </script>
 </body>
 </html>`);
       doc.close();
@@ -3273,7 +3413,7 @@ async function exportPassengerReport(profileId, opts = {}) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           window.print();
-          setTimeout(cleanup, 20000);
+          setTimeout(cleanup, 5000);
         });
       });
     }
@@ -3461,43 +3601,13 @@ window.__EXPORT_RUN = async function(args = {}) {
       t1.classList.add("active");
     };
 
-
-    // Trends range helpers
-    window.getTrendsRangeDays = function() {
-      const sel = el("trends-range");
-      const n = sel ? Number(sel.value) : 30;
-      return Number.isFinite(n) && n > 0 ? n : 30;
-    };
-
-    window.refreshTrendsForActiveTab = function() {
-      // Determine which tab is active and re-render the right pane
-      const t1 = el("tab-summary");
-      const t2 = el("tab-charts");
-      const t3 = el("tab-details");
-      if (t2 && t2.classList.contains("active")) {
-        if (typeof window.renderTrendsCharts === "function") window.renderTrendsCharts();
-        return;
-      }
-      if (t3 && t3.classList.contains("active")) {
-        if (typeof window.renderTrendsDetails === "function") window.renderTrendsDetails();
-        return;
-      }
-      if (typeof window.renderTrends === "function") window.renderTrends();
-    };
-
     // Basic trends rendering (safe/no-crash)
     let _globalChart = null;
 
     window.renderTrends = async function() {
       // lightweight summary text only (avoid blocking UI)
       try {
-        const days = window.getTrendsRangeDays();
-        const sel = el("trends-range");
-        if (sel && !sel.dataset.bound) {
-          sel.dataset.bound = "1";
-          sel.addEventListener("change", () => window.refreshTrendsForActiveTab());
-        }
-        const logs = await fetchPatientLogsSafe("patrick", days);
+        const logs = await fetchPatientLogs("patrick", 30);
         const elSum = el("change-summary");
         if (!elSum) return;
 
@@ -3510,7 +3620,7 @@ window.__EXPORT_RUN = async function(args = {}) {
         withRating.forEach(l => { if (counts[l.baseline_rating] !== undefined) counts[l.baseline_rating]++; });
 
         elSum.innerHTML = `
-          <div>Last ${days} days: <strong>${total}</strong> logs found. Baseline rating recorded on <strong>${rated}</strong> days.</div>
+          <div>Last 30 days: <strong>${total}</strong> logs found. Baseline rating recorded on <strong>${rated}</strong> days.</div>
           <div style="margin-top:10px;">
             much better: ${counts.much_better} • better: ${counts.better} • same: ${counts.same} • worse: ${counts.worse} • much worse: ${counts.much_worse}
           </div>
@@ -3611,8 +3721,7 @@ window.__EXPORT_RUN = async function(args = {}) {
 
     window.renderTrendsCharts = async function() {
       try {
-        const days = window.getTrendsRangeDays();
-        const logs = await fetchPatientLogsSafe("patrick", days);
+        const logs = await fetchPatientLogs("patrick", 30);
         const ordered = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
         const labels = ordered.map(l => l.date || "");
 
@@ -3707,78 +3816,7 @@ window.__EXPORT_RUN = async function(args = {}) {
       host.innerHTML = `<div>${html}</div>`;
     };
 
-    
-    // ---- Robustness shim (iOS/Safari safe) ----
-    // Ensure any older calls to fetchPatientLogsSafe don't crash.
-    if (!window.fetchPatientLogsSafe) {
-      window.fetchPatientLogsSafe = async function(patientId, days) {
-        if (typeof window.fetchPatientLogs === "function") {
-          return await window.fetchPatientLogs(patientId, days);
-        }
-        // last resort: attempt direct call if in scope
-        if (typeof fetchPatientLogs === "function") {
-          return await fetchPatientLogs(patientId, days);
-        }
-        return [];
-      };
-    }
-
-    // Surface JS errors on-screen (so failures aren't silent on mobile).
-    (function(){
-      if (window.__ONERROR_BOUND__) return;
-      window.__ONERROR_BOUND__ = true;
-      function showError(msg){
-        try{
-          let el = document.getElementById('runtime-error-banner');
-          if(!el){
-            el = document.createElement('div');
-            el.id = 'runtime-error-banner';
-            el.style.position='fixed';
-            el.style.left='0';
-            el.style.right='0';
-            el.style.bottom='0';
-            el.style.zIndex='99999';
-            el.style.background='rgba(255,69,58,0.95)';
-            el.style.color='#fff';
-            el.style.padding='10px 12px';
-            el.style.fontSize='12px';
-            el.style.fontWeight='700';
-            el.style.lineHeight='1.25';
-            el.style.boxShadow='0 -2px 12px rgba(0,0,0,0.4)';
-            el.style.whiteSpace='pre-wrap';
-            el.addEventListener('click', ()=> el.remove());
-            document.body.appendChild(el);
-          }
-          el.textContent = 'JS error: ' + msg + '\n(tap to dismiss)';
-        }catch(_){}
-      }
-      window.addEventListener('error', function(e){
-        const msg = (e && (e.message || (e.error && e.error.message))) || 'Unknown error';
-        showError(msg);
-      });
-      window.addEventListener('unhandledrejection', function(e){
-        const msg = (e && e.reason && (e.reason.message || String(e.reason))) || 'Unhandled promise rejection';
-        showError(msg);
-      });
-    })();
-
-    // Improve tap responsiveness on iOS: treat touchstart as click for pill buttons.
-    (function(){
-      if (window.__TOUCH_SHIM__) return;
-      window.__TOUCH_SHIM__ = true;
-      document.addEventListener('touchstart', function(ev){
-        const t = ev.target;
-        if (!t) return;
-        const btn = t.closest ? t.closest('[onclick]') : null;
-        if (btn && btn.getAttribute('onclick')) {
-          // Let native click happen too, but ensure handler runs.
-          try { (new Function(btn.getAttribute('onclick')))(); } catch(_){}
-        }
-      }, {passive:true});
-    })();
-    // ---- End shim ----
-
-document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", () => {
       // prime slider visuals
       Array.from(document.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
 
@@ -3855,5 +3893,9 @@ document.addEventListener("DOMContentLoaded", () => {
 })();
 
 </script>
+
+  <footer id="app-credit" style="padding:14px 12px;text-align:center;color:#8a8a8a;font-size:12px;">
+    Prepared by Patrick Fuellebeck | <span style="opacity:0.85;">(add your website)</span>
+  </footer>
 </body>
 </html>
