@@ -954,6 +954,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 <div id="auth-card">
 <h2>Sign in</h2>
 <p>Sign in once on this device to sync and protect your logs.</p>
+<form id="auth-form" autocomplete="on" onsubmit="event.preventDefault(); (window.__doSignIn && window.__doSignIn()); return false;">
 <label for="auth-email">Email</label>
 <input
   id="auth-email"
@@ -973,12 +974,13 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
   autocomplete="current-password"
 />
 <div class="row">
-<button id="auth-signin" type="button" onclick="window.__doSignIn && window.__doSignIn()">Sign in</button>
+<button id="auth-signin" type="submit">Sign in</button>
 <button class="secondary" id="auth-signup" type="button">Create account</button>
 </div>
 <div class="row" style="margin-top:10px;">
 <button class="secondary" id="auth-demo" style="width:100%;" type="button">View demo (read-only)</button>
 </div>
+</form>
 <div id="auth-error"></div>
 </div>
 </div>
@@ -2348,6 +2350,11 @@ window.saveUserLog = saveUserLog;
       }
     }
 
+    // Ensure these helpers are available in global scope (iOS/Safari can be strict about lookup)
+    window.fetchPatientLogsInRange = fetchPatientLogsInRange;
+    window.fetchPatientLogs = fetchPatientLogs;
+    window.fetchPatientLogsSafe = fetchPatientLogsSafe;
+
     function _safeTxt(v) {
       const s = String(v ?? "");
       return s.replace(/\s+/g, " ").trim();
@@ -3076,11 +3083,15 @@ window.saveUserLog = saveUserLog;
     document.title = "Protocol Report";
 
     const cleanup = () => {
+      try { if (typeof __cleanupTimer !== "undefined") clearTimeout(__cleanupTimer); } catch(e) {}
       reportView.innerHTML = "";
       reportView.style.display = "none";
       window.removeEventListener("afterprint", cleanup);
     };
     window.addEventListener("afterprint", cleanup);
+    // iOS Safari often fires afterprint unreliably; keep a generous fallback window.
+    const __cleanupTimer = setTimeout(cleanup, 20000);
+
 
     // If a print window was provided, render the report into that window and print from there.
     if (opts?.printWindow && typeof opts.printWindow.print === "function") {
@@ -3121,7 +3132,7 @@ window.saveUserLog = saveUserLog;
         requestAnimationFrame(() => {
           window.print();
           // Fallback cleanup if afterprint doesn't fire
-          setTimeout(cleanup, 5000);
+          setTimeout(cleanup, 20000);
         });
       });
     }
@@ -3221,11 +3232,15 @@ async function exportPassengerReport(profileId, opts = {}) {
     document.title = "Passenger Report";
 
     const cleanup = () => {
+      try { if (typeof __cleanupTimer !== "undefined") clearTimeout(__cleanupTimer); } catch(e) {}
       reportView.innerHTML = "";
       reportView.style.display = "none";
       window.removeEventListener("afterprint", cleanup);
     };
     window.addEventListener("afterprint", cleanup);
+    // iOS Safari often fires afterprint unreliably; keep a generous fallback window.
+    const __cleanupTimer = setTimeout(cleanup, 20000);
+
 
     if (opts?.printWindow && typeof opts.printWindow.print === "function") {
       const w = opts.printWindow;
@@ -3258,7 +3273,7 @@ async function exportPassengerReport(profileId, opts = {}) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           window.print();
-          setTimeout(cleanup, 5000);
+          setTimeout(cleanup, 20000);
         });
       });
     }
