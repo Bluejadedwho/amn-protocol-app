@@ -6,6 +6,27 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 <title>The Protocol</title>
+<script>
+  // App version bump to reduce "stale state after deploy" issues on mobile Safari.
+  // Update this string whenever you deploy changes that touch data schema or auth flows.
+  window.APP_VERSION = "2026-03-03-1";
+  (function() {
+    try {
+      const k = "amn_app_version";
+      const prev = localStorage.getItem(k);
+      if (prev && prev !== window.APP_VERSION) {
+        // Clear only known app keys. Firebase auth persistence is managed by Firebase.
+        // We still clear local UI flags to avoid mismatches after updates.
+        localStorage.removeItem("amn_demo_mode");
+      }
+      localStorage.setItem(k, window.APP_VERSION);
+    } catch(e) {
+      // Ignore storage errors (private mode, etc.)
+      console.warn("Version guard storage unavailable:", e);
+    }
+  })();
+</script>
+
 <meta content="yes" name="apple-mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <meta content="#000000" name="theme-color"/>
@@ -613,6 +634,25 @@ body.modal-open {
 }
 .report-header h1 { font-size: 24px; margin: 0 0 5px 0; font-weight: 800; color: #000; }
 .report-header p { margin: 2px 0; font-size: 12px; color: #333; }
+.report-summary {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-left: 4px solid var(--accent-blue);
+  background: #fafafa;
+}
+.report-summary h2 {
+  margin: 0 0 6px 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #000;
+}
+.report-summary p {
+  margin: 3px 0;
+  font-size: 12px;
+  color: #333;
+}
+
 
 .report-day-block {
   page-break-after: always;
@@ -771,8 +811,7 @@ body.modal-open {
       if(title) title.textContent = `Export ${target?.label || 'History'} (PDF)`;
       const today = new Date();
       const startD = new Date();
-      const days = Number(target?.days) || 30;
-      startD.setDate(today.getDate() - (days - 1)); 
+      startD.setDate(today.getDate() - 29); 
       if(start) start.value = toISODate(startD);
       if(end) end.value = toISODate(today);
       if(order && !order.value) order.value = 'desc';
@@ -842,9 +881,13 @@ body.modal-open {
       const btn = byId('export-run-btn');
       if(btn){ btn.disabled = true; btn.textContent = 'GENERATING...'; }
       try{
-        // iOS Safari blocks popups for window.open() if any async work happened first.
-        // Use in-page printing instead (exportProtocolReport/exportPassengerReport already support this).
-        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob });
+        // Open a dedicated print window immediately (keeps print allowed on Safari)
+        const printWin = window.open("", "_blank");
+        if(!printWin){
+          alert("Popup blocked. Please allow popups for this site to export PDF.");
+          return;
+        }
+        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob, printWindow: printWin });
         window.closeExportModal();
       } catch(e){
         console.error(e);
@@ -954,33 +997,17 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 <div id="auth-card">
 <h2>Sign in</h2>
 <p>Sign in once on this device to sync and protect your logs.</p>
-<form id="auth-form" autocomplete="on" onsubmit="event.preventDefault(); (window.__doSignIn && window.__doSignIn()); return false;">
 <label for="auth-email">Email</label>
-<input
-  id="auth-email"
-  type="email"
-  name="username"
-  inputmode="email"
-  autocomplete="username"
-  autocapitalize="none"
-  autocorrect="off"
-  spellcheck="false"
-/>
+<input autocomplete="email" id="auth-email" inputmode="email" type="email"/>
 <label for="auth-pass">Password</label>
-<input
-  id="auth-pass"
-  type="password"
-  name="password"
-  autocomplete="current-password"
-/>
+<input autocomplete="current-password" id="auth-pass" type="password"/>
 <div class="row">
-<button id="auth-signin" type="submit">Sign in</button>
+<button id="auth-signin" type="button" onclick="window.__doSignIn && window.__doSignIn()">Sign in</button>
 <button class="secondary" id="auth-signup" type="button">Create account</button>
 </div>
 <div class="row" style="margin-top:10px;">
 <button class="secondary" id="auth-demo" style="width:100%;" type="button">View demo (read-only)</button>
 </div>
-</form>
 <div id="auth-error"></div>
 </div>
 </div>
@@ -1616,12 +1643,11 @@ Conceptual Foundation and Mechanistic Framework
 <div class="pill-btn" id="tab-charts" onclick="window.showTrendsTab('charts')">Charts</div>
 <div class="pill-btn" id="tab-details" onclick="window.showTrendsTab('details')">Details</div>
 </div>
-<div class="muted" style="margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:10px;"><span style="color: var(--text-secondary); font-size:0.9rem;">Range</span><select id="trends-range" style="background:#000; color:#fff; border:1px solid #333; border-radius:10px; padding:10px 12px; font-weight:600;"><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="30" selected>Last 30 days</option><option value="60">Last 60 days</option><option value="90">Last 90 days</option><option value="180">Last 180 days</option><option value="365">Last 365 days</option></select></div>
 </div>
 <div id="trends-summary-pane">
 <div class="card">
 <h3>Change Detection Summary</h3>
-<button class="lab-save-btn" id="clinician-export-btn" onclick="window.openExportModal({patientId:'patrick', label:'Pilot', days: window.getTrendsRangeDays()})" style="margin-top:12px;" type="button">DOWNLOAD PILOT HISTORY (PDF)</button>
+<button class="lab-save-btn" id="clinician-export-btn" onclick="window.openExportModal({patientId:'patrick', label:'Pilot'})" style="margin-top:12px;" type="button">DOWNLOAD PILOT HISTORY (PDF)</button>
 <div id="change-summary" style="margin-top:12px; font-size:0.9rem; line-height:1.7; color:#E0E0E0;"></div>
 </div>
 </div>
@@ -2332,29 +2358,6 @@ window.saveUserLog = saveUserLog;
       return snapshot.docs.map((d) => d.data());
     }
 
-    const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-    // Safer wrapper: waits briefly for auth/db to be ready, then retries once on transient failures.
-    async function fetchPatientLogsSafe(patientId, days = 30) {
-      // Wait up to ~4s for auth/module initialization
-      for (let i = 0; i < 26; i++) {
-        if (window.__AUTH_MODULE_LOADED__ && typeof db !== "undefined" && db) break;
-        await _sleep(150);
-      }
-      try {
-        return await fetchPatientLogs(patientId, days);
-      } catch (e) {
-        // One retry after a short pause (helps on slow mobile startup)
-        await _sleep(300);
-        return await fetchPatientLogs(patientId, days);
-      }
-    }
-
-    // Ensure these helpers are available in global scope (iOS/Safari can be strict about lookup)
-    window.fetchPatientLogsInRange = fetchPatientLogsInRange;
-    window.fetchPatientLogs = fetchPatientLogs;
-    window.fetchPatientLogsSafe = fetchPatientLogsSafe;
-
     function _safeTxt(v) {
       const s = String(v ?? "");
       return s.replace(/\s+/g, " ").trim();
@@ -2835,11 +2838,6 @@ window.saveUserLog = saveUserLog;
     if (val === null || val === undefined || val === "") return "N/A";
     return String(val) + suffix;
   };
-  const vrHr = (val) => {
-    const n = Number(val);
-    if (!Number.isFinite(n) || n <= 0) return "N/A";
-    return String(n) + " bpm";
-  };
   const yn = (val) => {
     if (val === true) return "Yes";
     if (val === false) return "No";
@@ -2855,14 +2853,8 @@ window.saveUserLog = saveUserLog;
   };
   const bpRender = (v) => {
     if (!v || typeof v !== "object") return "";
-    if (v.bp && String(v.bp).trim() !== "") return String(v.bp).trim();
-
-    const sys = Number(v.bp_sys);
-    const dia = Number(v.bp_dia);
-    const hasSys = Number.isFinite(sys) && sys > 0;
-    const hasDia = Number.isFinite(dia) && dia > 0;
-
-    if (hasSys && hasDia) return `${sys}/${dia}`;
+    if (v.bp) return v.bp;
+    if (v.bp_sys !== undefined && v.bp_dia !== undefined && v.bp_sys !== "" && v.bp_dia !== "") return `${v.bp_sys}/${v.bp_dia}`;
     return "";
   };
 
@@ -2901,12 +2893,99 @@ window.saveUserLog = saveUserLog;
     const pn = (document.getElementById("export-patient-name")?.value || '').trim() || 'Patrick Fuellbeck';
     const dob = document.getElementById("export-patient-dob")?.value || "";
 
+
+    // 2a) Compute a compact overall summary (counts, averages, key flags)
+    const summary = (() => {
+      const acc = {
+        count: 0,
+        naYes: 0, nacYes: 0, alaYes: 0, vitEYes: 0,
+        nearFallYes: 0, elecRescueYes: 0, spasmYes: 0, nightPainYes: 0, restlessYes: 0,
+        nightElecRelatedYes: 0,
+        baselineVals: [], energyVals: [], painSeverityVals: [],
+        adverseCount: 0, winCount: 0
+      };
+      const asNum = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+      };
+      const yes = (v) => v === true;
+      logs.forEach(l => {
+        acc.count += 1;
+        const protocol = l.protocol_adherence || l.protocol || {};
+        if (yes(pick(protocol, "nervonic_acid_taken", "nervonic_acid"))) acc.naYes += 1;
+        if (yes(pick(protocol, "nac_taken", "nac"))) acc.nacYes += 1;
+        if (yes(pick(protocol, "r_ala_taken", "ala"))) acc.alaYes += 1;
+        if (yes(pick(protocol, "vitamin_e_taken", "vit_e"))) acc.vitEYes += 1;
+
+        const fm = l.fast_markers || l.fastMarkers || {};
+        if (yes(pick(fm, "near_fall_or_balance_scare", "near_fall"))) acc.nearFallYes += 1;
+        if (yes(pick(fm, "electrolyte_rescue_required", "electrolyte_rescue", "electrolyte_rescue_needed"))) acc.elecRescueYes += 1;
+        if (yes(pick(fm, "spasm_or_clonus_episode", "spasm_or_clonus"))) acc.spasmYes += 1;
+        if (yes(pick(fm, "night_pain_woke_me"))) acc.nightPainYes += 1;
+        if (yes(pick(fm, "restless_legs_at_night", "restless_legs"))) acc.restlessYes += 1;
+
+        const ctx = l.context_changes || l.confounders || {};
+        if (yes(pick(ctx, "night_pain_electrolyte_related"))) acc.nightElecRelatedYes += 1;
+
+        const b = asNum(pick(l, "baseline_rating", "global_baseline"));
+        if (b !== null) acc.baselineVals.push(b);
+        const e = asNum(pick(l, "energy_capacity"));
+        if (e !== null) acc.energyVals.push(e);
+
+        const pi = l.pain_impact || {};
+        const ps = asNum(pick(pi, "severity"));
+        if (ps !== null) acc.painSeverityVals.push(ps);
+
+        const winsArr = Array.isArray(l.positive_events) ? l.positive_events : (Array.isArray(l.wins) ? l.wins : []);
+        const adverseArr = Array.isArray(l.adverse_events) ? l.adverse_events : [];
+        acc.winCount += winsArr.length;
+        acc.adverseCount += adverseArr.length;
+      });
+
+      const avg = (arr) => arr.length ? (arr.reduce((a,b)=>a+b,0) / arr.length) : null;
+      const pct = (num) => acc.count ? Math.round((num / acc.count) * 100) : 0;
+
+      return {
+        count: acc.count,
+        adherence: {
+          naPct: pct(acc.naYes),
+          nacPct: pct(acc.nacYes),
+          alaPct: pct(acc.alaYes),
+          vitEPct: pct(acc.vitEYes)
+        },
+        flags: {
+          nearFallDays: acc.nearFallYes,
+          elecRescueDays: acc.elecRescueYes,
+          nightPainDays: acc.nightPainYes,
+          nightElecRelatedDays: acc.nightElecRelatedYes
+        },
+        avgs: {
+          baseline: avg(acc.baselineVals),
+          energy: avg(acc.energyVals),
+          painSeverity: avg(acc.painSeverityVals)
+        },
+        events: {
+          adverseCount: acc.adverseCount,
+          winCount: acc.winCount
+        }
+      };
+    })();
+
+
     let html = `
       <div class="report-header">
         <h1>Protocol Report: ${pn}</h1>
         ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
         <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
         <p><strong>Records:</strong> ${logs.length}</p>
+        <div class="report-summary">
+          <h2>Summary</h2>
+          <p><strong>Protocol adherence (percent of days):</strong> NA ${summary.adherence.naPct}%, NAC ${summary.adherence.nacPct}%, ALA ${summary.adherence.alaPct}%, Vit E ${summary.adherence.vitEPct}%</p>
+          <p><strong>Key flags (days):</strong> Near-fall ${summary.flags.nearFallDays}, Electrolyte rescue ${summary.flags.elecRescueDays}, Night pain woke me ${summary.flags.nightPainDays}, Night pain electrolyte-related ${summary.flags.nightElecRelatedDays}</p>
+          <p><strong>Averages:</strong> Baseline ${summary.avgs.baseline === null ? "N/A" : summary.avgs.baseline.toFixed(1)}, Energy ${summary.avgs.energy === null ? "N/A" : summary.avgs.energy.toFixed(1)}, Pain severity ${summary.avgs.painSeverity === null ? "N/A" : summary.avgs.painSeverity.toFixed(1)}</p>
+          <p><strong>Events:</strong> Adverse events ${summary.events.adverseCount}, Wins ${summary.events.winCount}</p>
+        </div>
+
       </div>
     `;
 
@@ -2941,8 +3020,8 @@ window.saveUserLog = saveUserLog;
 
       // Vitals
       html += `<div class="report-section"><h3>Vitals AM & PM</h3>
-        <p><strong>AM:</strong> BP: ${vr(bpRender(vAm) || "")} | HR: ${vrHr(pick(vAm, "hr"))}</p>
-        <p><strong>PM:</strong> BP: ${vr(bpRender(vPm) || "")} | HR: ${vrHr(pick(vPm, "hr"))}</p>
+        <p><strong>AM:</strong> BP: ${vr(bpRender(vAm) || "")} | HR: ${vr(pick(vAm, "hr"), " bpm")}</p>
+        <p><strong>PM:</strong> BP: ${vr(bpRender(vPm) || "")} | HR: ${vr(pick(vPm, "hr"), " bpm")}</p>
       </div>`;
 
       // Global status
@@ -2988,6 +3067,13 @@ window.saveUserLog = saveUserLog;
       </div>`;
 
       // Confounders / context changes
+      const elecType = pick(ctx, "electrolyte_rescue_type");
+      const elecHelped = pick(ctx, "electrolyte_rescue_helped_within");
+      const elecNotes = pick(ctx, "electrolyte_rescue_notes");
+      const elecDetail = (elecType || elecHelped || elecNotes) ? `
+        <p><strong>Electrolyte rescue detail:</strong>
+          Type: ${vr(elecType)}${elecHelped ? ` | Helped within: ${vr(elecHelped)}` : ""}${elecNotes ? ` | Notes: ${vr(elecNotes)}` : ""}</p>` : "";
+
       html += `<div class="report-section"><h3>Confounders</h3>
         <p>Poor sleep: ${yn(pick(ctx, "poor_sleep_last_night"))},
            Unusual exertion: ${yn(pick(ctx, "unusual_physical_exertion"))},
@@ -3001,6 +3087,7 @@ window.saveUserLog = saveUserLog;
            GI/Dehydration: ${yn(pick(ctx, "gi_upset_or_dehydration"))},
            Night pain likely electrolyte-related: ${yn(pick(ctx, "night_pain_electrolyte_related"))},
            Nothing unusual: ${yn(pick(ctx, "nothing_unusual"))}</p>
+        ${elecDetail}
       </div>`;
 
       // External variables
@@ -3083,15 +3170,11 @@ window.saveUserLog = saveUserLog;
     document.title = "Protocol Report";
 
     const cleanup = () => {
-      try { if (typeof __cleanupTimer !== "undefined") clearTimeout(__cleanupTimer); } catch(e) {}
       reportView.innerHTML = "";
       reportView.style.display = "none";
       window.removeEventListener("afterprint", cleanup);
     };
     window.addEventListener("afterprint", cleanup);
-    // iOS Safari often fires afterprint unreliably; keep a generous fallback window.
-    const __cleanupTimer = setTimeout(cleanup, 20000);
-
 
     // If a print window was provided, render the report into that window and print from there.
     if (opts?.printWindow && typeof opts.printWindow.print === "function") {
@@ -3132,7 +3215,7 @@ window.saveUserLog = saveUserLog;
         requestAnimationFrame(() => {
           window.print();
           // Fallback cleanup if afterprint doesn't fire
-          setTimeout(cleanup, 20000);
+          setTimeout(cleanup, 5000);
         });
       });
     }
@@ -3191,6 +3274,14 @@ async function exportPassengerReport(profileId, opts = {}) {
         ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
         <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
         <p><strong>Records:</strong> ${logs.length}</p>
+        <div class="report-summary">
+          <h2>Summary</h2>
+          <p><strong>Protocol adherence (percent of days):</strong> NA ${summary.adherence.naPct}%, NAC ${summary.adherence.nacPct}%, ALA ${summary.adherence.alaPct}%, Vit E ${summary.adherence.vitEPct}%</p>
+          <p><strong>Key flags (days):</strong> Near-fall ${summary.flags.nearFallDays}, Electrolyte rescue ${summary.flags.elecRescueDays}, Night pain woke me ${summary.flags.nightPainDays}, Night pain electrolyte-related ${summary.flags.nightElecRelatedDays}</p>
+          <p><strong>Averages:</strong> Baseline ${summary.avgs.baseline === null ? "N/A" : summary.avgs.baseline.toFixed(1)}, Energy ${summary.avgs.energy === null ? "N/A" : summary.avgs.energy.toFixed(1)}, Pain severity ${summary.avgs.painSeverity === null ? "N/A" : summary.avgs.painSeverity.toFixed(1)}</p>
+          <p><strong>Events:</strong> Adverse events ${summary.events.adverseCount}, Wins ${summary.events.winCount}</p>
+        </div>
+
       </div>
     `;
 
@@ -3232,15 +3323,11 @@ async function exportPassengerReport(profileId, opts = {}) {
     document.title = "Passenger Report";
 
     const cleanup = () => {
-      try { if (typeof __cleanupTimer !== "undefined") clearTimeout(__cleanupTimer); } catch(e) {}
       reportView.innerHTML = "";
       reportView.style.display = "none";
       window.removeEventListener("afterprint", cleanup);
     };
     window.addEventListener("afterprint", cleanup);
-    // iOS Safari often fires afterprint unreliably; keep a generous fallback window.
-    const __cleanupTimer = setTimeout(cleanup, 20000);
-
 
     if (opts?.printWindow && typeof opts.printWindow.print === "function") {
       const w = opts.printWindow;
@@ -3273,7 +3360,7 @@ async function exportPassengerReport(profileId, opts = {}) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           window.print();
-          setTimeout(cleanup, 20000);
+          setTimeout(cleanup, 5000);
         });
       });
     }
@@ -3461,43 +3548,13 @@ window.__EXPORT_RUN = async function(args = {}) {
       t1.classList.add("active");
     };
 
-
-    // Trends range helpers
-    window.getTrendsRangeDays = function() {
-      const sel = el("trends-range");
-      const n = sel ? Number(sel.value) : 30;
-      return Number.isFinite(n) && n > 0 ? n : 30;
-    };
-
-    window.refreshTrendsForActiveTab = function() {
-      // Determine which tab is active and re-render the right pane
-      const t1 = el("tab-summary");
-      const t2 = el("tab-charts");
-      const t3 = el("tab-details");
-      if (t2 && t2.classList.contains("active")) {
-        if (typeof window.renderTrendsCharts === "function") window.renderTrendsCharts();
-        return;
-      }
-      if (t3 && t3.classList.contains("active")) {
-        if (typeof window.renderTrendsDetails === "function") window.renderTrendsDetails();
-        return;
-      }
-      if (typeof window.renderTrends === "function") window.renderTrends();
-    };
-
     // Basic trends rendering (safe/no-crash)
     let _globalChart = null;
 
     window.renderTrends = async function() {
       // lightweight summary text only (avoid blocking UI)
       try {
-        const days = window.getTrendsRangeDays();
-        const sel = el("trends-range");
-        if (sel && !sel.dataset.bound) {
-          sel.dataset.bound = "1";
-          sel.addEventListener("change", () => window.refreshTrendsForActiveTab());
-        }
-        const logs = await fetchPatientLogsSafe("patrick", days);
+        const logs = await fetchPatientLogs("patrick", 30);
         const elSum = el("change-summary");
         if (!elSum) return;
 
@@ -3510,7 +3567,7 @@ window.__EXPORT_RUN = async function(args = {}) {
         withRating.forEach(l => { if (counts[l.baseline_rating] !== undefined) counts[l.baseline_rating]++; });
 
         elSum.innerHTML = `
-          <div>Last ${days} days: <strong>${total}</strong> logs found. Baseline rating recorded on <strong>${rated}</strong> days.</div>
+          <div>Last 30 days: <strong>${total}</strong> logs found. Baseline rating recorded on <strong>${rated}</strong> days.</div>
           <div style="margin-top:10px;">
             much better: ${counts.much_better} • better: ${counts.better} • same: ${counts.same} • worse: ${counts.worse} • much worse: ${counts.much_worse}
           </div>
@@ -3611,8 +3668,7 @@ window.__EXPORT_RUN = async function(args = {}) {
 
     window.renderTrendsCharts = async function() {
       try {
-        const days = window.getTrendsRangeDays();
-        const logs = await fetchPatientLogsSafe("patrick", days);
+        const logs = await fetchPatientLogs("patrick", 30);
         const ordered = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
         const labels = ordered.map(l => l.date || "");
 
@@ -3707,78 +3763,7 @@ window.__EXPORT_RUN = async function(args = {}) {
       host.innerHTML = `<div>${html}</div>`;
     };
 
-    
-    // ---- Robustness shim (iOS/Safari safe) ----
-    // Ensure any older calls to fetchPatientLogsSafe don't crash.
-    if (!window.fetchPatientLogsSafe) {
-      window.fetchPatientLogsSafe = async function(patientId, days) {
-        if (typeof window.fetchPatientLogs === "function") {
-          return await window.fetchPatientLogs(patientId, days);
-        }
-        // last resort: attempt direct call if in scope
-        if (typeof fetchPatientLogs === "function") {
-          return await fetchPatientLogs(patientId, days);
-        }
-        return [];
-      };
-    }
-
-    // Surface JS errors on-screen (so failures aren't silent on mobile).
-    (function(){
-      if (window.__ONERROR_BOUND__) return;
-      window.__ONERROR_BOUND__ = true;
-      function showError(msg){
-        try{
-          let el = document.getElementById('runtime-error-banner');
-          if(!el){
-            el = document.createElement('div');
-            el.id = 'runtime-error-banner';
-            el.style.position='fixed';
-            el.style.left='0';
-            el.style.right='0';
-            el.style.bottom='0';
-            el.style.zIndex='99999';
-            el.style.background='rgba(255,69,58,0.95)';
-            el.style.color='#fff';
-            el.style.padding='10px 12px';
-            el.style.fontSize='12px';
-            el.style.fontWeight='700';
-            el.style.lineHeight='1.25';
-            el.style.boxShadow='0 -2px 12px rgba(0,0,0,0.4)';
-            el.style.whiteSpace='pre-wrap';
-            el.addEventListener('click', ()=> el.remove());
-            document.body.appendChild(el);
-          }
-          el.textContent = 'JS error: ' + msg + '\n(tap to dismiss)';
-        }catch(_){}
-      }
-      window.addEventListener('error', function(e){
-        const msg = (e && (e.message || (e.error && e.error.message))) || 'Unknown error';
-        showError(msg);
-      });
-      window.addEventListener('unhandledrejection', function(e){
-        const msg = (e && e.reason && (e.reason.message || String(e.reason))) || 'Unhandled promise rejection';
-        showError(msg);
-      });
-    })();
-
-    // Improve tap responsiveness on iOS: treat touchstart as click for pill buttons.
-    (function(){
-      if (window.__TOUCH_SHIM__) return;
-      window.__TOUCH_SHIM__ = true;
-      document.addEventListener('touchstart', function(ev){
-        const t = ev.target;
-        if (!t) return;
-        const btn = t.closest ? t.closest('[onclick]') : null;
-        if (btn && btn.getAttribute('onclick')) {
-          // Let native click happen too, but ensure handler runs.
-          try { (new Function(btn.getAttribute('onclick')))(); } catch(_){}
-        }
-      }, {passive:true});
-    })();
-    // ---- End shim ----
-
-document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", () => {
       // prime slider visuals
       Array.from(document.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
 
