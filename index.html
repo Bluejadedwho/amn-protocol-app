@@ -842,13 +842,9 @@ body.modal-open {
       const btn = byId('export-run-btn');
       if(btn){ btn.disabled = true; btn.textContent = 'GENERATING...'; }
       try{
-        // Open a dedicated print window immediately (keeps print allowed on Safari)
-        const printWin = window.open("", "_blank");
-        if(!printWin){
-          alert("Popup blocked. Please allow popups for this site to export PDF.");
-          return;
-        }
-        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob, printWindow: printWin });
+        // iOS Safari blocks popups for window.open() if any async work happened first.
+        // Use in-page printing instead (exportProtocolReport/exportPassengerReport already support this).
+        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob });
         window.closeExportModal();
       } catch(e){
         console.error(e);
