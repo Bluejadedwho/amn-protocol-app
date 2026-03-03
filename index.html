@@ -2267,113 +2267,58 @@ fast_markers: {
       };
     }
 
-    
-    // ----------------------------
-    // Local (offline) log storage
-    // ----------------------------
-    const _localLogsKey = (profileId) => `amn_local_logs_${profileId}`;
-    function _loadLocalLogs(profileId){
+    async function saveUserLog(profileId, payload) {
       try {
-        const raw = localStorage.getItem(_localLogsKey(profileId));
-        const arr = raw ? JSON.parse(raw) : [];
-        return Array.isArray(arr) ? arr : [];
-      } catch(e){
-        return [];
+        const uid = window.CURRENT_UID;
+        if (!uid) throw new Error("Not authenticated");
+
+        // Ensure date exists
+        const dateStr = payload.date || localDateStr();
+        const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
+
+        const finalPayload = {
+          ...payload,
+          date: dateStr,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          clientUpdatedAt: new Date().toISOString()
+        };
+
+        await docRef.set(finalPayload, { merge: true });
+      } catch (err) {
+        if (err?.message && String(err.message).toLowerCase().includes('terminated')) {
+          alert("Database connection interrupted. The page will now refresh to restore connection.");
+          window.location.reload();
+          return;
+        }
+        console.error("Save error:", err);
+        alert("Failed to save: " + (err?.message || err));
+        throw err;
       }
     }
-    function _saveLocalLogs(profileId, arr){
-      try { localStorage.setItem(_localLogsKey(profileId), JSON.stringify(arr || [])); } catch(e){}
-    }
-    function _upsertLocalLog(profileId, payload){
-      const dateStr = (payload && payload.date) ? String(payload.date) : localDateStr();
-      const logs = _loadLocalLogs(profileId);
-      const idx = logs.findIndex(x => String(x?.date||"") === dateStr);
-      const next = { ...(idx>=0 ? logs[idx] : {}), ...payload, date: dateStr, _localOnly: !window.CURRENT_UID };
-      if (idx>=0) logs[idx] = next; else logs.push(next);
-      // sort asc for storage consistency
-      logs.sort((a,b)=> String(a.date).localeCompare(String(b.date)));
-      _saveLocalLogs(profileId, logs);
-      return next;
-    }
-    function _mergeByDate(primaryArr, secondaryArr){
-      const map = new Map();
-      (secondaryArr||[]).forEach(x=>{ if(x && x.date) map.set(String(x.date), x); });
-      (primaryArr||[]).forEach(x=>{ if(x && x.date) map.set(String(x.date), x); });
-      return Array.from(map.values()).sort((a,b)=> String(b.date).localeCompare(String(a.date)));
-    }
-
-
-    async function saveUserLog(profileId, payload) {
-      // Always write to local storage first so the app works even when not signed in.
-      const dateStr = (payload && payload.date) ? String(payload.date) : localDateStr();
-      const finalPayload = {
-        ...(payload || {}),
-        date: dateStr,
-        clientUpdatedAt: new Date().toISOString()
-      };
-      _upsertLocalLog(profileId, finalPayload);
-
-      // If authenticated + Firestore available, also sync to cloud.
-      const uid = window.CURRENT_UID;
-      if (!uid || typeof db === "undefined" || !db || typeof firebase === "undefined") return;
-
-      const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
-      const cloudPayload = {
-        ...finalPayload,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      };
-      await docRef.set(cloudPayload, { merge: true });
-    }
-
 window.saveUserLog = saveUserLog;
 
 
     // --- PDF EXPORT (range + dense table + notes appendix) ---
-    
     async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
-      const uid = window.CURRENT_UID;
-      const local = _loadLocalLogs(patientId).filter(l => {
-        const d = String(l?.date || "");
-        return d && d >= String(startDate) && d <= String(endDate);
-      });
-
-      if (!uid || typeof db === "undefined" || !db) {
-        const sorted = local.sort((a,b)=> dir==="asc" ? String(a.date).localeCompare(String(b.date)) : String(b.date).localeCompare(String(a.date)));
-        return sorted;
-      }
-
       const q = db
         .collection(userProfilePath(patientId, "logs"))
         .where("date", ">=", startDate)
         .where("date", "<=", endDate)
         .orderBy("date", dir);
       const snapshot = await q.get();
-      const cloud = snapshot.docs.map((d) => d.data());
-      // Merge cloud over local by date (cloud wins if both exist)
-      const merged = _mergeByDate(cloud, local);
-      if (dir === "asc") merged.reverse();
-      return merged;
+      return snapshot.docs.map((d) => d.data());
     }
 
 
-
     // Fetch last N logs (default 30), ordered by date desc.
-    
     async function fetchPatientLogs(patientId, days = 30) {
-      const uid = window.CURRENT_UID;
-      const local = _loadLocalLogs(patientId).sort((a,b)=> String(b.date).localeCompare(String(a.date))).slice(0, days);
-
-      if (!uid || typeof db === "undefined" || !db) return local;
-
       const q = db
         .collection(userProfilePath(patientId, "logs"))
         .orderBy("date", "desc")
         .limit(days);
       const snapshot = await q.get();
-      const cloud = snapshot.docs.map((d) => d.data());
-      return _mergeByDate(cloud, local).slice(0, days);
+      return snapshot.docs.map((d) => d.data());
     }
-
 
     const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -3147,27 +3092,6 @@ window.saveUserLog = saveUserLog;
 </head>
 <body>
   <div id="report-view" style="display:block;">${html}</div>
-
-
-<!-- Fix: ensure fetchPatientLogs / fetchPatientLogsSafe exist in global scope (Safari/inline handlers) -->
-<script>
-(function(){
-  try {
-    if (typeof window.fetchPatientLogs !== "function" && typeof fetchPatientLogs === "function") {
-      window.fetchPatientLogs = fetchPatientLogs;
-    }
-    if (typeof window.fetchPatientLogsSafe !== "function") {
-      if (typeof fetchPatientLogsSafe === "function") {
-        window.fetchPatientLogsSafe = fetchPatientLogsSafe;
-      } else if (typeof window.fetchPatientLogs === "function") {
-        window.fetchPatientLogsSafe = function(patientId, days){
-          return window.fetchPatientLogs(patientId, days);
-        };
-      }
-    }
-  } catch(e) {}
-})();
-</script>
 </body>
 </html>`);
       doc.close();
@@ -3310,27 +3234,6 @@ async function exportPassengerReport(profileId, opts = {}) {
 </head>
 <body>
   <div id="report-view" style="display:block;">${html}</div>
-
-
-<!-- Fix: ensure fetchPatientLogs / fetchPatientLogsSafe exist in global scope (Safari/inline handlers) -->
-<script>
-(function(){
-  try {
-    if (typeof window.fetchPatientLogs !== "function" && typeof fetchPatientLogs === "function") {
-      window.fetchPatientLogs = fetchPatientLogs;
-    }
-    if (typeof window.fetchPatientLogsSafe !== "function") {
-      if (typeof fetchPatientLogsSafe === "function") {
-        window.fetchPatientLogsSafe = fetchPatientLogsSafe;
-      } else if (typeof window.fetchPatientLogs === "function") {
-        window.fetchPatientLogsSafe = function(patientId, days){
-          return window.fetchPatientLogs(patientId, days);
-        };
-      }
-    }
-  } catch(e) {}
-})();
-</script>
 </body>
 </html>`);
       doc.close();
@@ -3561,6 +3464,7 @@ window.__EXPORT_RUN = async function(args = {}) {
     let _globalChart = null;
 
     window.renderTrends = async function() {
+      // lightweight summary text only (avoid blocking UI)
       try {
         const days = window.getTrendsRangeDays();
         const sel = el("trends-range");
@@ -3568,183 +3472,29 @@ window.__EXPORT_RUN = async function(args = {}) {
           sel.dataset.bound = "1";
           sel.addEventListener("change", () => window.refreshTrendsForActiveTab());
         }
-
         const logs = await fetchPatientLogsSafe("patrick", days);
         const elSum = el("change-summary");
         if (!elSum) return;
 
-        if (!logs || !logs.length) {
-          elSum.innerHTML = `
-            <div style="font-weight:700;">No logs found for the last ${days} days.</div>
-            <div style="margin-top:8px; color:var(--text-secondary);">
-              If you are not signed in yet, logs will now save locally on this device (offline mode). After you save at least one daily log, Trends and Reports will populate.
-            </div>
-          `;
-          return;
-        }
-
-        const ratingScore = (r) => ({
-          much_better:  2,
-          better:       1,
-          same:         0,
-          worse:       -1,
-          much_worse:  -2
-        }[r] ?? null);
-
-        const safeNum = (v) => (v === null || v === undefined || v === "" || Number.isNaN(Number(v))) ? null : Number(v);
-
-        const total = logs.length;
-
-        // Baseline rating distribution
         const withRating = logs.filter(l => !!l.baseline_rating);
+        const total = logs.length;
+        const rated = withRating.length;
+
+        // simple counts
         const counts = { much_worse:0, worse:0, same:0, better:0, much_better:0 };
         withRating.forEach(l => { if (counts[l.baseline_rating] !== undefined) counts[l.baseline_rating]++; });
 
-        // Core numeric series
-        const series = logs.map(l => ({
-          date: String(l.date || ""),
-          baseline: ratingScore(l.baseline_rating),
-          energy: safeNum(l.energy_capacity),
-          pain: safeNum(l?.pain_episode?.severity),
-          sleepShift: safeNum(l?.symptom_drift?.sleep_quality),
-          gaitShift: safeNum(l?.symptom_drift?.step_gait_effort),
-          stiffnessShift: safeNum(l?.symptom_drift?.leg_stiffness),
-          fogShift: safeNum(l?.symptom_drift?.brain_fog),
-          neuroFatigueShift: safeNum(l?.symptom_drift?.neurologic_fatigue),
-          protocol: l?.protocol_adherence || {}
-        })).filter(x => x.date);
-
-        // Adherence rates
-        const adhKeys = [
-          ["nervonic_acid_taken", "Nervonic Acid"],
-          ["nac_taken", "NAC"],
-          ["r_ala_taken", "R-ALA"],
-          ["vitamin_e_taken", "Vitamin E"]
-        ];
-        const adh = {};
-        adhKeys.forEach(([k,label]) => {
-          const yes = series.filter(s => s.protocol && s.protocol[k] === true).length;
-          const known = series.filter(s => s.protocol && (s.protocol[k] === true || s.protocol[k] === false)).length;
-          adh[label] = { yes, known, pct: known ? Math.round(100*yes/known) : null };
-        });
-        const allTaken = series.filter(s => adhKeys.every(([k]) => s.protocol && s.protocol[k] === true)).length;
-        const allKnown = series.filter(s => adhKeys.every(([k]) => s.protocol && (s.protocol[k] === true || s.protocol[k] === false))).length;
-        const allPct = allKnown ? Math.round(100*allTaken/allKnown) : null;
-
-        // Composite day score (heuristic, primarily for ranking days)
-        const comp = (s) => {
-          const b = s.baseline ?? 0;
-          const e = (s.energy === null) ? 0 : (s.energy - 5) / 5;
-          const p = (s.pain === null) ? 0 : (5 - s.pain) / 5;
-          const sl = (s.sleepShift === null) ? 0 : (s.sleepShift) / 5;
-          return b*2 + e + p + sl;
-        };
-
-        const ranked = [...series].map(s => ({...s, score: comp(s)}))
-          .sort((a,b)=> b.score - a.score);
-
-        const top10 = ranked.slice(0, 10);
-        const bottom10 = ranked.slice(-10).reverse();
-
-        const avg = (arr) => {
-          const xs = arr.filter(x => x!==null && x!==undefined && Number.isFinite(Number(x))).map(Number);
-          if (!xs.length) return null;
-          return xs.reduce((a,b)=>a+b,0)/xs.length;
-        };
-
-        const avgEnergy = avg(series.map(s=>s.energy));
-        const avgPain = avg(series.map(s=>s.pain));
-        const avgSleepShift = avg(series.map(s=>s.sleepShift));
-
-        const fmt = (v, digits=1) => (v===null || v===undefined) ? "N/A" : Number(v).toFixed(digits);
-
-        const tableRows = (arr) => arr.map(s => `
-          <tr>
-            <td>${s.date}</td>
-            <td>${s.baseline === null ? "—" : s.baseline}</td>
-            <td>${s.energy === null ? "N/A" : s.energy}</td>
-            <td>${s.pain === null ? "N/A" : s.pain}</td>
-            <td>${s.sleepShift === null ? "N/A" : s.sleepShift}</td>
-            <td>${fmt(s.score,2)}</td>
-          </tr>
-        `).join("");
-
         elSum.innerHTML = `
-          <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start;">
-            <div style="flex:1; min-width:260px;">
-              <div style="font-weight:800; font-size:18px;">Trends Summary (last ${days} days)</div>
-              <div style="margin-top:8px;">
-                Logs found: <strong>${total}</strong>. Baseline rating recorded on <strong>${withRating.length}</strong> days.
-              </div>
-              <div style="margin-top:10px; line-height:1.6;">
-                <strong>Baseline distribution</strong><br>
-                Much better: ${counts.much_better} • Better: ${counts.better} • Same: ${counts.same} • Worse: ${counts.worse} • Much worse: ${counts.much_worse}
-              </div>
-
-              <div style="margin-top:12px; line-height:1.6;">
-                <strong>Key averages</strong><br>
-                Energy capacity: ${fmt(avgEnergy)} / 10<br>
-                Pain severity: ${fmt(avgPain)} / 10<br>
-                Sleep quality shift: ${fmt(avgSleepShift)}
-              </div>
-
-              <div style="margin-top:12px; line-height:1.6;">
-                <strong>Protocol adherence</strong><br>
-                ${Object.entries(adh).map(([label,o]) => `${label}: ${o.pct===null ? "N/A" : (o.pct+"%")} (${o.yes}/${o.known || 0})`).join("<br>")}
-                <br>All core taken (same day): ${allPct===null ? "N/A" : (allPct+"%")} (${allTaken}/${allKnown || 0})
-              </div>
-
-              <div style="margin-top:10px; color:var(--text-secondary); font-size:12px;">
-                Notes: day ranking is a heuristic score used only to surface “top” and “bottom” days quickly. It weights baseline rating most heavily, then energy, pain, and sleep shift.
-              </div>
-            </div>
-
-            <div style="flex:1; min-width:300px;">
-              <div style="font-weight:700; margin-bottom:6px;">Top 10 days</div>
-              <div style="overflow:auto; border:1px solid #e5e5e5; border-radius:10px;">
-                <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                  <thead>
-                    <tr style="background:#fafafa;">
-                      <th style="text-align:left; padding:8px;">Date</th>
-                      <th style="text-align:left; padding:8px;">Baseline</th>
-                      <th style="text-align:left; padding:8px;">Energy</th>
-                      <th style="text-align:left; padding:8px;">Pain</th>
-                      <th style="text-align:left; padding:8px;">Sleep Δ</th>
-                      <th style="text-align:left; padding:8px;">Score</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${tableRows(top10)}
-                  </tbody>
-                </table>
-              </div>
-
-              <div style="font-weight:700; margin:14px 0 6px;">Bottom 10 days</div>
-              <div style="overflow:auto; border:1px solid #e5e5e5; border-radius:10px;">
-                <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                  <thead>
-                    <tr style="background:#fafafa;">
-                      <th style="text-align:left; padding:8px;">Date</th>
-                      <th style="text-align:left; padding:8px;">Baseline</th>
-                      <th style="text-align:left; padding:8px;">Energy</th>
-                      <th style="text-align:left; padding:8px;">Pain</th>
-                      <th style="text-align:left; padding:8px;">Sleep Δ</th>
-                      <th style="text-align:left; padding:8px;">Score</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${tableRows(bottom10)}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          <div>Last ${days} days: <strong>${total}</strong> logs found. Baseline rating recorded on <strong>${rated}</strong> days.</div>
+          <div style="margin-top:10px;">
+            much better: ${counts.much_better} • better: ${counts.better} • same: ${counts.same} • worse: ${counts.worse} • much worse: ${counts.much_worse}
+          </div>
+          <div style="margin-top:10px; color: var(--text-secondary); font-size: 0.85rem;">
+            Note: This is descriptive only. It does not adjust for confounders or missing data.
           </div>
         `;
-
-      } catch (e) {
+      } catch(e) {
         console.error(e);
-        const elSum = el("change-summary");
-        if (elSum) elSum.innerHTML = `<div style="color:#b00020;">Trends failed to render: ${String(e?.message || e)}</div>`;
       }
     };
 
@@ -3932,7 +3682,78 @@ window.__EXPORT_RUN = async function(args = {}) {
       host.innerHTML = `<div>${html}</div>`;
     };
 
-    document.addEventListener("DOMContentLoaded", () => {
+    
+    // ---- Robustness shim (iOS/Safari safe) ----
+    // Ensure any older calls to fetchPatientLogsSafe don't crash.
+    if (!window.fetchPatientLogsSafe) {
+      window.fetchPatientLogsSafe = async function(patientId, days) {
+        if (typeof window.fetchPatientLogs === "function") {
+          return await window.fetchPatientLogs(patientId, days);
+        }
+        // last resort: attempt direct call if in scope
+        if (typeof fetchPatientLogs === "function") {
+          return await fetchPatientLogs(patientId, days);
+        }
+        return [];
+      };
+    }
+
+    // Surface JS errors on-screen (so failures aren't silent on mobile).
+    (function(){
+      if (window.__ONERROR_BOUND__) return;
+      window.__ONERROR_BOUND__ = true;
+      function showError(msg){
+        try{
+          let el = document.getElementById('runtime-error-banner');
+          if(!el){
+            el = document.createElement('div');
+            el.id = 'runtime-error-banner';
+            el.style.position='fixed';
+            el.style.left='0';
+            el.style.right='0';
+            el.style.bottom='0';
+            el.style.zIndex='99999';
+            el.style.background='rgba(255,69,58,0.95)';
+            el.style.color='#fff';
+            el.style.padding='10px 12px';
+            el.style.fontSize='12px';
+            el.style.fontWeight='700';
+            el.style.lineHeight='1.25';
+            el.style.boxShadow='0 -2px 12px rgba(0,0,0,0.4)';
+            el.style.whiteSpace='pre-wrap';
+            el.addEventListener('click', ()=> el.remove());
+            document.body.appendChild(el);
+          }
+          el.textContent = 'JS error: ' + msg + '\n(tap to dismiss)';
+        }catch(_){}
+      }
+      window.addEventListener('error', function(e){
+        const msg = (e && (e.message || (e.error && e.error.message))) || 'Unknown error';
+        showError(msg);
+      });
+      window.addEventListener('unhandledrejection', function(e){
+        const msg = (e && e.reason && (e.reason.message || String(e.reason))) || 'Unhandled promise rejection';
+        showError(msg);
+      });
+    })();
+
+    // Improve tap responsiveness on iOS: treat touchstart as click for pill buttons.
+    (function(){
+      if (window.__TOUCH_SHIM__) return;
+      window.__TOUCH_SHIM__ = true;
+      document.addEventListener('touchstart', function(ev){
+        const t = ev.target;
+        if (!t) return;
+        const btn = t.closest ? t.closest('[onclick]') : null;
+        if (btn && btn.getAttribute('onclick')) {
+          // Let native click happen too, but ensure handler runs.
+          try { (new Function(btn.getAttribute('onclick')))(); } catch(_){}
+        }
+      }, {passive:true});
+    })();
+    // ---- End shim ----
+
+document.addEventListener("DOMContentLoaded", () => {
       // prime slider visuals
       Array.from(document.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
 
@@ -4008,27 +3829,6 @@ window.__EXPORT_RUN = async function(args = {}) {
   updateLock();
 })();
 
-</script>
-
-
-<!-- Fix: ensure fetchPatientLogs / fetchPatientLogsSafe exist in global scope (Safari/inline handlers) -->
-<script>
-(function(){
-  try {
-    if (typeof window.fetchPatientLogs !== "function" && typeof fetchPatientLogs === "function") {
-      window.fetchPatientLogs = fetchPatientLogs;
-    }
-    if (typeof window.fetchPatientLogsSafe !== "function") {
-      if (typeof fetchPatientLogsSafe === "function") {
-        window.fetchPatientLogsSafe = fetchPatientLogsSafe;
-      } else if (typeof window.fetchPatientLogs === "function") {
-        window.fetchPatientLogsSafe = function(patientId, days){
-          return window.fetchPatientLogs(patientId, days);
-        };
-      }
-    }
-  } catch(e) {}
-})();
 </script>
 </body>
 </html>
