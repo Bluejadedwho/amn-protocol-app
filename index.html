@@ -1,36 +1,6 @@
 <!DOCTYPE html>
-
 <html lang="en">
-<h
-        // Attach normalized functional tests (if any) for this date
-        const testDoc = testsByDate[date];
-        if (testDoc) {
-          data.functional_tests = {
-            six_minute_walk: testDoc.six_minute_walk || testDoc.sixMinuteWalk || null,
-            sit_to_stand_5x: testDoc.sit_to_stand_5x || testDoc.sitToStand5x || null,
-            notes: testDoc.notes || null,
-            test_date: testDoc.test_date || testDoc.date || date
-          };
-        }
-ead>
-<scr
-      // Also pull functional tests saved under /users/{id}/tests and merge into logs by date.
-      const testsRef = collection(db, `users/${userId}/tests`);
-      const testsSnapshot = await getDocs(testsRef);
-      const testsByDate = {};
-      testsSnapshot.forEach((docSnap) => {
-        const d = docSnap.data() || {};
-        const dateKey = (d.date || d.test_date || "").toString();
-        if (!dateKey) return;
-        // If multiple test docs exist for a date, keep the most recently updated (by clientUpdatedAt/updatedAt when available).
-        const updated = (d.clientUpdatedAt || d.updatedAt || d.createdAt || 0);
-        const prev = testsByDate[dateKey];
-        const prevUpdated = prev ? (prev.clientUpdatedAt || prev.updatedAt || prev.createdAt || 0) : 0;
-        if (!prev || (updated && updated > prevUpdated)) {
-          testsByDate[dateKey] = d;
-        }
-      });
-ipt>window.__AUTH_MODULE_LOADED__ = false;</script>
+<head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 <title>The Protocol</title>
@@ -1030,6 +1000,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 </head>
 <body>
 <div id="report-view"></div>
+<div id="build-badge">build: 2026-03-04.3</div>
 <div id="auth-overlay">
 <div id="auth-card">
 <h2>Sign in</h2>
@@ -1912,11 +1883,23 @@ function setAuthError(msg) {
       if (upBtn) upBtn.addEventListener('click', explain);
     } else {
     // Persist login on device/browser (one-time login per device).
-    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
-      console.warn("Auth persistence not set:", (err && err.code) ? err.code : err);
-    });
-
-    var CURRENT_UID = null;
+    // Persist login on device/browser (one-time login per device). iOS Safari can fail LOCAL in restricted storage mode.
+async function __initAuthPersistence() {
+  try {
+    await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    return "LOCAL";
+  } catch (e1) {
+    try {
+      await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+      return "SESSION";
+    } catch (e2) {
+      console.warn("Auth persistence unavailable:", (e1 && e1.code) ? e1.code : e1, (e2 && e2.code) ? e2.code : e2);
+      return "NONE";
+    }
+  }
+}
+__initAuthPersistence().then((mode)=>{ window.__AUTH_PERSISTENCE__ = mode; });
+var CURRENT_UID = null;
     CURRENT_UID = null;
         window.CURRENT_UID = null;
 
@@ -2097,18 +2080,31 @@ function setAuthError(msg) {
     // Gate all Firestore reads/writes behind authentication.
     // If you are not signed in, the app will prompt once and then stay signed in on this device.
     auth.onAuthStateChanged((user) => {
-      window.CURRENT_UID = user?.uid || null;
+  // Demo mode must never be blocked by auth gating.
+  if (window.__DEMO_MODE__) {
+    window.CURRENT_UID = null;
+    showAuthOverlay(false);
+    // Demo mode initializes immediately on entry; do not override UI here.
+    return;
+  }
 
-      // Avoid iOS Passwords re-prompt loops: do not aggressively re-show the auth UI while a sign-in attempt is in flight.
-      if (!window.CURRENT_UID) {
-        if (!window.__AMN_SIGNIN_INFLIGHT) showAuthOverlay(true);
-        return;
-      }
+  window.CURRENT_UID = user?.uid || null;
 
-      showAuthOverlay(false);
-    });
+  if (!window.CURRENT_UID) {
+    // Avoid iOS Passwords re-prompt loops: do not aggressively re-show the auth UI while a sign-in attempt is in flight.
+    if (!window.__AMN_SIGNIN_INFLIGHT) showAuthOverlay(true);
+    return;
+  }
 
-    // --- NO AUTH / NO DEVICE ID ---
+  showAuthOverlay(false);
+
+  // Run post-auth initialization exactly once per session.
+  if (!window.__AUTH_READY_RAN__) {
+    window.__AUTH_READY_RAN__ = true;
+    try { onAuthReady(); } catch (e) { console.error("onAuthReady failed:", e); }
+  }
+});
+// --- NO AUTH / NO DEVICE ID ---
     // In test mode we use a single canonical store per authenticated user.
     // Path structure: users/{uid}/logs/{date}
 
