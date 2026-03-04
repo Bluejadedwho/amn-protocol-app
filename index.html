@@ -1000,16 +1000,16 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 </head>
 <body>
 <div id="report-view"></div>
-<div id="build-badge">build: 2026-03-04.3</div>
+<div id="build-badge">build: 2026-03-04.5</div>
 <div id="auth-overlay">
 <div id="auth-card">
 <h2>Sign in</h2>
 <p>Sign in once on this device to sync and protect your logs.</p>
 
-<form id="auth-form" autocomplete="on">
+<form id="auth-form" autocomplete="on" onsubmit="if(window.__doSignIn){window.__doSignIn();} return false;">
   <label for="auth-email">Email</label>
   <!-- Use username autocomplete so iOS Keychain recognizes this as a login form, while still allowing email input -->
-  <input id="auth-email" name="username" type="text" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"/>
+  <input id="auth-email" name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"/>
 
   <label for="auth-pass">Password</label>
   <input id="auth-pass" name="password" type="password" autocomplete="current-password"/>
@@ -1020,7 +1020,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
   </div>
 
   <div class="row" style="margin-top:10px;">
-    <button id="auth-demo" class="secondary" type="button" style="width:100%;">View demo (read-only)</button>
+    <button id="auth-demo" class="secondary" type="button" style="width:100%;" onclick="window.enterDemoMode(); return false;">View demo (read-only)</button>
   </div>
 </form>
 
@@ -1933,10 +1933,6 @@ var CURRENT_UID = null;
         if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
         if (window.__AMN_SIGNIN_INFLIGHT) return;
         window.__AMN_SIGNIN_INFLIGHT = true;
-
-        // Hide iOS Passwords sheet / keyboard to avoid re-prompt loops.
-        try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch(e) {}
-
         showErr("");
         const emailRaw = (emailEl.value || "").trim();
         const pass  = (passEl.value  || ""); // do NOT trim passwords
