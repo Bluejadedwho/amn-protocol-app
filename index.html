@@ -2003,7 +2003,6 @@ function setAuthError(msg) {
       };
       // expose for any legacy inline handlers (and for debugging)
       window.__doSignIn = () => doSignIn();
-      btnIn.addEventListener("click", doSignIn);
       if (authForm) authForm.addEventListener("submit", doSignIn);
 
 
@@ -2110,14 +2109,15 @@ function setAuthError(msg) {
     });
 
     // --- NO AUTH / NO DEVICE ID ---
-    // Users are static profiles: "patrick" or "nieve".
-    // Path structure: users/{profileName}/logs/{date}
+    // In test mode we use a single canonical store per authenticated user.
+    // Path structure: users/{uid}/logs/{date}
 
-    function userProfilePath(profile, ...rest) {
-      // Secure path (requires Firebase Auth): users/{uid}/profiles/{profile}/...
+    function userProfilePath(_profile, ...rest) {
+      // Canonical path (Firebase Auth): users/{uid}/{collection}/{doc}
+      // We intentionally ignore per-profile subpaths in test mode.
       const uid = requireUid();
       const tail = rest.length ? "/" + rest.map(encodeURIComponent).join("/") : "";
-      return `users/${uid}/profiles/${encodeURIComponent(profile)}${tail}`;
+      return `users/${uid}${tail}`;
     }
 
     // ---------------------------
@@ -2418,7 +2418,7 @@ lab: collectLabPayload().lab,
 
         // Ensure date exists
         const dateStr = payload.date || localDateStr();
-        const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
+        const docRef = db.doc(`users/${uid}/logs/${encodeURIComponent(dateStr)}`);
 
         const finalPayload = {
           ...payload,
@@ -2963,8 +2963,8 @@ window.saveUserLog = saveUserLog;
 
     // Helper to render blank instead of "null" or "undefined"
     function valRender(val, suffix = "") {
-      if (val === null || val === undefined || val === "") return "";
-      return val + suffix;
+      if (val === null || val === undefined || val === "") return "N/A";
+      return String(val) + suffix;
     }
     function yesNo(val) {
       if (val === null || val === undefined) return "";
@@ -3010,7 +3010,7 @@ window.saveUserLog = saveUserLog;
 
   try {
     // 1) Fetch data safely
-    const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
+    const logsRef = db.collection(`users/${uid}/logs`);
     const snapshot = await logsRef.orderBy("date", "desc").get();
 
     if (snapshot.empty) {
@@ -3256,8 +3256,8 @@ window.saveUserLog = saveUserLog;
       const doc = w.document;
 
       // Copy current <style> content so the report CSS + print rules come along
-      const styleEl = document.querySelector("style");
-      const styleText = styleEl ? styleEl.innerHTML : "";
+      const styleText = Array.from(document.querySelectorAll("style")).map(s => s.innerHTML).join("\n\n");
+      const printGuardCss = `\nhtml, body { height: auto !important; overflow: visible !important; }\n#report-view { position: static !important; height: auto !important; max-height: none !important; overflow: visible !important; }\n`; 
 
       doc.open();
       doc.write(`<!doctype html>
@@ -3266,7 +3266,7 @@ window.saveUserLog = saveUserLog;
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Protocol Report</title>
-  <style>${styleText}</style>
+  <style>${styleText}\n${printGuardCss}</style>
 </head>
 <body>
   <div id="report-view" style="display:block;">${html}</div>
@@ -3317,7 +3317,7 @@ async function exportPassengerReport(profileId, opts = {}) {
   };
 
   try {
-    const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
+    const logsRef = db.collection(`users/${uid}/logs`);
     const snapshot = await logsRef.orderBy("date", opts?.dir || "desc").get();
     let logs = snapshot.docs.map(d => d.data());
 
@@ -3399,8 +3399,8 @@ async function exportPassengerReport(profileId, opts = {}) {
     if (opts?.printWindow && typeof opts.printWindow.print === "function") {
       const w = opts.printWindow;
       const doc = w.document;
-      const styleEl = document.querySelector("style");
-      const styleText = styleEl ? styleEl.innerHTML : "";
+      const styleText = Array.from(document.querySelectorAll("style")).map(s => s.innerHTML).join("\n\n");
+      const printGuardCss = `\nhtml, body { height: auto !important; overflow: visible !important; }\n#report-view { position: static !important; height: auto !important; max-height: none !important; overflow: visible !important; }\n`; 
 
       doc.open();
       doc.write(`<!doctype html>
@@ -3409,7 +3409,7 @@ async function exportPassengerReport(profileId, opts = {}) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Passenger Report</title>
-  <style>${styleText}</style>
+  <style>${styleText}\n${printGuardCss}</style>
 </head>
 <body>
   <div id="report-view" style="display:block;">${html}</div>
@@ -3557,7 +3557,8 @@ window.__EXPORT_RUN = async function(args = {}) {
         const payload = collectFunctionalTestPayload();
         // Path: users/patrick/tests/{id}
         const id = `${payload.test_date}_${Date.now()}`;
-        const ref = db.doc(userProfilePath("patrick", "tests", id));
+        const patientId = window.CURRENT_PATIENT_ID || "patrick";
+        const ref = db.doc(userProfilePath(patientId, "tests", id));
         
         await ref.set({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() }, { merge: true });
         btns.forEach(b => { try { b.textContent = "SAVED ✓"; } catch(e){} });
