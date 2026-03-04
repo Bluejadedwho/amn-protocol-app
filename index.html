@@ -709,26 +709,6 @@ body.modal-open {
 
 </style>
 <script>
-// --- iOS debug: surface any JS errors in the auth modal (no console needed)
-window.addEventListener('error', (ev) => {
-  try {
-    const s = document.getElementById('auth-status');
-    if (s) {
-      s.style.display = 'block';
-      s.textContent = 'JS error: ' + (ev?.message || 'unknown');
-    }
-  } catch(e) {}
-});
-window.addEventListener('unhandledrejection', (ev) => {
-  try {
-    const s = document.getElementById('auth-status');
-    if (s) {
-      s.style.display = 'block';
-      s.textContent = 'Promise rejection: ' + (ev?.reason?.message || String(ev?.reason || 'unknown'));
-    }
-  } catch(e) {}
-});
-// --- end debug
     function byId(id){ return document.getElementById(id); }
     function safeAdd(el, cls){ if(el && cls) el.classList.add(cls); }
     function safeRemove(el, cls){ if(el && cls) el.classList.remove(cls); }
@@ -1020,7 +1000,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 </head>
 <body>
 <div id="report-view"></div>
-<div id="build-badge">build: 2026-03-04.7</div>
+<div id="build-badge">build: 2026-03-04.9</div>
 <div id="auth-overlay">
 <div id="auth-card">
 <h2>Sign in</h2>
@@ -1035,17 +1015,18 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
   <input id="auth-pass" name="password" type="password" autocomplete="current-password"/>
 
   <div class="row">
-    <button id="auth-signin" type="button" onclick="try{var s=document.getElementById('auth-status'); if(s){s.textContent='Sign-in click';}}catch(e){}; if(window.__doSignIn){window.__doSignIn();} return false;">Sign in</button>
+    <button id="auth-signin" type="submit">Sign in</button>
     <button id="auth-signup" class="secondary" type="button">Create account</button>
   </div>
 
   <div class="row" style="margin-top:10px;">
-    <button id="auth-demo" class="secondary" type="button" style="width:100%;" onclick="try{var s=document.getElementById('auth-status'); if(s){s.textContent='Demo click';}}catch(e){}; window.enterDemoMode(); return false;">View demo (read-only)</button>
+    <button id="auth-demo" class="secondary" type="button" style="width:100%;" onclick="window.enterDemoMode(); return false;">View demo (read-only)</button>
   </div>
 </form>
 
 <div id="auth-error"></div>
-<div id="auth-status" style="margin-top:10px;font-size:13px;opacity:.8;display:block;"></div>
+<div id="auth-debug" style="margin-top:10px;color:#ffcc00;font-size:13px;line-height:1.25;white-space:pre-wrap;"></div>
+
 </div>
 </div>
 
@@ -1828,6 +1809,27 @@ window.__enterDemoMode = function __enterDemoMode() {
   }
 };
 
+
+// --- iOS Debug (visible in auth modal) ---
+(function(){
+  function dbg(msg){
+    try{
+      const el=document.getElementById('auth-debug');
+      if(!el) return;
+      el.textContent = String(msg);
+    }catch(e){}
+  }
+  window.__dbgAuth = dbg;
+  window.addEventListener('error', function(ev){
+    dbg('JS error: ' + (ev && ev.message ? ev.message : String(ev)));
+  });
+  window.addEventListener('unhandledrejection', function(ev){
+    const r = ev && ev.reason ? ev.reason : ev;
+    const msg = (r && r.code) ? (r.code + ': ' + (r.message||'')) : (r && r.message ? r.message : String(r));
+    dbg('Promise rejection: ' + msg);
+  });
+})();
+
 function setAuthError(msg) {
       const el = document.getElementById('auth-error');
       if (!el) return;
@@ -1840,12 +1842,11 @@ function setAuthError(msg) {
       if (overlay) overlay.setAttribute('hidden','hidden');
     }
 
-    // Demo mode handler will be wired after auth UI init
-window.enterDemoMode = function () {
-  try { if (typeof enterDemoMode === "function") { enterDemoMode(); return; } } catch(e) {}
-  try { localStorage.setItem("amn_demo_mode", "1"); } catch (_) {}
-  try { const o=document.getElementById("auth-overlay"); if(o){ o.style.display="none"; o.style.pointerEvents="none"; } } catch(e) {}
-};
+    // Demo mode is always available (no cloud sync)
+    window.enterDemoMode = function () {
+      try { localStorage.setItem('amn_demo_mode', '1'); } catch (_) {}
+      hideAuthModal();
+    };
 
     if (location.protocol === 'file:') {
       setAuthError('You opened this page as a local file (file://). Cloud login will not work in file mode. Use the Netlify URL, or run a local server (e.g., “python3 -m http.server”) and open http://localhost:8000. You can still use “View demo (read-only)”.');
@@ -1936,23 +1937,17 @@ var CURRENT_UID = null;
       const btnUp  = document.getElementById("auth-signup");
       const btnDemo = document.getElementById("auth-demo");
       const errEl  = document.getElementById("auth-error");
-      const statusEl = document.getElementById("auth-status");
 
       // If the elements aren't on the page yet (common when scripts run before body),
       // don't mark ready. We'll retry shortly / on DOMContentLoaded.
-      if (!overlay || !emailEl || !passEl || !btnIn || !btnUp || !btnDemo || !errEl || !statusEl) {
+      if (!overlay || !emailEl || !passEl || !btnIn || !btnUp || !btnDemo || !errEl) {
         setTimeout(ensureAuthUI, 50);
         return;
       }
 
-      const showErr = \(msg\) => {
-        errEl\.textContent = msg \|\| "";
-        errEl\.style\.display = msg \? "block" : "none";
-      };
-
-      const setStatus = (msg) => {
-        statusEl.textContent = msg || "";
-        statusEl.style.display = msg ? "block" : "none";
+      const showErr = (msg) => {
+        errEl.textContent = msg || "";
+        errEl.style.display = msg ? "block" : "none";
       };
 
       // Sign in (click + form submit) — set up for iOS/macOS password autofill
@@ -1962,13 +1957,11 @@ var CURRENT_UID = null;
         if (window.__AMN_SIGNIN_INFLIGHT) return;
         window.__AMN_SIGNIN_INFLIGHT = true;
         showErr("");
-        setStatus("Signing in…");
         const emailRaw = (emailEl.value || "").trim();
         const pass  = (passEl.value  || ""); // do NOT trim passwords
 
         if (!emailRaw || !pass) {
           showErr("Please enter email and password.");
-          setStatus("");
           window.__AMN_SIGNIN_INFLIGHT = false;
           return;
         }
@@ -1993,7 +1986,6 @@ var CURRENT_UID = null;
           try {
             await authApi.signIn(email, pass);
             // UI will be transitioned by onAuthStateChanged
-            setStatus("Signed in request sent…");
             lastErr = null;
             break;
           } catch (e) {
@@ -2039,24 +2031,16 @@ var CURRENT_UID = null;
     }
 
     function showAuthOverlay(show) {
-  ensureAuthUI();
-  const o = document.getElementById("auth-overlay");
-  if (!o) return;
-  // iOS Safari can be quirky with the [hidden] attribute + focus/autofill.
-  // Use display instead for deterministic behavior.
-  o.style.display = show ? "flex" : "none";
-  o.style.pointerEvents = show ? "auto" : "none";
-}
+      ensureAuthUI();
+      const o = document.getElementById("auth-overlay");
+      if (!o) return;
+      if (show) o.removeAttribute("hidden");
+      else o.setAttribute("hidden", "hidden");
+    }
 
     function enterDemoMode() {
       window.__DEMO_MODE__ = true;
-      // Ensure inline demo button uses the same robust path
-      window.enterDemoMode = enterDemoMode;
       showAuthOverlay(false);
-      try {
-        const statusEl = document.getElementById("auth-status");
-        if (statusEl) { statusEl.textContent = "Demo mode enabled."; statusEl.style.display="block"; }
-      } catch(e) {}
       // Disable cloud write actions
       const disableIds = [
         "p-save-log",
