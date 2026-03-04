@@ -1000,7 +1000,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 </head>
 <body>
 <div id="report-view"></div>
-<div id="build-badge">build: 2026-03-04.9</div>
+<div id="build-badge">build: 2026-03-04.11</div>
 <div id="auth-overlay">
 <div id="auth-card">
 <h2>Sign in</h2>
@@ -1015,12 +1015,12 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
   <input id="auth-pass" name="password" type="password" autocomplete="current-password"/>
 
   <div class="row">
-    <button id="auth-signin" type="submit">Sign in</button>
+    <button id="auth-signin" type="submit" onclick="if(window.__doSignIn){window.__doSignIn();}">Sign in</button>
     <button id="auth-signup" class="secondary" type="button">Create account</button>
   </div>
 
   <div class="row" style="margin-top:10px;">
-    <button id="auth-demo" class="secondary" type="button" style="width:100%;" onclick="window.enterDemoMode(); return false;">View demo (read-only)</button>
+    <button id="auth-demo" class="secondary" type="button" style="width:100%;" onclick="(window.__enterDemoMode||window.enterDemoMode||function(){})(); return false;">View demo (read-only)</button>
   </div>
 </form>
 
@@ -1760,7 +1760,21 @@ Conceptual Foundation and Mechanistic Framework
     // Even if Firebase fails to load, we still allow a read-only demo so you can show the UI.
     window.__AUTH_MODULE_LOADED__ = false;
 
-    // Demo mode can be entered even if Firebase/Auth scripts fail to load.
+    
+// Demo mode auto-enable via URL or persisted flag
+try {
+  const qs = new URLSearchParams(location.search);
+  if (qs.has('demo') && qs.get('demo') !== '0') {
+    window.__DEMO_MODE__ = true;
+    try { localStorage.setItem('amn_demo_mode','1'); } catch(_) {}
+  } else {
+    try {
+      if (localStorage.getItem('amn_demo_mode') === '1') window.__DEMO_MODE__ = true;
+    } catch(_) {}
+  }
+} catch(_) {}
+
+// Demo mode can be entered even if Firebase/Auth scripts fail to load.
 window.__enterDemoMode = function __enterDemoMode() {
   try {
     window.__DEMO_MODE__ = true;
@@ -1844,9 +1858,15 @@ function setAuthError(msg) {
 
     // Demo mode is always available (no cloud sync)
     window.enterDemoMode = function () {
-      try { localStorage.setItem('amn_demo_mode', '1'); } catch (_) {}
-      hideAuthModal();
-    };
+  try { window.__DEMO_MODE__ = true; } catch (_) {}
+  try { localStorage.setItem('amn_demo_mode', '1'); } catch (_) {}
+  if (typeof window.__enterDemoMode === 'function') return window.__enterDemoMode();
+  // fallback: just hide overlay
+  try {
+    const overlay = document.getElementById('auth-overlay');
+    if (overlay) overlay.style.display = 'none';
+  } catch (_) {}
+};
 
     if (location.protocol === 'file:') {
       setAuthError('You opened this page as a local file (file://). Cloud login will not work in file mode. Use the Netlify URL, or run a local server (e.g., “python3 -m http.server”) and open http://localhost:8000. You can still use “View demo (read-only)”.');
@@ -1952,6 +1972,7 @@ var CURRENT_UID = null;
 
       // Sign in (click + form submit) — set up for iOS/macOS password autofill
       const authForm = document.getElementById("auth-form");
+      const authApi = window.__authApi;
       const doSignIn = async (ev) => {
         if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
         if (window.__AMN_SIGNIN_INFLIGHT) return;
@@ -1963,6 +1984,13 @@ var CURRENT_UID = null;
         if (!emailRaw || !pass) {
           showErr("Please enter email and password.");
           window.__AMN_SIGNIN_INFLIGHT = false;
+          return;
+        }
+
+        if (!window.__authApi || !window.__authApi.signIn) {
+          showErr("Auth module not ready. Please wait 1–2 seconds and try again.");
+          window.__AMN_SIGNIN_INFLIGHT = false;
+          try { btnIn.disabled = false; } catch(e) {}
           return;
         }
 
@@ -1984,7 +2012,7 @@ var CURRENT_UID = null;
         let lastErr = null;
         for (const email of emailCandidates) {
           try {
-            await authApi.signIn(email, pass);
+            await window.__authApi.signIn(email, pass);
             // UI will be transitioned by onAuthStateChanged
             lastErr = null;
             break;
@@ -3949,6 +3977,9 @@ window.__EXPORT_RUN = async function(args = {}) {
   updateLock();
 })();
 
+
+// Ensure legacy demo alias exists
+try { if (!window.enterDemoMode && window.__enterDemoMode) window.enterDemoMode = window.__enterDemoMode; } catch(e) {}
 </script>
 </body>
 </html
