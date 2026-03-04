@@ -709,6 +709,26 @@ body.modal-open {
 
 </style>
 <script>
+// --- iOS debug: surface any JS errors in the auth modal (no console needed)
+window.addEventListener('error', (ev) => {
+  try {
+    const s = document.getElementById('auth-status');
+    if (s) {
+      s.style.display = 'block';
+      s.textContent = 'JS error: ' + (ev?.message || 'unknown');
+    }
+  } catch(e) {}
+});
+window.addEventListener('unhandledrejection', (ev) => {
+  try {
+    const s = document.getElementById('auth-status');
+    if (s) {
+      s.style.display = 'block';
+      s.textContent = 'Promise rejection: ' + (ev?.reason?.message || String(ev?.reason || 'unknown'));
+    }
+  } catch(e) {}
+});
+// --- end debug
     function byId(id){ return document.getElementById(id); }
     function safeAdd(el, cls){ if(el && cls) el.classList.add(cls); }
     function safeRemove(el, cls){ if(el && cls) el.classList.remove(cls); }
@@ -1015,17 +1035,17 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
   <input id="auth-pass" name="password" type="password" autocomplete="current-password"/>
 
   <div class="row">
-    <button id="auth-signin" type="button" onclick="if(window.__doSignIn){window.__doSignIn();} return false;">Sign in</button>
+    <button id="auth-signin" type="button" onclick="try{var s=document.getElementById('auth-status'); if(s){s.textContent='Sign-in click';}}catch(e){}; if(window.__doSignIn){window.__doSignIn();} return false;">Sign in</button>
     <button id="auth-signup" class="secondary" type="button">Create account</button>
   </div>
 
   <div class="row" style="margin-top:10px;">
-    <button id="auth-demo" class="secondary" type="button" style="width:100%;" onclick="window.enterDemoMode(); return false;">View demo (read-only)</button>
+    <button id="auth-demo" class="secondary" type="button" style="width:100%;" onclick="try{var s=document.getElementById('auth-status'); if(s){s.textContent='Demo click';}}catch(e){}; window.enterDemoMode(); return false;">View demo (read-only)</button>
   </div>
 </form>
 
 <div id="auth-error"></div>
-<div id="auth-status" style="margin-top:10px;font-size:13px;opacity:.8;display:none;"></div>
+<div id="auth-status" style="margin-top:10px;font-size:13px;opacity:.8;display:block;"></div>
 </div>
 </div>
 
