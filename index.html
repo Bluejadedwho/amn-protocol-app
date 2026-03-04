@@ -1,8 +1,36 @@
 <!DOCTYPE html>
 
 <html lang="en">
-<head>
-<script>window.__AUTH_MODULE_LOADED__ = false;</script>
+<h
+        // Attach normalized functional tests (if any) for this date
+        const testDoc = testsByDate[date];
+        if (testDoc) {
+          data.functional_tests = {
+            six_minute_walk: testDoc.six_minute_walk || testDoc.sixMinuteWalk || null,
+            sit_to_stand_5x: testDoc.sit_to_stand_5x || testDoc.sitToStand5x || null,
+            notes: testDoc.notes || null,
+            test_date: testDoc.test_date || testDoc.date || date
+          };
+        }
+ead>
+<scr
+      // Also pull functional tests saved under /users/{id}/tests and merge into logs by date.
+      const testsRef = collection(db, `users/${userId}/tests`);
+      const testsSnapshot = await getDocs(testsRef);
+      const testsByDate = {};
+      testsSnapshot.forEach((docSnap) => {
+        const d = docSnap.data() || {};
+        const dateKey = (d.date || d.test_date || "").toString();
+        if (!dateKey) return;
+        // If multiple test docs exist for a date, keep the most recently updated (by clientUpdatedAt/updatedAt when available).
+        const updated = (d.clientUpdatedAt || d.updatedAt || d.createdAt || 0);
+        const prev = testsByDate[dateKey];
+        const prevUpdated = prev ? (prev.clientUpdatedAt || prev.updatedAt || prev.createdAt || 0) : 0;
+        if (!prev || (updated && updated > prevUpdated)) {
+          testsByDate[dateKey] = d;
+        }
+      });
+ipt>window.__AUTH_MODULE_LOADED__ = false;</script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 <title>The Protocol</title>
@@ -109,6 +137,11 @@
       transition: transform 0.2s;
       box-shadow: 0 0 20px rgba(48, 209, 88, 0.3);
     }
+.splash-credit{
+  margin-top:18px;
+  line-height:1.25;
+  padding:0 18px;
+}
     .enter-btn:active { transform: scale(0.95); }
 
     /* New Black Button Style */
@@ -666,6 +699,23 @@ body.modal-open {
     top: 0;
     width: 100%;
   }
+  /* Ensure the full report prints on iOS Safari (avoid 100vh clipping) */
+  #report-view {
+    position: static !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  body {
+    overflow: visible !important;
+  }
+
+
+    /* iOS Safari PDF truncation guard: remove viewport-height and scrolling containers */
+    html, body { height:auto !important; overflow:visible !important; }
+    #app { height:auto !important; overflow:visible !important; }
+    #report-view { height:auto !important; max-height:none !important; overflow:visible !important; }
+
 }
 
 
@@ -680,7 +730,11 @@ body.modal-open {
   line-height: 1.35;
   color: rgba(255,255,255,0.75);
   pointer-events: none;
+
+  margin-top: 18px;
+  line-height: 1.25;
 }
+
 .splash-credits-site{ opacity: 0.9; }
 
 </style>
@@ -980,20 +1034,29 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 <div id="auth-card">
 <h2>Sign in</h2>
 <p>Sign in once on this device to sync and protect your logs.</p>
-<label for="auth-email">Email</label>
-<input autocomplete="email" id="auth-email" inputmode="email" type="email"/>
-<label for="auth-pass">Password</label>
-<input autocomplete="current-password" id="auth-pass" type="password"/>
-<div class="row">
-<button id="auth-signin" type="button" onclick="window.__doSignIn && window.__doSignIn()">Sign in</button>
-<button class="secondary" id="auth-signup" type="button">Create account</button>
-</div>
-<div class="row" style="margin-top:10px;">
-<button class="secondary" id="auth-demo" style="width:100%;" type="button">View demo (read-only)</button>
-</div>
+
+<form id="auth-form" autocomplete="on">
+  <label for="auth-email">Email</label>
+  <!-- Use username autocomplete so iOS Keychain recognizes this as a login form, while still allowing email input -->
+  <input id="auth-email" name="username" type="text" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"/>
+
+  <label for="auth-pass">Password</label>
+  <input id="auth-pass" name="password" type="password" autocomplete="current-password"/>
+
+  <div class="row">
+    <button id="auth-signin" type="submit">Sign in</button>
+    <button id="auth-signup" class="secondary" type="button">Create account</button>
+  </div>
+
+  <div class="row" style="margin-top:10px;">
+    <button id="auth-demo" class="secondary" type="button" style="width:100%;">View demo (read-only)</button>
+  </div>
+</form>
+
 <div id="auth-error"></div>
 </div>
 </div>
+
 <div id="splash-overlay">
 <img alt="Pioneer Icon" class="hero-icon" src="icon.png"/>
 <h1>THE AMN DUAL-MECHANISM<br/>SUPPORT PROTOCOL</h1>
@@ -1881,19 +1944,32 @@ function setAuthError(msg) {
         errEl.style.display = msg ? "block" : "none";
       };
 
-      btnIn.addEventListener("click", async () => {
+      // Sign in (click + form submit) — set up for iOS/macOS password autofill
+      const authForm = document.getElementById("auth-form");
+      const doSignIn = async (ev) => {
+        if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
         showErr("");
         const email = (emailEl.value || "").trim();
-        const pass  = (passEl.value || "").trim();
-        if (!email || !pass) return showErr("Enter email and password.");
-        try {
-          await window.__authApi.signIn(email, pass);
-          showAuthOverlay(false);
-          onAuthReady();
-        } catch (e) {
-          showErr(e?.message || String(e));
+        const pass  = (passEl.value  || "").trim();
+        if (!email || !pass) {
+          showErr("Please enter email and password.");
+          return;
         }
-      });
+        try {
+          await authApi.signIn(email, pass);
+          authOverlay.style.display = "none";
+          splashOverlay.style.display = "flex";
+          setTimeout(() => { splashOverlay.style.display = "none"; }, 900);
+          if (typeof refreshEverything === "function") refreshEverything();
+        } catch (e) {
+          showErr("Sign in failed: " + (e && e.message ? e.message : String(e)));
+        }
+      };
+      // expose for any legacy inline handlers (and for debugging)
+      window.__doSignIn = () => doSignIn();
+      btnIn.addEventListener("click", doSignIn);
+      if (authForm) authForm.addEventListener("submit", doSignIn);
+
 
       btnUp.addEventListener("click", async () => {
         showErr("");
@@ -2574,7 +2650,14 @@ window.saveUserLog = saveUserLog;
       pdf.text(`Patient: ${pn}${pdob ? `   |   DOB: ${pdob}` : ""}`, margin, 64);
       pdf.text(`Range: ${startDate} to ${endDate}   |   Logs: ${ordered.length}   |   Generated: ${new Date().toLocaleDateString()}`, margin, 78);
 
-      let y = 106;
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+      pdf.setTextColor(120);
+      pdf.text("Researched and Prepared By: Patrick Shipp Nutrition RNCP", margin, 92);
+      pdf.text("www.patrickshipp.com", margin, 104);
+      pdf.setTextColor(0);
+
+      let y = 118;
 
       // Daily Summary header (trend scan)
       pdf.setFont("helvetica", "bold");
@@ -2752,7 +2835,7 @@ window.saveUserLog = saveUserLog;
         y += 14;
       }
 
-      pdf.save(`Pilot_${startDate}_to_${endDate}.pdf`);
+      savePdf(pdf, `Pilot_${startDate}_to_${endDate}.pdf`);
     }
 
     async function generatePassengerPDF(logs, label, startDate, endDate, dir, patientMeta = {}) {
@@ -2832,7 +2915,7 @@ window.saveUserLog = saveUserLog;
         y += 14;
       }
 
-      pdf.save(`Passenger_${startDate}_to_${endDate}.pdf`);
+      savePdf(pdf, `Passenger_${startDate}_to_${endDate}.pdf`);
     }
 
     // Helper to render blank instead of "null" or "undefined"
@@ -2873,8 +2956,13 @@ window.saveUserLog = saveUserLog;
   const bpRender = (v) => {
     if (!v || typeof v !== "object") return "";
     if (v.bp) return v.bp;
-    if (v.bp_sys !== undefined && v.bp_dia !== undefined && v.bp_sys !== "" && v.bp_dia !== "") return `${v.bp_sys}/${v.bp_dia}`;
-    return "";
+
+    const sys = (v.bp_sys !== undefined) ? v.bp_sys : v.bp_systolic;
+    const dia = (v.bp_dia !== undefined) ? v.bp_dia : v.bp_diastolic;
+
+    if (sys === undefined || sys === null || sys === "") return "";
+    if (dia === undefined || dia === null || dia === "") return "";
+    return `${sys}/${dia}`;
   };
 
   try {
@@ -3026,23 +3114,41 @@ window.saveUserLog = saveUserLog;
       const vlcfa = pick(labs, "vlcfa_c26", "vlcfa");
       const liver = pick(labs, "liver_alt_ast");
       const labNotes = pick(labs, "notes");
-      if (vlcfa !== undefined || liver !== undefined || labNotes !== undefined) {
+      {
         html += `<div class="report-section"><h3>Periodic Lab Results</h3>
           <p>VLCFA: ${vr(vlcfa)}</p>
           <p>Liver (ALT/AST): ${vr(liver)}</p>
           <p>Notes: ${vr(labNotes)}</p>
         </div>`;
-      }
+
 
       // Functional tests
       html += `<div class="report-section"><h3>Functional Tests</h3>`;
-      if (Array.isArray(log.functional_tests) && log.functional_tests.length > 0) {
-        log.functional_tests.forEach(ft => {
-          html += `<p>Type: ${vr(ft?.test_type)} | Duration: ${vr(ft?.duration_seconds)}s | Distance: ${vr(ft?.distance_meters)}m | Notes: ${vr(ft?.notes)}</p>`;
+
+      const ft = log.functional_tests || log.functionalTests || null;
+
+      // Newer schema: one object per date with named tests (six_minute_walk / sit_to_stand_5x)
+      if (ft && !Array.isArray(ft) && (ft.six_minute_walk || ft.sit_to_stand_5x || ft.notes)) {
+        const six = ft.six_minute_walk || {};
+        const sts = ft.sit_to_stand_5x || {};
+
+        html += `<p><strong>6-Minute Walk Test</strong><br>
+          Distance: ${vr(six.distance_meters)} m | Rest breaks: ${vr(six.rest_breaks_count)} | Assistive device: ${vr(six.assistive_device)} | Course length: ${vr(six.course_length_meters)} m | Exertion: ${vr(six.perceived_exertion)}</p>`;
+
+        html += `<p><strong>5x Sit-to-Stand</strong><br>
+          Time: ${vr(sts.time_seconds)} s | Used arms: ${vr(sts.used_arms)} | Chair height: ${vr(sts.chair_height_cm)} cm</p>`;
+
+        if (ft.notes) html += `<p><strong>Notes:</strong> ${vr(ft.notes)}</p>`;
+      }
+      // Older schema: array of generic functional test rows
+      else if (Array.isArray(ft) && ft.length > 0) {
+        ft.forEach(row => {
+          html += `<p>Type: ${vr(row?.test_type)} | Duration: ${vr(row?.duration_seconds)} s | Distance: ${vr(row?.distance_meters)} m | Notes: ${vr(row?.notes)}</p>`;
         });
       } else {
-        html += `<p>None</p>`;
+        html += `<p>N/A</p>`;
       }
+
       html += `</div>`;
 
       // Notes
@@ -3786,4 +3892,27 @@ window.__EXPORT_RUN = async function(args = {}) {
 
 </script>
 </body>
-</html>
+</html
+    // iOS Safari can be finicky with direct downloads; prefer opening a blob URL (and sharing when available).
+    function savePdf(pdf, filename) {
+      try {
+        const blob = pdf.output("blob");
+        const file = new File([blob], filename, { type: "application/pdf" });
+
+        // If the Web Share API is available (iOS), offer share/save reliably.
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: filename }).catch(() => {});
+          return;
+        }
+
+        // Fallback: open in a new tab (user can then Share -> Save to Files).
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } catch (e) {
+        // Last resort
+        try { savePdf(pdf, filename); } catch (_) {}
+      }
+    }
+
+>
