@@ -1000,7 +1000,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 </head>
 <body>
 <div id="report-view"></div>
-<div id="build-badge">build: 2026-03-04.5</div>
+<div id="build-badge">build: 2026-03-04.6</div>
 <div id="auth-overlay">
 <div id="auth-card">
 <h2>Sign in</h2>
@@ -1025,6 +1025,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 </form>
 
 <div id="auth-error"></div>
+<div id="auth-status" style="margin-top:10px;font-size:13px;opacity:.8;display:none;"></div>
 </div>
 </div>
 
@@ -1914,17 +1915,23 @@ var CURRENT_UID = null;
       const btnUp  = document.getElementById("auth-signup");
       const btnDemo = document.getElementById("auth-demo");
       const errEl  = document.getElementById("auth-error");
+      const statusEl = document.getElementById("auth-status");
 
       // If the elements aren't on the page yet (common when scripts run before body),
       // don't mark ready. We'll retry shortly / on DOMContentLoaded.
-      if (!overlay || !emailEl || !passEl || !btnIn || !btnUp || !btnDemo || !errEl) {
+      if (!overlay || !emailEl || !passEl || !btnIn || !btnUp || !btnDemo || !errEl || !statusEl) {
         setTimeout(ensureAuthUI, 50);
         return;
       }
 
-      const showErr = (msg) => {
-        errEl.textContent = msg || "";
-        errEl.style.display = msg ? "block" : "none";
+      const showErr = \(msg\) => {
+        errEl\.textContent = msg \|\| "";
+        errEl\.style\.display = msg \? "block" : "none";
+      };
+
+      const setStatus = (msg) => {
+        statusEl.textContent = msg || "";
+        statusEl.style.display = msg ? "block" : "none";
       };
 
       // Sign in (click + form submit) — set up for iOS/macOS password autofill
@@ -1934,11 +1941,13 @@ var CURRENT_UID = null;
         if (window.__AMN_SIGNIN_INFLIGHT) return;
         window.__AMN_SIGNIN_INFLIGHT = true;
         showErr("");
+        setStatus("Signing in…");
         const emailRaw = (emailEl.value || "").trim();
         const pass  = (passEl.value  || ""); // do NOT trim passwords
 
         if (!emailRaw || !pass) {
           showErr("Please enter email and password.");
+          setStatus("");
           window.__AMN_SIGNIN_INFLIGHT = false;
           return;
         }
@@ -1963,6 +1972,7 @@ var CURRENT_UID = null;
           try {
             await authApi.signIn(email, pass);
             // UI will be transitioned by onAuthStateChanged
+            setStatus("Signed in request sent…");
             lastErr = null;
             break;
           } catch (e) {
@@ -2008,16 +2018,22 @@ var CURRENT_UID = null;
     }
 
     function showAuthOverlay(show) {
-      ensureAuthUI();
-      const o = document.getElementById("auth-overlay");
-      if (!o) return;
-      if (show) o.removeAttribute("hidden");
-      else o.setAttribute("hidden", "hidden");
-    }
+  ensureAuthUI();
+  const o = document.getElementById("auth-overlay");
+  if (!o) return;
+  // iOS Safari can be quirky with the [hidden] attribute + focus/autofill.
+  // Use display instead for deterministic behavior.
+  o.style.display = show ? "flex" : "none";
+  o.style.pointerEvents = show ? "auto" : "none";
+}
 
     function enterDemoMode() {
       window.__DEMO_MODE__ = true;
       showAuthOverlay(false);
+      try {
+        const statusEl = document.getElementById("auth-status");
+        if (statusEl) { statusEl.textContent = "Demo mode enabled."; statusEl.style.display="block"; }
+      } catch(e) {}
       // Disable cloud write actions
       const disableIds = [
         "p-save-log",
