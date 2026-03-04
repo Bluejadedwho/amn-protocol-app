@@ -1000,7 +1000,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 </head>
 <body>
 <div id="report-view"></div>
-<div id="build-badge">build: 2026-03-04.6</div>
+<div id="build-badge">build: 2026-03-04.7</div>
 <div id="auth-overlay">
 <div id="auth-card">
 <h2>Sign in</h2>
@@ -1015,7 +1015,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
   <input id="auth-pass" name="password" type="password" autocomplete="current-password"/>
 
   <div class="row">
-    <button id="auth-signin" type="submit">Sign in</button>
+    <button id="auth-signin" type="button" onclick="if(window.__doSignIn){window.__doSignIn();} return false;">Sign in</button>
     <button id="auth-signup" class="secondary" type="button">Create account</button>
   </div>
 
@@ -1820,11 +1820,12 @@ function setAuthError(msg) {
       if (overlay) overlay.setAttribute('hidden','hidden');
     }
 
-    // Demo mode is always available (no cloud sync)
-    window.enterDemoMode = function () {
-      try { localStorage.setItem('amn_demo_mode', '1'); } catch (_) {}
-      hideAuthModal();
-    };
+    // Demo mode handler will be wired after auth UI init
+window.enterDemoMode = function () {
+  try { if (typeof enterDemoMode === "function") { enterDemoMode(); return; } } catch(e) {}
+  try { localStorage.setItem("amn_demo_mode", "1"); } catch (_) {}
+  try { const o=document.getElementById("auth-overlay"); if(o){ o.style.display="none"; o.style.pointerEvents="none"; } } catch(e) {}
+};
 
     if (location.protocol === 'file:') {
       setAuthError('You opened this page as a local file (file://). Cloud login will not work in file mode. Use the Netlify URL, or run a local server (e.g., “python3 -m http.server”) and open http://localhost:8000. You can still use “View demo (read-only)”.');
@@ -2029,6 +2030,8 @@ var CURRENT_UID = null;
 
     function enterDemoMode() {
       window.__DEMO_MODE__ = true;
+      // Ensure inline demo button uses the same robust path
+      window.enterDemoMode = enterDemoMode;
       showAuthOverlay(false);
       try {
         const statusEl = document.getElementById("auth-status");
