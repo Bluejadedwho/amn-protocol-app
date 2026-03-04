@@ -1948,22 +1948,58 @@ function setAuthError(msg) {
       const authForm = document.getElementById("auth-form");
       const doSignIn = async (ev) => {
         if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
+        if (window.__AMN_SIGNIN_INFLIGHT) return;
+        window.__AMN_SIGNIN_INFLIGHT = true;
+
+        // Hide iOS Passwords sheet / keyboard to avoid re-prompt loops.
+        try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch(e) {}
+
         showErr("");
-        const email = (emailEl.value || "").trim();
-        const pass  = (passEl.value  || "").trim();
-        if (!email || !pass) {
+        const emailRaw = (emailEl.value || "").trim();
+        const pass  = (passEl.value  || ""); // do NOT trim passwords
+
+        if (!emailRaw || !pass) {
           showErr("Please enter email and password.");
+          window.__AMN_SIGNIN_INFLIGHT = false;
           return;
         }
-        try {
-          await authApi.signIn(email, pass);
-          authOverlay.style.display = "none";
-          splashOverlay.style.display = "flex";
-          setTimeout(() => { splashOverlay.style.display = "none"; }, 900);
-          if (typeof refreshEverything === "function") refreshEverything();
-        } catch (e) {
-          showErr("Sign in failed: " + (e && e.message ? e.message : String(e)));
+
+        // If user typed a non-email identifier, try a deterministic alias so iOS Passwords can still work.
+        const normalizeUsernameToEmail = (s) => {
+          const cleaned = String(s).trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+          return cleaned ? (cleaned + "@amn.local") : "";
+        };
+        const emailCandidates = [];
+        emailCandidates.push(emailRaw);
+        if (!emailRaw.includes("@")) {
+          const alias = normalizeUsernameToEmail(emailRaw);
+          if (alias && alias !== emailRaw) emailCandidates.push(alias);
         }
+
+        // Disable button while signing in
+        try { btnIn.disabled = true; } catch(e) {}
+
+        let lastErr = null;
+        for (const email of emailCandidates) {
+          try {
+            await authApi.signIn(email, pass);
+            // UI will be transitioned by onAuthStateChanged
+            lastErr = null;
+            break;
+          } catch (e) {
+            lastErr = e;
+            // If invalid-email and we have another candidate, keep trying.
+            continue;
+          }
+        }
+
+        if (lastErr) {
+          const msg = (lastErr && lastErr.code) ? String(lastErr.code) : (lastErr && lastErr.message ? String(lastErr.message) : "Sign in failed.");
+          showErr(msg.replace(/^auth\//, ""));
+        }
+
+        try { btnIn.disabled = false; } catch(e) {}
+        window.__AMN_SIGNIN_INFLIGHT = false;
       };
       // expose for any legacy inline handlers (and for debugging)
       window.__doSignIn = () => doSignIn();
@@ -2063,7 +2099,14 @@ function setAuthError(msg) {
     // If you are not signed in, the app will prompt once and then stay signed in on this device.
     auth.onAuthStateChanged((user) => {
       window.CURRENT_UID = user?.uid || null;
-      showAuthOverlay(!window.CURRENT_UID);
+
+      // Avoid iOS Passwords re-prompt loops: do not aggressively re-show the auth UI while a sign-in attempt is in flight.
+      if (!window.CURRENT_UID) {
+        if (!window.__AMN_SIGNIN_INFLIGHT) showAuthOverlay(true);
+        return;
+      }
+
+      showAuthOverlay(false);
     });
 
     // --- NO AUTH / NO DEVICE ID ---
