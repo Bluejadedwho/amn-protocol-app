@@ -600,6 +600,13 @@ body.modal-open {
 /* --- REPORT VIEW & PRINT STYLES --- */
 #report-view {
   display: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: auto;
+  z-index: 99999;
   background: #ffffff;
   color: #000000;
   padding: 20px;
@@ -613,6 +620,7 @@ body.modal-open {
 }
 .report-header h1 { font-size: 24px; margin: 0 0 5px 0; font-weight: 800; color: #000; }
 .report-header p { margin: 2px 0; font-size: 12px; color: #333; }
+.report-credit{font-weight:600;}
 
 .report-day-block {
   page-break-after: always;
@@ -661,19 +669,19 @@ body.modal-open {
 }
 
 
-    /* --- ATTRIBUTION FOOTER --- */
-    .app-attribution{
-      text-align:center;
-      color: rgba(255,255,255,0.65);
-      font-size: 12px;
-      padding: 18px 12px 26px;
-      line-height: 1.35;
-    }
-    .app-attribution a{ color: rgba(255,255,255,0.75); text-decoration:none; }
-    .app-attribution a:active, .app-attribution a:hover{ text-decoration:underline; }
-    @media print {
-      .app-attribution{ display:none !important; }
-    }
+/* Splash credits */
+.splash-credits{
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 18px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.75);
+  pointer-events: none;
+}
+.splash-credits-site{ opacity: 0.9; }
 
 </style>
 <script>
@@ -972,45 +980,18 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 <div id="auth-card">
 <h2>Sign in</h2>
 <p>Sign in once on this device to sync and protect your logs.</p>
-
-<!-- Use a real <form> + standard field names so iOS Passwords/AutoFill recognizes this as a login. -->
-<form id="auth-form" autocomplete="on" onsubmit="event.preventDefault(); window.__doSignIn && window.__doSignIn();">
-  <label for="auth-email">Email</label>
-  <input
-    id="auth-email"
-    name="username"
-    type="email"
-    inputmode="email"
-    autocomplete="username"
-    autocapitalize="none"
-    autocorrect="off"
-    spellcheck="false"
-    enterkeyhint="go"
-  />
-
-  <label for="auth-pass">Password</label>
-  <input
-    id="auth-pass"
-    name="password"
-    type="password"
-    autocomplete="current-password"
-    autocapitalize="none"
-    autocorrect="off"
-    spellcheck="false"
-    enterkeyhint="go"
-  />
-
-  <div class="row">
-    <button id="auth-signin" type="submit">Sign in</button>
-    <button class="secondary" id="auth-signup" type="button">Create account</button>
-  </div>
-
-  <div class="row" style="margin-top:10px;">
-    <button class="secondary" id="auth-demo" style="width:100%;" type="button">View demo (read-only)</button>
-  </div>
-
-  <div id="auth-error"></div>
-</form>
+<label for="auth-email">Email</label>
+<input autocomplete="email" id="auth-email" inputmode="email" type="email"/>
+<label for="auth-pass">Password</label>
+<input autocomplete="current-password" id="auth-pass" type="password"/>
+<div class="row">
+<button id="auth-signin" type="button" onclick="window.__doSignIn && window.__doSignIn()">Sign in</button>
+<button class="secondary" id="auth-signup" type="button">Create account</button>
+</div>
+<div class="row" style="margin-top:10px;">
+<button class="secondary" id="auth-demo" style="width:100%;" type="button">View demo (read-only)</button>
+</div>
+<div id="auth-error"></div>
 </div>
 </div>
 <div id="splash-overlay">
@@ -1018,6 +999,7 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 <h1>THE AMN DUAL-MECHANISM<br/>SUPPORT PROTOCOL</h1>
 <p class="title-sub">A Structured Approach to Redox Stabilization, Axonal Preservation,<br/>and Exploratory Myelin Support</p>
 <button class="enter-btn" onclick="window.enterApp()">Enter Protocol</button>
+<div class="splash-credit">Researched and Prepared By: Patrick Shipp Nutrition RNCP<br/>www.patrickshipp.com</div>
 <button class="read-overview-btn" id="read-overview-btn" onclick="window.toggleOverview(true)" type="button">Why this protocol exists</button>
 </div>
 <div aria-modal="true" class="app-modal" id="overview-modal" role="dialog">
@@ -1226,11 +1208,6 @@ Conceptual Foundation and Mechanistic Framework
 <p>Nieve • Prophylactic Protocol</p>
 </button>
 </div>
-
-  <div class="app-attribution" id="app-attribution">
-    Researched and Prepared By: Patrick Shipp Nutrition RNCP<br/>
-    <a href="https://www.patrickshipp.com" target="_blank" rel="noopener">www.patrickshipp.com</a>
-  </div>
 </section>
 <section class="view hidden" id="patrick-view">
 <header>
@@ -1519,7 +1496,7 @@ Conceptual Foundation and Mechanistic Framework
 <label>Notes</label>
 <textarea id="lab-notes" placeholder="Specific details..." rows="2"></textarea>
 </div>
-<button class="lab-save-btn" id="lab-save-results-btn" onclick="window.handleLabSave()" type="button">SAVE LAB RESULTS ONLY</button>
+<!-- Removed: SAVE LAB RESULTS ONLY (labs saved with daily log) -->
 <div class="history-list" id="lab-history-list"></div>
 </div>
 </details>
@@ -1593,7 +1570,7 @@ Conceptual Foundation and Mechanistic Framework
 <label>Notes</label>
 <textarea id="ft-notes" placeholder="Anything notable about setup, pain, fatigue, or conditions" rows="2"></textarea>
 </div>
-<button class="lab-save-btn" onclick="window.saveFunctionalTest()" style="margin-top:14px;" type="button">SAVE FUNCTIONAL TEST</button>
+<!-- Removed: SAVE FUNCTIONAL TEST (saved with daily log) -->
 <div class="history-list" id="ft-history-list"></div>
 </div>
 </details>
@@ -2277,6 +2254,9 @@ fast_markers: {
           restless_legs_at_night: checked("p-fast-restless")
         },
 
+lab: collectLabPayload().lab,
+        functional_tests: collectFunctionalTestsForDaily(date),
+
         positive_events: readPositiveEvents(),
         daily_summary: trimText(val("p-daily-summary")) || null,
         adverse_events: readAdverseEvents(),
@@ -2345,15 +2325,47 @@ window.saveUserLog = saveUserLog;
 
     // --- PDF EXPORT (range + dense table + notes appendix) ---
     async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
+      // Logs
       const q = db
         .collection(userProfilePath(patientId, "logs"))
         .where("date", ">=", startDate)
         .where("date", "<=", endDate)
         .orderBy("date", dir);
       const snapshot = await q.get();
-      return snapshot.docs.map((d) => d.data());
-    }
+      const logs = snapshot.docs.map((d) => d.data());
 
+      // Tests (optional join). Tests are stored as separate docs with test_date.
+      // We merge tests into logs by YYYY-MM-DD, and also support legacy IDs like YYYY-MM-DD_<timestamp>.
+      try {
+        const tq = db
+          .collection(userProfilePath(patientId, "tests"))
+          .where("test_date", ">=", startDate)
+          .where("test_date", "<=", endDate)
+          .orderBy("test_date", "asc");
+        const tsnap = await tq.get();
+        const testsByDate = {};
+        tsnap.docs.forEach(doc => {
+          const t = doc.data() || {};
+          const d = (t.test_date || "").slice(0,10);
+          if (!d) return;
+          if (!testsByDate[d]) testsByDate[d] = [];
+          testsByDate[d].push(t);
+        });
+
+        logs.forEach(l => {
+          const d = (l.date || "").slice(0,10);
+          const extra = testsByDate[d] || [];
+          if (extra.length) {
+            const existing = Array.isArray(l.functional_tests) ? l.functional_tests : [];
+            l.functional_tests = existing.concat(extra);
+          }
+        });
+      } catch (e) {
+        console.warn("Tests join skipped:", e);
+      }
+
+      return logs;
+    }
 
     // Fetch last N logs (default 30), ordered by date desc.
     async function fetchPatientLogs(patientId, days = 30) {
@@ -2896,99 +2908,19 @@ window.saveUserLog = saveUserLog;
       return;
     }
 
-    
-    // Fetch functional tests (stored separately under /tests)
-    const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/tests`);
-    let tests = [];
-    try {
-      const testsSnap = await testsRef.orderBy("test_date", "desc").get();
-      testsSnap.forEach(doc => tests.push(doc.data()));
-    } catch (e) {
-      // If no index or orderBy fails, fall back to un-ordered fetch
-      try {
-        const testsSnap2 = await testsRef.get();
-        testsSnap2.forEach(doc => tests.push(doc.data()));
-      } catch (e2) {
-        console.warn("Could not fetch functional tests:", e2);
-        tests = [];
-      }
-    }
-    const testsByDate = {};
-    for (const t of tests) {
-      const d = String(t?.test_date || t?.date || t?.testDate || "").trim();
-      if (!d) continue;
-      if (!testsByDate[d]) testsByDate[d] = [];
-      testsByDate[d].push(t);
-    }
-
     // 2) Generate HTML report
     const pn = (document.getElementById("export-patient-name")?.value || '').trim() || 'Patrick Fuellbeck';
     const dob = document.getElementById("export-patient-dob")?.value || "";
 
     let html = `
       <div class="report-header">
+      <p class="report-credit">Researched and Prepared By: Patrick Shipp Nutrition RNCP | www.patrickshipp.com</p>
         <h1>Protocol Report: ${pn}</h1>
         ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
         <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
         <p><strong>Records:</strong> ${logs.length}</p>
-        <p style="margin-top:6px;color:#555;font-size:12px;"><strong>Researched and Prepared By:</strong> Patrick Shipp Nutrition RNCP<br/><a href="https://www.patrickshipp.com" target="_blank" rel="noopener" style="color:#555;text-decoration:none;">www.patrickshipp.com</a></p>
       </div>
     `;
-    // 2A) Summary block (top of report)
-    const mean = (arr) => {
-      const xs = arr.filter(v => typeof v === "number" && !Number.isNaN(v));
-      if (!xs.length) return "N/A";
-      const m = xs.reduce((a,b)=>a+b,0) / xs.length;
-      return (Math.round(m * 10) / 10).toFixed(1);
-    };
-
-    const baselineVals = [];
-    const energyVals = [];
-    const painVals = [];
-    let cntNearFall = 0, cntElectro = 0, cntNightWoke = 0, cntNightElectro = 0;
-    let cntAdverse = 0, cntWins = 0;
-    let cntNa = 0, cntNac = 0, cntAla = 0, cntVitE = 0;
-
-    for (const log of logs) {
-      const protocol = log.protocol_adherence || log.protocol || {};
-      const fm = log.fast_markers || log.fastMarkers || {};
-      const ctx = log.context_changes || log.confounders || {};
-      const pi = log.pain_impact || {};
-
-      const b = pick(log, "baseline_rating", "global_baseline");
-      const e = pick(log, "energy_capacity");
-      const p = pick(pi, "severity");
-      if (typeof b === "number") baselineVals.push(b);
-      if (typeof e === "number") energyVals.push(e);
-      if (typeof p === "number") painVals.push(p);
-
-      if (pick(fm, "near_fall_or_balance_scare", "near_fall")) cntNearFall++;
-      if (pick(fm, "electrolyte_rescue_required", "electrolyte_rescue", "electrolyte_rescue_needed")) cntElectro++;
-      if (pick(fm, "night_pain_woke_me")) cntNightWoke++;
-      if (pick(ctx, "night_pain_electrolyte_related")) cntNightElectro++;
-
-      const winsArr = Array.isArray(log.positive_events) ? log.positive_events : (Array.isArray(log.wins) ? log.wins : []);
-      const adverseArr = Array.isArray(log.adverse_events) ? log.adverse_events : (Array.isArray(log.adverseEvents) ? log.adverseEvents : []);
-      cntWins += winsArr.length;
-      cntAdverse += adverseArr.length;
-
-      if (pick(protocol, "nervonic_acid_taken", "nervonic_acid") === true) cntNa++;
-      if (pick(protocol, "nac_taken", "nac") === true) cntNac++;
-      if (pick(protocol, "r_ala_taken", "ala") === true) cntAla++;
-      if (pick(protocol, "vitamin_e_taken", "vit_e") === true) cntVitE++;
-    }
-
-    html += `
-      <div class="report-section" style="border:1px solid #ddd; border-radius:10px; padding:12px; margin: 12px 0 18px 0;">
-        <h2 style="margin:0 0 8px 0;">Summary</h2>
-        <p><strong>Date range:</strong> ${logs[logs.length-1]?.date || "?"} to ${logs[0]?.date || "?"}</p>
-        <p><strong>Averages:</strong> Baseline ${mean(baselineVals)} | Energy ${mean(energyVals)} | Pain severity ${mean(painVals)}</p>
-        <p><strong>Flags (count):</strong> Near-fall ${cntNearFall} | Electrolyte rescue ${cntElectro} | Night pain woke ${cntNightWoke} | Night pain electrolyte-related ${cntNightElectro}</p>
-        <p><strong>Totals:</strong> Adverse events ${cntAdverse} | Wins ${cntWins}</p>
-        <p><strong>Protocol adherence days:</strong> NA ${cntNa}/${logs.length} | NAC ${cntNac}/${logs.length} | ALA ${cntAla}/${logs.length} | Vit E ${cntVitE}/${logs.length}</p>
-      </div>
-    `;
-
 
     logs.forEach(log => {
       // Support both current + legacy schemas
@@ -3007,7 +2939,7 @@ window.saveUserLog = saveUserLog;
 
       // Wins can be stored as positive_events (current) or wins (legacy)
       const winsArr = Array.isArray(log.positive_events) ? log.positive_events : (Array.isArray(log.wins) ? log.wins : []);
-      const adverseArr = Array.isArray(log.adverse_events) ? log.adverse_events : (Array.isArray(log.adverseEvents) ? log.adverseEvents : (Array.isArray(log.adverse) ? log.adverse : []));
+      const adverseArr = Array.isArray(log.adverse_events) ? log.adverse_events : [];
 
       const dayTitle = (log.date !== undefined && log.date !== null && log.date !== "") ? String(log.date) : "N/A";
 
@@ -3083,15 +3015,6 @@ window.saveUserLog = saveUserLog;
            Nothing unusual: ${yn(pick(ctx, "nothing_unusual"))}</p>
       </div>`;
 
-      // Electrolyte rescue detail (optional)
-      const erType = pick(ctx, "electrolyte_quick_pick", "quick_pick", "electrolyte_rescue_type");
-      const erHelp = pick(ctx, "electrolyte_helped_within", "helped_within");
-      const erNote = pick(ctx, "electrolyte_notes", "electrolyte_rescue_notes", "notes");
-      if (erType !== undefined || erHelp !== undefined || erNote !== undefined) {
-        html += `<div class="report-section"><p><strong>Electrolyte rescue detail:</strong> Type: ${vr(erType)}${erHelp !== undefined ? ` | Helped within: ${vr(erHelp)}` : ""}${erNote !== undefined ? ` | Notes: ${vr(erNote)}` : ""}</p></div>`;
-      }
-
-
       // External variables
       const extLevel = (ext && typeof ext.level !== "undefined") ? ext.level : (typeof ext.neuromuscular_training_level !== "undefined" ? ext.neuromuscular_training_level : undefined);
       const extLabel = (ext && ext.label) ? ext.label : "";
@@ -3113,27 +3036,9 @@ window.saveUserLog = saveUserLog;
 
       // Functional tests
       html += `<div class="report-section"><h3>Functional Tests</h3>`;
-      const dayTests = testsByDate[dayTitle] || [];
-      if (dayTests.length > 0) {
-        dayTests.forEach(ft => {
-          const tType = pick(ft || {}, "test_type", "type", "testName", "name");
-          // Support both 6MWT + Sit-to-Stand schemas
-          const dist = pick(ft || {}, "distance_meters", "distance", "distance_m");
-          const breaks = pick(ft || {}, "rest_breaks_count", "rest_breaks", "breaks");
-          const device = pick(ft || {}, "assistive_device", "device");
-          const course = pick(ft || {}, "course_length_meters", "course_length", "course_m");
-          const exert = pick(ft || {}, "perceived_exertion", "exertion");
-          const stsTime = pick(ft || {}, "sit_to_stand_time_seconds", "time_seconds", "time", "sts_time_seconds");
-          const stsArms = pick(ft || {}, "sit_to_stand_used_arms", "used_arms");
-          const chairH = pick(ft || {}, "chair_height_cm", "chair_height");
-          const notes = pick(ft || {}, "notes");
-          html += `<p><strong>${vr(tType)}</strong> | Distance: ${vr(dist, " m")} | Rest breaks: ${vr(breaks)} | Device: ${vr(device)} | Course: ${vr(course, " m")} | Exertion: ${vr(exert)}</p>`;
-          if (stsTime !== undefined || stsArms !== undefined || chairH !== undefined) {
-            html += `<p>5x Sit-to-Stand: Time: ${vr(stsTime, " s")} | Used arms: ${vr(stsArms)} | Chair height: ${vr(chairH, " cm")}</p>`;
-          }
-          if (notes !== undefined) {
-            html += `<p>Notes: ${vr(notes)}</p>`;
-          }
+      if (Array.isArray(log.functional_tests) && log.functional_tests.length > 0) {
+        log.functional_tests.forEach(ft => {
+          html += `<p>Type: ${vr(ft?.test_type)} | Duration: ${vr(ft?.duration_seconds)}s | Distance: ${vr(ft?.distance_meters)}m | Notes: ${vr(ft?.notes)}</p>`;
         });
       } else {
         html += `<p>None</p>`;
@@ -3147,16 +3052,10 @@ window.saveUserLog = saveUserLog;
       </div>`;
 
       // Adverse events
-      const fmtDur = (v) => (v === null || v === undefined || v === "" ? "N/A" : `${v} min`);
       html += `<div class="report-section"><h3>Adverse Events</h3>`;
       if (adverseArr.length > 0) {
         adverseArr.forEach(ae => {
-          const desc = pick(ae || {}, "description", "what_happened", "whatHappened", "event", "name");
-          const tod = pick(ae || {}, "time_of_day", "timeOfDay");
-          const dur = pick(ae || {}, "duration_minutes", "duration_min", "duration", "durationMin");
-          const trig = pick(ae || {}, "suspected_driver", "trigger", "what_drove_it", "driver", "whatDroveIt");
-          const detail = pick(ae || {}, "trigger_detail", "detail", "notes");
-          html += `<p>• ${vr(desc)}${(tod ? ` (${tod})` : "")} (Dur: ${fmtDur(dur)}, Trigger: ${vr(trig)}${detail ? `, Detail: ${vr(detail)}` : ""})</p>`;
+          html += `<p>• ${vr(ae?.description)}${(ae?.time_of_day ? ` (${ae.time_of_day})` : "")} (Dur: ${vr(pick(ae || {}, "duration_minutes", "duration_min"))}m, Trigger: ${vr(pick(ae || {}, "suspected_driver", "trigger"))})</p>`;
         });
       } else {
         html += `<p>None</p>`;
@@ -3167,12 +3066,7 @@ window.saveUserLog = saveUserLog;
       html += `<div class="report-section"><h3>Wins</h3>`;
       if (winsArr.length > 0) {
         winsArr.forEach(w => {
-          const desc = pick(w || {}, "description", "what_improved", "whatImproved", "win", "name");
-          const tod = pick(w || {}, "time_of_day", "timeOfDay");
-          const dur = pick(w || {}, "duration_minutes", "duration_min", "duration", "durationMin");
-          const helped = pick(w || {}, "suspected_driver", "trigger", "what_helped", "helped", "whatHelped");
-          const detail = pick(w || {}, "trigger_detail", "detail", "notes");
-          html += `<p>• ${vr(desc)}${(tod ? ` (${tod})` : "")} (Dur: ${fmtDur(dur)}, Helped: ${vr(helped)}${detail ? `, Detail: ${vr(detail)}` : ""})</p>`;
+          html += `<p>• ${vr(w?.description)}${(w?.time_of_day ? ` (${w.time_of_day})` : "")} (Dur: ${vr(pick(w || {}, "duration_minutes", "duration_min"))}m, Trigger: ${vr(pick(w || {}, "suspected_driver", "trigger"))})</p>`;
         });
       } else {
         html += `<p>None</p>`;
@@ -3226,31 +3120,19 @@ window.saveUserLog = saveUserLog;
   <style>${styleText}</style>
 </head>
 <body>
-  <div style="position:sticky;top:0;z-index:9999;background:#fff;border-bottom:1px solid #ddd;padding:10px 12px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-      <button id="btnPrint" style="padding:10px 14px;border-radius:10px;border:1px solid #0a84ff;background:#0a84ff;color:#fff;font-weight:700;cursor:pointer;">Print / Save PDF</button>
-      <button id="btnClose" style="padding:10px 14px;border-radius:10px;border:1px solid #ddd;background:#f3f3f3;color:#111;font-weight:600;cursor:pointer;">Close</button>
-      <span style="font-size:13px;color:#444;">
-        Tip (iPhone): after Print opens, use the Share icon. If you only see a preview, pinch-to-zoom the page preview to open the PDF viewer.
-      </span>
-    </div>
-  </div>
   <div id="report-view" style="display:block;">${html}</div>
-  <script>
-    (function(){
-      var bp = document.getElementById('btnPrint');
-      var bc = document.getElementById('btnClose');
-      if (bp) bp.addEventListener('click', function(){ try{ window.print(); }catch(e){} });
-      if (bc) bc.addEventListener('click', function(){ try{ window.close(); }catch(e){} });
-    })();
-  </script>
 </body>
 </html>`);
       doc.close();
 
-      // Show a preview window with an explicit "Print / Save PDF" button.
-      // iOS Safari can behave inconsistently when auto-triggering print; user-initiated print is more reliable.
+      // Wait for layout/fonts, then print
       w.focus();
+      setTimeout(() => {
+        try { w.print(); } catch(e) { console.error(e); }
+        // Close the print window after a moment (optional)
+        setTimeout(() => { try { w.close(); } catch(e) {} }, 500);
+        cleanup();
+      }, 250);
 
     } else {
       // In-page print: wait for layout to settle (Safari race avoidance)
@@ -3313,11 +3195,11 @@ async function exportPassengerReport(profileId, opts = {}) {
 
     let html = `
       <div class="report-header">
+      <p class="report-credit">Researched and Prepared By: Patrick Shipp Nutrition RNCP | www.patrickshipp.com</p>
         <h1>Passenger Report: ${pn}</h1>
         ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
         <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
         <p><strong>Records:</strong> ${logs.length}</p>
-        <p style="margin-top:6px;color:#555;font-size:12px;"><strong>Researched and Prepared By:</strong> Patrick Shipp Nutrition RNCP<br/><a href="https://www.patrickshipp.com" target="_blank" rel="noopener" style="color:#555;text-decoration:none;">www.patrickshipp.com</a></p>
       </div>
     `;
 
@@ -3381,24 +3263,7 @@ async function exportPassengerReport(profileId, opts = {}) {
   <style>${styleText}</style>
 </head>
 <body>
-  <div style="position:sticky;top:0;z-index:9999;background:#fff;border-bottom:1px solid #ddd;padding:10px 12px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-      <button id="btnPrint" style="padding:10px 14px;border-radius:10px;border:1px solid #0a84ff;background:#0a84ff;color:#fff;font-weight:700;cursor:pointer;">Print / Save PDF</button>
-      <button id="btnClose" style="padding:10px 14px;border-radius:10px;border:1px solid #ddd;background:#f3f3f3;color:#111;font-weight:600;cursor:pointer;">Close</button>
-      <span style="font-size:13px;color:#444;">
-        Tip (iPhone): after Print opens, use the Share icon. If you only see a preview, pinch-to-zoom the page preview to open the PDF viewer.
-      </span>
-    </div>
-  </div>
   <div id="report-view" style="display:block;">${html}</div>
-  <script>
-    (function(){
-      var bp = document.getElementById('btnPrint');
-      var bc = document.getElementById('btnClose');
-      if (bp) bp.addEventListener('click', function(){ try{ window.print(); }catch(e){} });
-      if (bc) bc.addEventListener('click', function(){ try{ window.close(); }catch(e){} });
-    })();
-  </script>
 </body>
 </html>`);
       doc.close();
@@ -3506,6 +3371,33 @@ window.__EXPORT_RUN = async function(args = {}) {
         },
         notes: trimText(val("ft-notes")) || null
       };
+    }
+
+    function collectFunctionalTestsForDaily(dateStr) {
+      try {
+        const payload = collectFunctionalTestPayload();
+        // Force the test_date to the day being saved in the daily log
+        payload.test_date = dateStr || payload.test_date || localDateStr();
+
+        const six = payload.six_minute_walk || {};
+        const sts = payload.sit_to_stand_5x || {};
+
+        const hasAny =
+          (six.distance_m != null) ||
+          (six.rest_breaks_count != null) ||
+          (six.assistive_device != null && String(six.assistive_device).trim() !== "") ||
+          (six.course_length_m != null) ||
+          (six.perceived_exertion != null) ||
+          (sts.time_seconds != null) ||
+          (sts.used_arms != null) ||
+          (sts.chair_height_cm != null) ||
+          (payload.notes != null && String(payload.notes).trim() !== "");
+
+        return hasAny ? [payload] : [];
+      } catch (e) {
+        console.warn("Functional test collection failed:", e);
+        return [];
+      }
     }
 
     window.saveFunctionalTest = async function() {
@@ -3893,9 +3785,5 @@ window.__EXPORT_RUN = async function(args = {}) {
 })();
 
 </script>
-
-  <footer id="app-credit" style="padding:14px 12px;text-align:center;color:#8a8a8a;font-size:12px;">
-    Prepared by Patrick Fuellebeck | <span style="opacity:0.85;">(add your website)</span>
-  </footer>
 </body>
 </html>
