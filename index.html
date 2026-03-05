@@ -537,6 +537,7 @@
 }
 
 .modal-body { position: relative; }
+#overview-modal .scroll-hint-chevron,
 #dev-modal .scroll-hint-chevron {
   position: absolute;
   right: 14px;
@@ -929,8 +930,8 @@ body.modal-open {
 #overview-modal p { margin: 0 0 12px 0; }
 </style>
 <style id="dev-modal-scrollbar-hide">
-#dev-modal .modal-body { scrollbar-width: none; -ms-overflow-style: none; }
-#dev-modal .modal-body::-webkit-scrollbar { display: none; }
+#dev-modal .modal-body, #overview-modal .modal-body { scrollbar-width: none; -ms-overflow-style: none; }
+#dev-modal .modal-body::-webkit-scrollbar, #overview-modal .modal-body::-webkit-scrollbar { display: none; }
 </style>
 </head>
 <body>
@@ -980,6 +981,11 @@ body.modal-open {
 <button class="modal-close" onclick="window.closeAllModals()" type="button">Close</button>
 </div>
 <div class="modal-body">
+<div aria-hidden="true" class="scroll-hint-chevron">
+<svg fill="none" height="28" viewbox="0 0 24 24" width="28" xmlns="http://www.w3.org/2000/svg">
+<path d="M7 10l5 5 5-5" stroke="rgba(255,255,255,0.75)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4"></path>
+</svg>
+</div>
 <p><strong>Purpose.</strong> This protocol is a structured framework for improving functional stability in adrenomyeloneuropathy by reducing biological stress on vulnerable neural pathways.</p>
 <p><strong>What it is not.</strong> It does not claim a cure, reversal of established damage, or forced regeneration. The working target is margin: preserving what remains and reducing secondary injury.</p>
 <p><strong>Why this is different.</strong> Many treatments reduce symptoms downstream without changing the underlying strain. This approach focuses on upstream environment optimization: oxidative load, metabolic reliability, and inflammatory pressure. The aim is to reduce background instability rather than temporarily suppress expression.</p>
@@ -1556,7 +1562,6 @@ Conceptual Foundation and Mechanistic Framework
 <label style="color:var(--danger-red);">Describe Symptoms</label>
 <textarea id="n-safety-notes" placeholder="What feels different?" rows="3"></textarea>
 </div>
-<button class="safety-save-btn" onclick="window.handlePassengerSafety()" type="button">SUBMIT SAFETY REPORT</button>
 </div>
 </div>
 <div class="card"><h3>Notes (optional)</h3><textarea class="notes" id="n-notes" placeholder="Optional notes..."></textarea></div>
@@ -1770,8 +1775,14 @@ Conceptual Foundation and Mechanistic Framework
         return window.CURRENT_UID;
       }
 
-      db.enablePersistence().catch((err) => {
-        console.warn("Firestore persistence not enabled:", (err && err.code) ? err.code : err);
+      db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
+        if (err && err.code === 'failed-precondition') {
+          console.warn("Firestore persistence unavailable (multiple tabs open).");
+        } else if (err && err.code === 'unimplemented') {
+          console.warn("Firestore persistence not supported in this browser.");
+        } else {
+          console.warn("Firestore persistence not enabled:", (err && err.code) ? err.code : err);
+        }
       });
 
       auth.onAuthStateChanged((user) => {
@@ -2882,7 +2893,6 @@ Conceptual Foundation and Mechanistic Framework
         }
       };
 
-      window.handlePassengerSafety = async function() { await window.handlePassengerSave(); };
 
       window.handleLabSave = async function() {
         setBtn("lab-save-results-btn", true, "SAVING...");
@@ -3230,6 +3240,25 @@ Conceptual Foundation and Mechanistic Framework
 // Scroll hint toggle for dev-modal
 (function () {
   const modal = document.getElementById('dev-modal');
+  if (!modal) return;
+  const modalBody = modal.querySelector('.modal-body');
+  if (!modalBody) return;
+  const update = () => {
+    const canScroll = modalBody.scrollHeight > modalBody.clientHeight + 8;
+    const atTop = modalBody.scrollTop <= 2;
+    if (!canScroll) { modalBody.classList.add('scroll-hint-hidden'); return; }
+    if (atTop) modalBody.classList.remove('scroll-hint-hidden');
+    else modalBody.classList.add('scroll-hint-hidden');
+  };
+  update();
+  modalBody.addEventListener('scroll', update, { passive: true });
+  const obs = new MutationObserver(update);
+  obs.observe(modal, { attributes: true, attributeFilter: ['style', 'class'] });
+})();
+
+// Scroll hint toggle for overview-modal
+(function () {
+  const modal = document.getElementById('overview-modal');
   if (!modal) return;
   const modalBody = modal.querySelector('.modal-body');
   if (!modalBody) return;
