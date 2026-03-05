@@ -21,7 +21,7 @@
       --card-bg: #1C1C1E;
       --text-primary: #FFFFFF;
       --text-secondary: #8E8E93;
-      --accent-color: #30D158; /* Apple Health Green */
+      --accent-color: #30D158;
       --accent-blue: #0A84FF;
       --danger-red: #FF453A;
       --lab-purple: #BF5AF2;
@@ -75,6 +75,7 @@
       text-align: center;
       transition: opacity 0.6s ease, visibility 0.6s;
       padding: 20px;
+      padding-bottom: 80px; /* FIX #5: room for attribution at bottom */
     }
     #splash-overlay.fade-out {
       opacity: 0;
@@ -265,8 +266,6 @@
     .report-link.secondary:active { background: rgba(58, 58, 60, 0.55); }
     .report-link.secondary .report-icon { font-size: 1.05rem; opacity: 0.9; }
 
-
-
     .card {
       background-color: var(--card-bg);
       border-radius: 16px;
@@ -443,7 +442,7 @@
     .app-modal .modal-body p { margin-bottom: 12px; }
 
     .read-overview-btn {
-      margin-top: 12px;
+      margin-top: 20px; /* FIX #5: increased spacing from enter button */
       background: transparent;
       color: rgba(255,255,255,0.85);
       border: 1px solid rgba(255,255,255,0.25);
@@ -470,7 +469,7 @@
   
     #trends-charts-pane canvas{ width:100% !important; height:220px !important; display:block; }
   
-/* Auth + build badge (added for reliable iOS visibility) */
+/* Auth + build badge */
 #auth-overlay{
   position: fixed;
   inset: 0;
@@ -531,21 +530,14 @@
   backdrop-filter: blur(6px);
 }
 
-/* Mobile-only cue: slightly reduce modal content height so content visibly continues below the fold */
 @media (max-width: 520px) {
   .modal-body {
     max-height: 72vh !important;
   }
 }
 
-
-/* Scroll hint (mobile + desktop): subtle side indicator inside modal */
 .modal-body { position: relative; }
 #dev-modal .scroll-hint-chevron {
-  /*
-    Keep the chevron away from the bottom edge where it can sit on top
-    of paragraph text. Vertical-center inside the modal instead.
-  */
   position: absolute;
   right: 14px;
   top: 50%;
@@ -567,16 +559,12 @@
   50% { transform: translateY(calc(-50% + 6px)); }
 }
 
-
-/* Prevent background scroll when modal is open */
 body.modal-open {
   overflow: hidden;
   height: 100vh;
   touch-action: none;
 }
 
-
-/* Scroll Chevron (refined, no vertical bar) */
 .scroll-chevron {
   position: absolute;
   right: 22px;
@@ -587,25 +575,19 @@ body.modal-open {
   pointer-events: none;
   transition: opacity 0.3s ease;
 }
-
-.scroll-chevron.hidden {
-  opacity: 0;
-}
-
-.modal-content {
-  position: relative;
-  padding-bottom: 56px;
-}
+.scroll-chevron.hidden { opacity: 0; }
+.modal-content { position: relative; padding-bottom: 56px; }
 
 /* --- REPORT VIEW & PRINT STYLES --- */
+/* FIX #4: removed height:100vh and overflow:auto — these cause iOS Safari to truncate PDFs */
 #report-view {
   display: none;
   position: fixed;
   left: 0;
   top: 0;
   width: 100vw;
-  height: 100vh;
-  overflow: auto;
+  height: auto;
+  overflow: visible;
   z-index: 99999;
   background: #ffffff;
   color: #000000;
@@ -637,9 +619,7 @@ body.modal-open {
   margin-bottom: 15px;
 }
 
-.report-section {
-  margin-bottom: 15px;
-}
+.report-section { margin-bottom: 15px; }
 .report-section h3 {
   font-size: 14px;
   color: var(--accent-blue);
@@ -653,42 +633,32 @@ body.modal-open {
 .report-section ul { margin: 4px 0; padding-left: 20px; font-size: 13px; }
 .report-section li { margin-bottom: 3px; }
 
-/* Print Media Query */
+/* FIX #4: iOS Safari print — never print from scroll containers */
 @media print {
   body * { visibility: hidden; }
-  body { background: #fff; margin: 0; padding: 0; }
+  body { background: #fff; margin: 0; padding: 0; overflow: visible !important; }
   #app-container { display: none !important; }
   #report-view, #report-view * { visibility: visible; }
   #report-view {
-    display: block;
-    position: absolute;
+    display: block !important;
+    position: static !important;
     left: 0;
     top: 0;
-    width: 100%;
-  }
-
-  /* iOS Safari print: prevent truncation from scroll containers */
-  body, html {
-    overflow: visible !important;
-    height: auto !important;
-  }
-  #app-container, .view, #report-container, .scroll-container {
+    width: 100% !important;
     height: auto !important;
     overflow: visible !important;
-    position: static !important;
   }
 }
 
-
-/* Splash credits */
+/* FIX #5: Splash credits — attribution pinned at bottom with proper spacing */
 .splash-credits{
   position: absolute;
   left: 16px;
   right: 16px;
-  bottom: 18px;
+  bottom: 22px;
   text-align: center;
   font-size: 12px;
-  line-height: 1.35;
+  line-height: 1.55;
   color: rgba(255,255,255,0.75);
   pointer-events: none;
 }
@@ -810,14 +780,15 @@ body.modal-open {
       if(end) end.value = toISODate(today);
       if(order && !order.value) order.value = 'desc';
 
-      // Patient header fields (saved locally; does not affect tracking)
       const pn = byId('export-patient-name');
       const dob = byId('export-patient-dob');
       const lsNameKey = `patient_name_${target?.patientId || 'unknown'}`;
       const lsDobKey = `patient_dob_${target?.patientId || 'unknown'}`;
       const defaultName = (target?.patientId === 'patrick') ? 'Patrick Fuellbeck' : (target?.patientId === 'nieve' ? 'Nieve' : '');
-      if (pn) pn.value = localStorage.getItem(lsNameKey) || defaultName;
-      if (dob) dob.value = localStorage.getItem(lsDobKey) || '';
+      try {
+        if (pn) pn.value = localStorage.getItem(lsNameKey) || defaultName;
+        if (dob) dob.value = localStorage.getItem(lsDobKey) || '';
+      } catch(e) {}
 
       if(modal) modal.style.display = 'flex';
     };
@@ -837,16 +808,10 @@ body.modal-open {
       if(!start || !end){ alert('Please select a start and end date.'); return; }
       if(start > end){ alert('Start date must be on or before end date.'); return; }
 
-
       const patientName = byId('export-patient-name')?.value?.trim() || '';
       const dobEl = byId('export-patient-dob');
       let patientDob = dobEl?.value?.trim() || '';
 
-      // DOB normalization + validation
-      // iOS numeric keyboards often hide the dash key. Accept either:
-      // - YYYY-MM-DD
-      // - YYYYMMDD (8 digits)
-      // Normalize to YYYY-MM-DD.
       if (patientDob) {
         const digits = String(patientDob).replace(/\D/g, '');
         if (digits.length === 8) {
@@ -875,7 +840,6 @@ body.modal-open {
       const btn = byId('export-run-btn');
       if(btn){ btn.disabled = true; btn.textContent = 'GENERATING...'; }
       try{
-        // Open a dedicated print window immediately (keeps print allowed on Safari)
         const printWin = window.open("", "_blank");
         if(!printWin){
           alert("Popup blocked. Please allow popups for this site to export PDF.");
@@ -891,18 +855,16 @@ body.modal-open {
       }
     };
 
-    // --- DOB helper: auto-insert dashes while typing (mobile-friendly) ---
+    // DOB auto-format
     (function attachDobFormatter(){
       const el = byId('export-patient-dob');
       if (!el) return;
-
       const format = (raw) => {
         const digits = String(raw || '').replace(/\D/g, '').slice(0, 8);
         if (digits.length <= 4) return digits;
         if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
         return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
       };
-
       const handler = () => {
         const before = el.value;
         const after = format(before);
@@ -914,13 +876,11 @@ body.modal-open {
           try { el.setSelectionRange(pos, pos); } catch (_) {}
         }
       };
-
       el.addEventListener('input', handler);
       el.addEventListener('blur', handler);
     })();
 
     window.updateSlider = function(element, outId) {
-      // Support both: updateSlider(element) and updateSlider('elementId','outId')
       if (typeof element === 'string') element = document.getElementById(element);
       if (!element) return;
       try { element.previousElementSibling.querySelector('.slider-val').innerText = element.value; } catch(e) {}
@@ -953,74 +913,65 @@ body.modal-open {
       const form = byId("patrick-form");
       if (!form) return;
       form.reset();
-            try { window.setNeuromuscularTraining(0, "none"); } catch(e){}
-const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML = '';
+      try { window.setNeuromuscularTraining(0, "none"); } catch(e){}
+      const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML = '';
       const pos = document.getElementById('p-positive-events'); if (pos) pos.innerHTML = '';
       Array.from(form.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
       window.scrollTo(0,0);
     };
   </script>
-<!-- Firebase (compat) for iOS Safari reliability -->
-<!-- IMPORTANT: these must execute BEFORE the inline bootstrap script at the end of <body>.
-       Using `defer` here can cause the inline script to run first, leaving buttons non-responsive.
-       So we load them synchronously. -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <style id="overview-tightening">
-#overview-modal .modal-body { 
-  line-height: 1.42;
-}
-#overview-modal p { 
-  margin: 0 0 12px 0;
-}
+#overview-modal .modal-body { line-height: 1.42; }
+#overview-modal p { margin: 0 0 12px 0; }
 </style>
 <style id="dev-modal-scrollbar-hide">
-#dev-modal .modal-body {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-#dev-modal .modal-body::-webkit-scrollbar {
-  display: none;
-}
+#dev-modal .modal-body { scrollbar-width: none; -ms-overflow-style: none; }
+#dev-modal .modal-body::-webkit-scrollbar { display: none; }
 </style>
 </head>
 <body>
 <div id="report-view"></div>
+
+<!-- FIX #4: Auth overlay now uses a proper HTML form for iOS autofill reliability -->
 <div id="auth-overlay">
 <div id="auth-card">
 <h2>Sign in</h2>
 <p>Sign in once on this device to sync and protect your logs.</p>
-<form id="login-form" onsubmit="handleLoginSubmit(event)">
+<!-- FIX #4: Wrapped in <form> with autocomplete attributes to prevent iOS autofill loop -->
+<form id="auth-form" autocomplete="on" onsubmit="return false;" action="#">
 <label for="auth-email">Email</label>
-<input autocomplete="username" id="auth-email" inputmode="email" type="email"/>
+<input autocomplete="username email" id="auth-email" inputmode="email" type="email" name="email"/>
 <label for="auth-pass">Password</label>
-<input autocomplete="current-password" id="auth-pass" type="password"/>
+<input autocomplete="current-password" id="auth-pass" type="password" name="password"/>
 <div class="row">
 <button id="auth-signin" type="submit">Sign in</button>
 <button class="secondary" id="auth-signup" type="button">Create account</button>
 </div>
-</form>
 <div class="row" style="margin-top:10px;">
 <button class="secondary" id="auth-demo" style="width:100%;" type="button">View demo (read-only)</button>
 </div>
+</form>
 <div id="auth-error"></div>
 </div>
 </div>
+
 <div id="splash-overlay">
 <img alt="Pioneer Icon" class="hero-icon" src="icon.png"/>
 <h1>THE AMN DUAL-MECHANISM<br/>SUPPORT PROTOCOL</h1>
 <p class="title-sub">A Structured Approach to Redox Stabilization, Axonal Preservation,<br/>and Exploratory Myelin Support</p>
 <button class="enter-btn" onclick="window.enterApp()">Enter Protocol</button>
 <button class="read-overview-btn" id="read-overview-btn" onclick="window.toggleOverview(true)" type="button">Why this protocol exists</button>
-<div style="margin-top: 50px; line-height: 1.6; text-align: center; font-size: 14px; color: #8E8E93;">
-Researched and Prepared by
-
-Patrick Shipp Nutrition, RNCP
-
-www.patrickshipp.com
+<!-- FIX #5: Attribution moved to clearly separated bottom area -->
+<div class="splash-credits">
+  Researched and Prepared by<br/>
+  <strong>Patrick Shipp Nutrition, RNCP</strong><br/>
+  <span class="splash-credits-site">www.patrickshipp.com</span>
 </div>
 </div>
+
 <div aria-modal="true" class="app-modal" id="overview-modal" role="dialog">
 <div class="modal-card">
 <div class="modal-header">
@@ -1035,6 +986,7 @@ www.patrickshipp.com
 </div>
 </div>
 </div>
+
 <div aria-modal="true" class="app-modal" id="export-modal" role="dialog">
 <div class="modal-card">
 <div class="modal-header">
@@ -1043,14 +995,8 @@ www.patrickshipp.com
 </div>
 <div class="modal-body">
 <div class="row2" style="display:flex; gap:12px;">
-<div class="input-group">
-<label>Start date</label>
-<input id="export-start" type="date"/>
-</div>
-<div class="input-group">
-<label>End date</label>
-<input id="export-end" type="date"/>
-</div>
+<div class="input-group"><label>Start date</label><input id="export-start" type="date"/></div>
+<div class="input-group"><label>End date</label><input id="export-end" type="date"/></div>
 </div>
 <div class="row2" style="display:flex; gap:12px; margin-top:12px;">
 <div class="input-group" style="flex:2;">
@@ -1074,6 +1020,7 @@ www.patrickshipp.com
 </div>
 </div>
 </div>
+
 <div aria-modal="true" class="app-modal" id="dev-modal" role="dialog">
 <div class="modal-card">
 <div class="modal-header">
@@ -1113,11 +1060,10 @@ Conceptual Foundation and Mechanistic Framework
 <hr style="border-color:#333; margin: 20px 0;"/>
 <h4 style="color:var(--accent-color); margin-bottom:10px;">3. Supplier Identification and Process Transparency Review</h4>
 <ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
-<li style="margin-bottom:6px;">Determination of botanical source material (Acer truncatum), a species cultivated extensively in parts of China and studied for over three decades for its naturally occurring nervonic acid content and characterized fatty acid profile.</li>
-<li style="margin-bottom:6px;">Research to identify a biotech supplier with documented production standards and process transparency.</li>
+<li style="margin-bottom:6px;">Determination of botanical source material (Acer truncatum).</li>
+<li style="margin-bottom:6px;">Research to identify a biotech supplier with documented production standards.</li>
 <li style="margin-bottom:6px;">Direct communication with the manufacturer.</li>
 <li style="margin-bottom:6px;">Review of extraction methodology.</li>
-<li style="margin-bottom:6px;">Clarification of ethanol versus alternative solvent use.</li>
 <li>Review of available process documentation for internal consistency.</li>
 </ul>
 <hr style="border-color:#333; margin: 20px 0;"/>
@@ -1132,17 +1078,15 @@ Conceptual Foundation and Mechanistic Framework
 <hr style="border-color:#333; margin: 20px 0;"/>
 <h4 style="color:var(--accent-color); margin-bottom:10px;">5. Cost Modeling and Practical Feasibility</h4>
 <ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
-<li style="margin-bottom:6px;">Estimating the cost of each step required to conduct this project responsibly, including sourcing, logistics, and laboratory verification.</li>
+<li style="margin-bottom:6px;">Estimating the cost of each step required to conduct this project responsibly.</li>
 <li style="margin-bottom:6px;">Comparing retail versus direct sourcing pathways.</li>
-<li style="margin-bottom:6px;">Determining that direct sourcing of a near-pure form of nervonic acid from a biotech supplier was the most financially realistic approach.</li>
-<li>Concluding that even with independent lab validation and due diligence, this route provided significantly greater long-term feasibility.</li>
+<li>Concluding that direct sourcing provided significantly greater long-term feasibility.</li>
 </ul>
 <hr style="border-color:#333; margin: 20px 0;"/>
 <h4 style="color:var(--accent-color); margin-bottom:10px;">6. Legal and Regulatory Review</h4>
 <ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
 <li style="margin-bottom:6px;">Consultation regarding representation of company status.</li>
 <li style="margin-bottom:6px;">Clarification on import classification.</li>
-<li style="margin-bottom:6px;">Evaluation of potential border documentation issues.</li>
 <li>Review of labeling and disclosure practices.</li>
 </ul>
 <hr style="border-color:#333; margin: 20px 0;"/>
@@ -1160,6 +1104,7 @@ Conceptual Foundation and Mechanistic Framework
 </div>
 </div>
 </div>
+
 <div id="app-container">
 <section class="view active" id="selection-view">
 <div class="logo-area">
@@ -1168,78 +1113,49 @@ Conceptual Foundation and Mechanistic Framework
 <p class="title-sub">A Structured Approach to Redox Stabilization, Axonal Preservation,<br/>and Exploratory Myelin Support</p>
 </div>
 <details style="margin-bottom: 0;">
-<summary>
-<div class="summary-text">Protocol Context<br/>&amp; References</div>
-</summary>
+<summary><div class="summary-text">Protocol Context<br/>&amp; References</div></summary>
 <div class="folder-content">
 <a class="report-link" href="docs/amn-family-overview.pdf" rel="noopener" target="_blank">
-<span class="report-icon">🧑‍👩‍👧‍👦</span>
-<div>
-<div>AMN Protocol – Family Overview</div>
-<div class="report-sub">Plain-language overview</div>
-</div>
+<span class="report-icon">🧑‍👩‍👧‍👦</span><div><div>AMN Protocol – Family Overview</div><div class="report-sub">Plain-language overview</div></div>
 </a>
 <a class="report-link" href="docs/amn-clinical-reference.pdf" rel="noopener" target="_blank">
-<span class="report-icon">🩺</span>
-<div>
-<div>AMN Protocol – Clinical Reference</div>
-<div class="report-sub">Technical reference</div>
-</div>
+<span class="report-icon">🩺</span><div><div>AMN Protocol – Clinical Reference</div><div class="report-sub">Technical reference</div></div>
 </a>
 <a class="report-link" href="docs/functional-recovery-amn.pdf" rel="noopener" target="_blank">
-<span class="report-icon">🧠</span>
-<div>
-<div>A Phenotype-Specific Framework for Functional Change in AMN</div>
-<div class="report-sub">Case framework</div>
-</div>
+<span class="report-icon">🧠</span><div><div>A Phenotype-Specific Framework for Functional Change in AMN</div><div class="report-sub">Case framework</div></div>
 </a>
 <a class="report-link" href="docs/protocol-governance-and-escalation-framework.pdf" rel="noopener" target="_blank">
-<span class="report-icon">🛡️</span>
-<div>
-<div>Protocol Governance &amp; Escalation</div>
-<div class="report-sub">Safety thresholds and decision logic</div>
-</div>
+<span class="report-icon">🛡️</span><div><div>Protocol Governance &amp; Escalation</div><div class="report-sub">Safety thresholds and decision logic</div></div>
 </a>
 <a class="report-link secondary" href="docs/full-governence-risk-containment-framework.pdf" rel="noopener" target="_blank">
-<span class="report-icon">📄</span>
-<div>
-<div>Full Governance Risk Containment Framework</div>
-<div class="report-sub">Companion document (expanded)</div>
-</div>
+<span class="report-icon">📄</span><div><div>Full Governance Risk Containment Framework</div><div class="report-sub">Companion document (expanded)</div></div>
 </a>
 <a class="report-link" href="https://elastic-amn-diagrams.netlify.app/" rel="noopener" target="_blank">
-<span class="report-icon">🔍</span>
-<div>
-<div>Functional Outcome Interpretation</div>
-<div class="report-sub">Interactive logic tool</div>
-</div>
+<span class="report-icon">🔍</span><div><div>Functional Outcome Interpretation</div><div class="report-sub">Interactive logic tool</div></div>
 </a>
 </div>
 </details>
 <button class="black-btn" onclick="window.openDevModal()">Protocol Development &amp; Validation</button>
 <div class="profile-select">
 <button class="card-btn" onclick="window.selectProfile('patrick')">
-<h2>The Pilot</h2>
-<p>Patrick • Safety &amp; Margin Protocol</p>
+<h2>The Pilot</h2><p>Patrick • Safety &amp; Margin Protocol</p>
 </button>
 <button class="card-btn" onclick="window.selectProfile('nieve')">
-<h2>The Passenger</h2>
-<p>Nieve • Prophylactic Protocol</p>
+<h2>The Passenger</h2><p>Nieve • Prophylactic Protocol</p>
 </button>
 </div>
 </section>
+
 <section class="view hidden" id="patrick-view">
 <header>
 <button class="back-btn" onclick="window.goBack()">← Back</button>
 <img alt="Pioneer Icon" class="header-icon" src="icon.png"/>
 <h2>The Pilot</h2>
 </header>
-
 <p id="date-display-p" style="color:var(--text-secondary); margin-bottom:20px; font-size:0.9rem;"></p>
-<form id="patrick-form"><details style="margin-bottom: 20px; margin-top: 0;">
-<summary>
-<div class="summary-text">Protocol Context<br/>&amp; References</div>
-</summary>
+<form id="patrick-form">
+<details style="margin-bottom: 20px; margin-top: 0;">
+<summary><div class="summary-text">Protocol Context<br/>&amp; References</div></summary>
 <div class="folder-content">
 <a class="report-link" href="docs/amn-family-overview.pdf" rel="noopener" target="_blank">
 <span class="report-icon">🧑‍👩‍👧‍👦</span><div><div>AMN Protocol – Family Overview</div></div>
@@ -1251,30 +1167,18 @@ Conceptual Foundation and Mechanistic Framework
 <span class="report-icon">🧠</span><div><div>Functional Framework</div></div>
 </a>
 <a class="report-link" href="docs/protocol-governance-and-escalation-framework.pdf" rel="noopener" target="_blank">
-<span class="report-icon">🛡️</span>
-<div>
-<div>Protocol Governance &amp; Escalation</div>
-<div class="report-sub">Safety thresholds and decision logic</div>
-</div>
+<span class="report-icon">🛡️</span><div><div>Protocol Governance &amp; Escalation</div><div class="report-sub">Safety thresholds and decision logic</div></div>
 </a>
 <a class="report-link secondary" href="docs/full-governence-risk-containment-framework.pdf" rel="noopener" target="_blank">
-<span class="report-icon">📄</span>
-<div>
-<div>Full Governance Risk Containment Framework</div>
-<div class="report-sub">Companion document (expanded)</div>
-</div>
+<span class="report-icon">📄</span><div><div>Full Governance Risk Containment Framework</div><div class="report-sub">Companion document (expanded)</div></div>
 </a>
 <a class="report-link" href="https://elastic-amn-diagrams.netlify.app/" rel="noopener" target="_blank">
-<span class="report-icon">🔍</span>
-<div>
-<div>Functional Outcome Interpretation</div>
-<div class="report-sub">Interactive logic tool</div>
-</div>
+<span class="report-icon">🔍</span><div><div>Functional Outcome Interpretation</div><div class="report-sub">Interactive logic tool</div></div>
 </a>
 </div>
 </details>
 
-        <div class="card">
+<div class="card">
 <h3>Daily Protocol</h3>
 <label class="checkbox-row"><span>Nervonic Acid (1g)</span><input checked="" id="p-nervonic" type="checkbox"/></label>
 <label class="checkbox-row"><span>Missed NA dose today</span><input id="p-na-missed" type="checkbox"/></label>
@@ -1283,35 +1187,23 @@ Conceptual Foundation and Mechanistic Framework
 <label class="checkbox-row"><span>Vit E (Mixed - 400IU)</span><input id="p-vite" type="checkbox"/></label>
 </div>
 
-        <div class="card">
+<div class="card">
 <h3>Morning Vitals</h3>
 <div class="input-row">
-<div class="input-group">
-<label>BP (Sys/Dia)</label>
-<input id="p-morning-bp" placeholder="120/80" type="text"/>
-</div>
-<div class="input-group">
-<label>HR (bpm)</label>
-<input id="p-morning-hr" placeholder="60" type="number"/>
-</div>
+<div class="input-group"><label>BP (Sys/Dia)</label><input id="p-morning-bp" placeholder="120/80" type="text"/></div>
+<div class="input-group"><label>HR (bpm)</label><input id="p-morning-hr" placeholder="60" type="number"/></div>
 </div>
 </div>
 
-        <div class="card">
+<div class="card">
 <h3>Evening Vitals</h3>
 <div class="input-row">
-<div class="input-group">
-<label>BP (Sys/Dia)</label>
-<input id="p-evening-bp" placeholder="120/80" type="text"/>
-</div>
-<div class="input-group">
-<label>HR (bpm)</label>
-<input id="p-evening-hr" placeholder="60" type="number"/>
-</div>
+<div class="input-group"><label>BP (Sys/Dia)</label><input id="p-evening-bp" placeholder="120/80" type="text"/></div>
+<div class="input-group"><label>HR (bpm)</label><input id="p-evening-hr" placeholder="60" type="number"/></div>
 </div>
 </div>
 
-        <div class="card">
+<div class="card">
 <h3>Global Baseline Rating</h3>
 <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Overall comparison to your usual baseline for the day (big-picture).</div>
 <div class="two-col">
@@ -1336,14 +1228,14 @@ Conceptual Foundation and Mechanistic Framework
 <option value="medium">Medium</option>
 <option value="low">Low</option>
 </select>
-<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (vs normal day-to-day noise).</div>
+<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Confidence = how certain today's rating reflects your underlying neurologic state.</div>
 </div>
 </div>
 </div>
 
-        <div class="card">
+<div class="card">
 <h3>Energy / Capacity</h3>
-<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Energy/capacity = usable “gas in the tank”. Neurologic fatigue is captured later under Symptom Shift.</div>
+<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Energy/capacity = usable "gas in the tank". Neurologic fatigue is captured later under Symptom Shift.</div>
 <div class="row">
 <div>
 <div class="label" style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;">
@@ -1362,14 +1254,13 @@ Conceptual Foundation and Mechanistic Framework
 <option value="medium">Medium</option>
 <option value="low">Low</option>
 </select>
-<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Confidence = how certain today’s rating reflects your underlying neurologic state (vs normal day-to-day noise).</div>
 </div>
 </div>
 </div>
 
-        <div class="card">
+<div class="card">
 <h3>Fast Markers</h3>
-<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Quick yes/no events that are high-signal (easy to remember and strongly meaningful).</div>
+<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Quick yes/no events that are high-signal.</div>
 <label class="checkbox-row"><span>Near-fall or balance scare</span><input id="p-fast-nearfall" type="checkbox"/></label>
 <label class="checkbox-row"><span>Electrolyte rescue required</span><input id="p-fast-electrolyte" type="checkbox"/></label>
 <label class="checkbox-row"><span>Spasm or clonus episode</span><input id="p-fast-spasm" type="checkbox"/></label>
@@ -1377,7 +1268,7 @@ Conceptual Foundation and Mechanistic Framework
 <label class="checkbox-row"><span>Restless legs at night</span><input id="p-fast-restless" type="checkbox"/></label>
 </div>
 
-        <div class="card">
+<div class="card">
 <h3>Pain Impact</h3>
 <div class="slider-header"><label>Pain impact (10 = Dominated the day)</label><span class="slider-val">0</span></div>
 <input id="p-painimpact" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="0"/>
@@ -1402,7 +1293,7 @@ Conceptual Foundation and Mechanistic Framework
 </div>
 </div>
 
-        <div class="card">
+<div class="card">
 <h3>Confounders (what changed today?)</h3>
 <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Log non-protocol changes that may distort symptom interpretation today.</div>
 <label class="checkbox-row"><span>Poor sleep last night</span><input id="p-conf-sleep" type="checkbox"/></label>
@@ -1452,9 +1343,9 @@ Conceptual Foundation and Mechanistic Framework
 <label class="checkbox-row"><span>Nothing unusual</span><input id="p-conf-none" type="checkbox"/></label>
 </div>
 
-        <div class="card">
+<div class="card">
 <h3>Symptom Shift (0-10)</h3>
-<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Rate relative to your usual baseline. 0 = much worse, 5 = baseline, 10 = much better. Keep your interpretation consistent over time.</div>
+<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Rate relative to your usual baseline. 0 = much worse, 5 = baseline, 10 = much better.</div>
 <div class="slider-header"><label>Brain Fog (10 = Worst)</label><span class="slider-val">5</span></div>
 <input id="p-fog" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
 <div class="slider-header"><label>Step-by-step gait effort (10 = Hardest)</label><span class="slider-val">5</span></div>
@@ -1475,11 +1366,9 @@ Conceptual Foundation and Mechanistic Framework
 <input id="p-volatility" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
 </div>
 
-        <div class="card">
+<div class="card">
 <h3>External Variables</h3>
-<p style="margin-top:8px; color:#D7D7D7; font-size:0.9rem; line-height:1.5;">
-            Logged as an external confounder, not a core protocol component.
-          </p>
+<p style="margin-top:8px; color:#D7D7D7; font-size:0.9rem; line-height:1.5;">Logged as an external confounder, not a core protocol component.</p>
 <div class="input-group" style="margin-top:12px;">
 <label>Neuromuscular Training (external)</label>
 <div class="pill-row" style="margin-top:8px;">
@@ -1492,24 +1381,16 @@ Conceptual Foundation and Mechanistic Framework
 </div>
 </div>
 
-        <details class="lab-folder" style="margin-bottom: 20px; margin-top: 0;">
-<summary>
-<div class="summary-text" style="color:#BF5AF2;">Periodic Lab Results<br/>(VLCFA &amp; Liver)</div>
-</summary>
+<details class="lab-folder" style="margin-bottom: 20px; margin-top: 0;">
+<summary><div class="summary-text" style="color:#BF5AF2;">Periodic Lab Results<br/>(VLCFA &amp; Liver)</div></summary>
 <div class="folder-content">
 <div class="input-group" style="margin-bottom:15px;">
 <label>Date of Test</label>
 <input id="lab-date" type="date"/>
 </div>
 <div class="input-row">
-<div class="input-group">
-<label>VLCFA (C26:0)</label>
-<input id="lab-vlcfa" placeholder="e.g. 1.25" type="text"/>
-</div>
-<div class="input-group">
-<label>Liver (ALT/AST)</label>
-<input id="lab-liver" placeholder="e.g. 25 / 30" type="text"/>
-</div>
+<div class="input-group"><label>VLCFA (C26:0)</label><input id="lab-vlcfa" placeholder="e.g. 1.25" type="text"/></div>
+<div class="input-group"><label>Liver (ALT/AST)</label><input id="lab-liver" placeholder="e.g. 25 / 30" type="text"/></div>
 </div>
 <div class="input-group" style="margin-top:15px;">
 <label>Notes</label>
@@ -1520,10 +1401,8 @@ Conceptual Foundation and Mechanistic Framework
 </div>
 </details>
 
-        <details style="margin-bottom: 20px; margin-top: 0;">
-<summary>
-<div class="summary-text">Functional Tests<br/>(Weekly or Monthly Anchors)</div>
-</summary>
+<details style="margin-bottom: 20px; margin-top: 0;">
+<summary><div class="summary-text">Functional Tests<br/>(Weekly or Monthly Anchors)</div></summary>
 <div class="folder-content">
 <p style="color:#9a9a9f; font-size:0.85rem; line-height:1.45; margin: 0 0 14px 0;">Optional objective anchors. Use the same setup each time for comparability.</p>
 <div class="input-group" style="margin-top:15px;">
@@ -1533,14 +1412,8 @@ Conceptual Foundation and Mechanistic Framework
 <div class="card" style="margin-top: 15px;">
 <h3>6-Minute Walk Test</h3>
 <div class="input-row">
-<div class="input-group">
-<label>Distance (meters)</label>
-<input id="ft-6m-distance" placeholder="e.g. 220" type="number"/>
-</div>
-<div class="input-group">
-<label>Rest breaks (count)</label>
-<input id="ft-6m-restbreaks" placeholder="e.g. 1" type="number"/>
-</div>
+<div class="input-group"><label>Distance (meters)</label><input id="ft-6m-distance" placeholder="e.g. 220" type="number"/></div>
+<div class="input-group"><label>Rest breaks (count)</label><input id="ft-6m-restbreaks" placeholder="e.g. 1" type="number"/></div>
 </div>
 <div class="input-row" style="margin-top:12px;">
 <div class="input-group">
@@ -1554,10 +1427,7 @@ Conceptual Foundation and Mechanistic Framework
 <option value="other">Other</option>
 </select>
 </div>
-<div class="input-group">
-<label>Course length (meters)</label>
-<input id="ft-6m-course" placeholder="e.g. 20" type="number"/>
-</div>
+<div class="input-group"><label>Course length (meters)</label><input id="ft-6m-course" placeholder="e.g. 20" type="number"/></div>
 </div>
 <div class="input-group" style="margin-top:12px;">
 <label>Perceived exertion (0-10)</label>
@@ -1567,10 +1437,7 @@ Conceptual Foundation and Mechanistic Framework
 <div class="card">
 <h3>5x Sit-to-Stand</h3>
 <div class="input-row">
-<div class="input-group">
-<label>Time (seconds)</label>
-<input id="ft-5x-time" placeholder="e.g. 18.4" step="0.1" type="number"/>
-</div>
+<div class="input-group"><label>Time (seconds)</label><input id="ft-5x-time" placeholder="e.g. 18.4" step="0.1" type="number"/></div>
 <div class="input-group">
 <label>Used arms?</label>
 <select id="ft-5x-arms">
@@ -1594,45 +1461,33 @@ Conceptual Foundation and Mechanistic Framework
 </div>
 </details>
 
-        <div class="card">
-<h3>Food (optional)</h3>
-<textarea class="notes" id="p-food-notes" placeholder="Brief notes..."></textarea>
-</div>
+<div class="card"><h3>Food (optional)</h3><textarea class="notes" id="p-food-notes" placeholder="Brief notes..."></textarea></div>
+<div class="card"><h3>General notes</h3><div class="input-group" style="margin-top:14px;"><label>Notes (optional)</label><textarea id="p-notes" placeholder="General notes..." rows="3"></textarea></div></div>
 
-        <div class="card"><h3>General notes</h3><div class="input-group" style="margin-top:14px;">
-<label>Notes (optional)</label>
-<textarea id="p-notes" placeholder="General notes..." rows="3"></textarea>
-</div></div>
-
-        <div class="card">
+<div class="card">
 <h3>Adverse events</h3>
 <div class="event-list" id="p-adverse-events"></div>
 <button class="mini-btn" id="p-add-adverse-event" onclick="window.addAdverseEvent()" type="button">+ Add adverse event</button>
-
 </div>
 
-        <div class="card">
+<div class="card">
 <h3>Wins (optional)</h3>
-<p style="color:var(--text-secondary); margin-top:8px; font-size:0.9rem; line-height:1.5;">
-            Use this if something clearly improved during a specific window. Use Trigger type to link to protocol doses when relevant.
-          </p>
+<p style="color:var(--text-secondary); margin-top:8px; font-size:0.9rem; line-height:1.5;">Use this if something clearly improved during a specific window.</p>
 <div class="event-list" id="p-positive-events"></div>
 <button class="mini-btn" id="p-add-positive-event" onclick="window.addPositiveEvent()" type="button">+ Add win</button>
 </div>
 
-        <div class="card">
+<div class="card">
 <h3>Subjective daily summary</h3>
 <textarea id="p-daily-summary" placeholder="Example: Energy steadier overall. Walking felt smoother overall. Less volatile symptoms." rows="3"></textarea>
 </div>
 
-        <button class="mini-btn" onclick="window.openTrends()" style="margin-bottom:20px;" type="button">VIEW TRENDS &amp; EXPORT PDF</button>
-
-        <button class="back-btn" onclick="window.resetPilotForm()" style="width:100%; text-align:center; margin: 0 0 14px 0;" type="button">Reset today's form</button>
-
-        <button class="save-btn" id="p-save-log" onclick="window.handlePilotSave()" type="button">SAVE DAILY LOG</button>
-
-        </form>
+<button class="mini-btn" onclick="window.openTrends()" style="margin-bottom:20px;" type="button">VIEW TRENDS &amp; EXPORT PDF</button>
+<button class="back-btn" onclick="window.resetPilotForm()" style="width:100%; text-align:center; margin: 0 0 14px 0;" type="button">Reset today's form</button>
+<button class="save-btn" id="p-save-log" onclick="window.handlePilotSave()" type="button">SAVE DAILY LOG</button>
+</form>
 </section>
+
 <section class="view hidden" id="trends-view">
 <header>
 <button class="back-btn" onclick="window.goBack()">← Back</button>
@@ -1655,38 +1510,14 @@ Conceptual Foundation and Mechanistic Framework
 </div>
 </div>
 <div id="trends-charts-pane" style="display:none;">
-<div class="card">
-<h3>Global Baseline Rating</h3>
-<canvas height="180" id="chart-global"></canvas>
-</div>
-<div class="card">
-<h3>Energy / Capacity (0–10)</h3>
-<canvas height="180" id="chart-energy"></canvas>
-</div>
-<div class="card">
-<h3>Pain Impact (0–10)</h3>
-<canvas height="180" id="chart-pain"></canvas>
-</div>
-<div class="card">
-<h3>Sleep Quality (0–10)</h3>
-<canvas height="180" id="chart-sleep"></canvas>
-</div>
-<div class="card">
-<h3>Gait Effort (0–10)</h3>
-<canvas height="180" id="chart-gait-effort"></canvas>
-</div>
-<div class="card">
-<h3>Leg Stiffness (0–10)</h3>
-<canvas height="180" id="chart-leg-stiffness"></canvas>
-</div>
-<div class="card">
-<h3>Brain Fog (0–10)</h3>
-<canvas height="180" id="chart-brain-fog"></canvas>
-</div>
-<div class="card">
-<h3>Neurologic Fatigue (0–10)</h3>
-<canvas height="180" id="chart-neuro-fatigue"></canvas>
-</div>
+<div class="card"><h3>Global Baseline Rating</h3><canvas height="180" id="chart-global"></canvas></div>
+<div class="card"><h3>Energy / Capacity (0–10)</h3><canvas height="180" id="chart-energy"></canvas></div>
+<div class="card"><h3>Pain Impact (0–10)</h3><canvas height="180" id="chart-pain"></canvas></div>
+<div class="card"><h3>Sleep Quality (0–10)</h3><canvas height="180" id="chart-sleep"></canvas></div>
+<div class="card"><h3>Gait Effort (0–10)</h3><canvas height="180" id="chart-gait-effort"></canvas></div>
+<div class="card"><h3>Leg Stiffness (0–10)</h3><canvas height="180" id="chart-leg-stiffness"></canvas></div>
+<div class="card"><h3>Brain Fog (0–10)</h3><canvas height="180" id="chart-brain-fog"></canvas></div>
+<div class="card"><h3>Neurologic Fatigue (0–10)</h3><canvas height="180" id="chart-neuro-fatigue"></canvas></div>
 </div>
 <div id="trends-details-pane" style="display:none;">
 <div class="card">
@@ -1696,6 +1527,7 @@ Conceptual Foundation and Mechanistic Framework
 </div>
 </div>
 </section>
+
 <section class="view hidden" id="nieve-view">
 <header>
 <button class="back-btn" onclick="window.goBack()">← Back</button>
@@ -1728,71 +1560,39 @@ Conceptual Foundation and Mechanistic Framework
 <button class="safety-save-btn" onclick="window.handlePassengerSafety()" type="button">SUBMIT SAFETY REPORT</button>
 </div>
 </div>
-<div class="card">
-<h3>Notes (optional)</h3>
-<textarea class="notes" id="n-notes" placeholder="Optional notes..."></textarea>
-</div>
+<div class="card"><h3>Notes (optional)</h3><textarea class="notes" id="n-notes" placeholder="Optional notes..."></textarea></div>
 <button class="mini-btn" id="passenger-export-btn" onclick="window.openExportModal({patientId:'nieve', label:'Passenger'})" style="margin-bottom:20px;" type="button">DOWNLOAD HISTORY (PDF)</button>
 <button class="save-btn" id="n-save-log" onclick="window.handlePassengerSave()" type="button">SAVE DAILY LOG</button>
 </form>
 </section>
 </div>
+
 <script>
-    // Firebase does NOT work reliably when this page is opened via file:// (origin becomes "null").
-    // Use your Netlify URL or serve locally over http://localhost.
-    // Even if Firebase fails to load, we still allow a read-only demo so you can show the UI.
     window.__AUTH_MODULE_LOADED__ = false;
 
-    // Demo mode can be entered even if Firebase/Auth scripts fail to load.
-window.__enterDemoMode = function __enterDemoMode() {
-  try {
-    window.__DEMO_MODE__ = true;
-    const overlay = document.getElementById('auth-overlay');
-    if (overlay) overlay.style.display = 'none';
+    window.__enterDemoMode = function __enterDemoMode() {
+      try {
+        window.__DEMO_MODE__ = true;
+        const overlay = document.getElementById('auth-overlay');
+        if (overlay) overlay.style.display = 'none';
+        const disableIds = ['p-save-log','n-save-log','lab-save-results-btn','clinician-export-btn'];
+        disableIds.forEach((id) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.disabled = true; el.style.opacity = '0.5'; el.style.cursor = 'not-allowed';
+          el.title = 'Demo mode: cloud sync disabled';
+        });
+        let b = document.getElementById('demo-banner');
+        if (!b) {
+          b = document.createElement('div'); b.id = 'demo-banner';
+          b.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;font-size:13px;line-height:1.25;pointer-events:none;';
+          b.innerHTML = 'Viewing in demo mode (read-only)';
+          document.body.appendChild(b);
+        }
+      } catch (e) { console.warn('Demo mode failed to start', e); }
+    };
 
-    // Disable cloud write actions
-    const disableIds = [
-      'p-save-log',
-      'n-save-log',
-      'lab-save-results-btn',
-      'clinician-export-btn'
-    ];
-    disableIds.forEach((id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.disabled = true;
-      el.style.opacity = '0.5';
-      el.style.cursor = 'not-allowed';
-      el.title = 'Demo mode: cloud sync disabled';
-    });
-
-    let b = document.getElementById('demo-banner');
-    if (!b) {
-      b = document.createElement('div');
-      b.id = 'demo-banner';
-      b.style.position = 'fixed';
-      b.style.left = '16px';
-      b.style.right = '16px';
-      b.style.bottom = '16px';
-      b.style.zIndex = '9999';
-      b.style.padding = '10px 12px';
-      b.style.borderRadius = '12px';
-      b.style.background = 'rgba(0,0,0,0.75)';
-      b.style.backdropFilter = 'blur(8px)';
-      b.style.webkitBackdropFilter = 'blur(8px)';
-      b.style.color = '#fff';
-      b.style.fontSize = '13px';
-      b.style.lineHeight = '1.25';
-      b.style.pointerEvents = 'none';
-      b.innerHTML = 'Viewing in demo mode (read-only)';
-      document.body.appendChild(b);
-    }
-  } catch (e) {
-    console.warn('Demo mode failed to start', e);
-  }
-};
-
-function setAuthError(msg) {
+    function setAuthError(msg) {
       const el = document.getElementById('auth-error');
       if (!el) return;
       el.textContent = msg;
@@ -1804,14 +1604,13 @@ function setAuthError(msg) {
       if (overlay) overlay.setAttribute('hidden','hidden');
     }
 
-    // Demo mode is always available (no cloud sync)
     window.enterDemoMode = function () {
       try { localStorage.setItem('amn_demo_mode', '1'); } catch (_) {}
       hideAuthModal();
     };
 
     if (location.protocol === 'file:') {
-      setAuthError('You opened this page as a local file (file://). Cloud login will not work in file mode. Use the Netlify URL, or run a local server (e.g., “python3 -m http.server”) and open http://localhost:8000. You can still use “View demo (read-only)”.');
+      setAuthError('You opened this page as a local file (file://). Cloud login will not work. Use the Netlify URL or run a local server. You can still use "View demo (read-only)".');
     }
 
     // --- FIREBASE INITIALIZATION ---
@@ -1824,22 +1623,14 @@ function setAuthError(msg) {
       appId: "1:773361494367:web:15aee1471b181413d1eeea"
     };
 
-    // 1. Initialize once
     let auth = null;
     let db = null;
     try {
       if (window.firebase && typeof firebase.initializeApp === 'function') {
-        if (!firebase.apps.length) {
-          firebase.initializeApp(firebaseConfig);
-        }
-
-        // 2. Create db reference once globally.
-        // Do not call firebase.firestore() anywhere else in your functions.
+        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
         db = firebase.firestore();
         auth = firebase.auth();
         window.__AUTH_MODULE_LOADED__ = true;
-
-        // Provide the API that the auth UI expects
         window.__authApi = {
           signIn: (email, pass) => auth.signInWithEmailAndPassword(email, pass),
           signUp: (email, pass) => auth.createUserWithEmailAndPassword(email, pass),
@@ -1849,1991 +1640,1231 @@ function setAuthError(msg) {
     } catch (e) {
       console.error('Firebase bootstrap failed:', e);
       window.__AUTH_MODULE_LOADED__ = false;
-      setAuthError('Cloud login failed to initialize. If you are on iPhone Safari, try disabling content blockers for this site and reloading. You can still use “View demo (read-only)”.');
+      setAuthError('Cloud login failed to initialize. Try disabling content blockers and reloading. You can still use "View demo (read-only)".');
     }
 
-    // Note: Do NOT call db.enablePersistence() or db.terminate() anywhere in the code.
-
-    // If Firebase didn't initialize, keep the page usable (demo still works).
     if (!window.__AUTH_MODULE_LOADED__ || !auth || !db) {
-      // Make the auth overlay usable even when Firebase fails:
-      // - Demo still works
-      // - Sign in / Create account show a clear error instead of doing nothing
       const demoBtn = document.getElementById('auth-demo');
-      const inBtn = document.getElementById('login-btn');
+      const inBtn = document.getElementById('auth-signin');
       const upBtn = document.getElementById('auth-signup');
       if (demoBtn) demoBtn.addEventListener('click', () => window.enterDemoMode());
-      const explain = () => setAuthError('Cloud login did not initialize on this device/browser. Try reloading, disabling content blockers, and ensure third-party scripts are allowed. You can still use “View demo (read-only)”.');
+      const explain = () => setAuthError('Cloud login did not initialize. Try reloading and disabling content blockers. You can still use "View demo (read-only)".');
       if (inBtn) inBtn.addEventListener('click', explain);
       if (upBtn) upBtn.addEventListener('click', explain);
     } else {
-    // Persist login on device/browser (one-time login per device).
-    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
-      console.warn("Auth persistence not set:", (err && err.code) ? err.code : err);
-    });
-
-    var CURRENT_UID = null;
-    CURRENT_UID = null;
-        window.CURRENT_UID = null;
-
-    let isLoggingIn = false;
-async function handleLoginSubmit(event) {
-  event.preventDefault();
-  if (isLoggingIn) return;
-  isLoggingIn = true;
-
-  // Use the existing auth error surface if available
-  const errEl = document.getElementById("auth-error");
-  const showErr = (msg) => { if (errEl) errEl.textContent = msg || ""; };
-
-  showErr("");
-  const email = (document.getElementById("auth-email")?.value || "").trim();
-  const pass  = (document.getElementById("auth-pass")?.value || "").trim();
-  if (!email || !pass) {
-    showErr("Enter email and password.");
-    isLoggingIn = false;
-    return;
-  }
-
-  try {
-    if (window.__authApi && typeof window.__authApi.signIn === "function") {
-      await window.__authApi.signIn(email, pass);
-    showAuthOverlay(false);
-    onAuthReady();
-    } else if (window.firebase && firebase.auth) {
-      await firebase.auth().signInWithEmailAndPassword(email, pass);
-    showAuthOverlay(false);
-    onAuthReady();
-    } else {
-      throw new Error("Auth is not initialized.");
-    }
-  } catch (e) {
-    console.error("Login failed:", e);
-    showErr(e?.message || String(e));
-  } finally {
-    isLoggingIn = false;
-  }
-}
-
-function ensureAuthUI() {
-      // Attach button handlers once the auth DOM exists.
-      if (window.__authUIReady) return;
-
-      const overlay = document.getElementById("auth-overlay");
-      const formEl = document.getElementById("login-form");
-      const emailEl = document.getElementById("auth-email");
-      const passEl = document.getElementById("auth-pass");
-      const btnUp  = document.getElementById("auth-signup");
-      const btnDemo = document.getElementById("auth-demo");
-      const errEl  = document.getElementById("auth-error");
-
-      if (!overlay || !formEl || !emailEl || !passEl || !btnUp || !btnDemo || !errEl) {
-        setTimeout(ensureAuthUI, 50);
-        return;
-      }
-
-      const showErr = (msg) => {
-        errEl.textContent = msg || "";
-        errEl.style.display = msg ? "block" : "none";
-      };
-
-      // Stable iOS login: submit handler + guard against double-submit
-      formEl.addEventListener("submit", handleLoginSubmit);
-
-      btnUp.addEventListener("click", async () => {
-        showErr("");
-        const email = (emailEl.value || "").trim();
-        const pass  = (passEl.value || "").trim();
-        if (!email || !pass) return showErr("Enter email and password.");
-        try {
-          await window.__authApi.signUp(email, pass);
-          showAuthOverlay(false);
-          onAuthReady();
-        } catch (e) {
-          showErr(e?.message || String(e));
-        }
+      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
+        console.warn("Auth persistence not set:", (err && err.code) ? err.code : err);
       });
 
-      btnDemo.addEventListener("click", () => {
-        showErr("");
-        enterDemoMode();
-      });
+      var CURRENT_UID = null;
+      window.CURRENT_UID = null;
 
-      window.__authUIReady = true;
-    }
+      // FIX #4: Auth in-progress guard prevents iOS autofill re-submit loop
+      var _authInProgress = false;
 
-    function showAuthOverlay(show) {
-      ensureAuthUI();
-      const o = document.getElementById("auth-overlay");
-      if (!o) return;
-      if (show) o.removeAttribute("hidden");
-      else o.setAttribute("hidden", "hidden");
-    }
+      function ensureAuthUI() {
+        if (window.__authUIReady) return;
+        const overlay = document.getElementById("auth-overlay");
+        const emailEl = document.getElementById("auth-email");
+        const passEl = document.getElementById("auth-pass");
+        const btnIn  = document.getElementById("auth-signin");
+        const btnUp  = document.getElementById("auth-signup");
+        const btnDemo = document.getElementById("auth-demo");
+        const errEl  = document.getElementById("auth-error");
+        const authForm = document.getElementById("auth-form");
 
-    function enterDemoMode() {
-      window.__DEMO_MODE__ = true;
-      showAuthOverlay(false);
-      // Disable cloud write actions
-      const disableIds = [
-        "p-save-log",
-        "n-save-log",
-        "lab-save-results-btn",
-        "clinician-export-btn"
-      ];
-      disableIds.forEach((id) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.disabled = true;
-        el.style.opacity = "0.5";
-        el.style.cursor = "not-allowed";
-        el.title = "Demo mode: cloud sync disabled";
-      });
-
-      // Small banner so it's obvious
-      let b = document.getElementById("demo-banner");
-      if (!b) {
-        b = document.createElement("div");
-        b.id = "demo-banner";
-        b.style.position = "fixed";
-        b.style.left = "16px";
-        b.style.right = "16px";
-        b.style.bottom = "16px";
-        b.style.zIndex = "9999";
-        b.style.padding = "10px 12px";
-        b.style.borderRadius = "12px";
-        b.style.background = "rgba(0,0,0,0.75)";
-        b.style.backdropFilter = "blur(8px)";
-        b.style.webkitBackdropFilter = "blur(8px)";
-        b.style.color = "#fff";
-        b.style.fontSize = "13px";
-        b.style.lineHeight = "1.25";
-        b.innerHTML = "Viewing in demo mode (read-only). Cloud sync and exports are disabled.";
-        document.body.appendChild(b);
-      }
-    }
-
-    // Optional: expose a manual sign-out (for testing)
-    window.signOutProtocol = async function() {
-      try { await auth.signOut(); } catch(e) { console.error(e); }
-    };
-
-    function requireUid() {
-      if (window.__DEMO_MODE__) throw new Error("Demo mode: not signed in");
-      if (!window.CURRENT_UID) throw new Error("Not signed in. Please sign in again.");
-      return window.CURRENT_UID;
-    }
-
-
-    db.enablePersistence().catch((err) => {
-      console.warn("Firestore persistence not enabled:", (err && err.code) ? err.code : err);
-    });
-
-    // Gate all Firestore reads/writes behind authentication.
-    // If you are not signed in, the app will prompt once and then stay signed in on this device.
-    auth.onAuthStateChanged((user) => {
-      window.CURRENT_UID = user?.uid || null;
-      showAuthOverlay(!window.CURRENT_UID);
-    });
-
-    // --- NO AUTH / NO DEVICE ID ---
-    // Users are static profiles: "patrick" or "nieve".
-    // Path structure: users/{profileName}/logs/{date}
-
-    function userProfilePath(profile, ...rest) {
-      // Secure path (requires Firebase Auth): users/{uid}/profiles/{profile}/...
-      const uid = requireUid();
-      const tail = rest.length ? "/" + rest.map(encodeURIComponent).join("/") : "";
-      return `users/${uid}/profiles/${encodeURIComponent(profile)}${tail}`;
-    }
-
-    // ---------------------------
-    // Helpers
-    // ---------------------------
-    function localDateStr(d = new Date()) {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${y}-${m}-${day}`;
-    }
-    function el(id) { return document.getElementById(id); }
-    function val(id) { return el(id)?.value ?? ""; }
-    function checked(id) { return !!el(id)?.checked; }
-    function asNumber(v) {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : null;
-    }
-    function trimText(s) { return String(s ?? "").replace(/\s+/g, " ").trim(); }
-    function mustEnum(value, allowed, fallback = null) { return allowed.includes(value) ? value : fallback; }
-    function parseBP(bpText) {
-      const t = trimText(bpText);
-      const m = t.match(/(\d{2,3})\s*\/\s*(\d{2,3})/);
-      if (!m) return { bp_sys: null, bp_dia: null };
-      return { bp_sys: asNumber(m[1]), bp_dia: asNumber(m[2]) };
-    }
-
-    // ---------------------------
-    // Event list UI (Pilot)
-    // ---------------------------
-
-    // "Wins" and "Adverse events" are *episodes* worth noting, separate from the daily baseline scores.
-    // They are optional and meant for high-signal moments (something clearly improved or clearly worsened).
-
-    window.POSITIVE_TRIGGERS = [
-      "Sleep improvement",
-      "Rest / pacing",
-      "Mindfulness practice",
-      "Light movement / mobility",
-      "Food / hydration",
-      "Medication / supplement adjustment (non-core)",
-      "Other",
-      "Unknown"
-    ];
-
-    window.ADVERSE_TRIGGERS = [
-      "Poor sleep",
-      "Overexertion",
-      "Stress",
-      "Illness / infection",
-      "Travel / disrupted schedule",
-      "Medication / supplement adjustment (non-core)",
-      "Electrolyte shift (suspected)",
-      "Other",
-      "Unknown"
-    ];
-
-    // Ensure these are available as plain identifiers inside this script scope
-    // (Safari can be strict about resolving undeclared globals).
-    const POSITIVE_TRIGGERS = window.POSITIVE_TRIGGERS;
-    const ADVERSE_TRIGGERS = window.ADVERSE_TRIGGERS;
-
-    // Basic HTML escaping for safe option rendering.
-    function escapeHTML(input) {
-      return String(input ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-    }
-
-    function optionList(options) {
-      return options.map(o => `<option value="${escapeHTML(o)}">${escapeHTML(o)}</option>`).join("");
-    }
-
-    function newEpisodeItem(kind) {
-      // kind: "positive" | "adverse"
-      const wrap = document.createElement("div");
-      wrap.className = "event-item";
-
-      const title = (kind === "positive") ? "What improved" : "What happened";
-      const triggerLabel = (kind === "positive") ? "What helped (optional)" : "What drove it (optional)";
-      const triggers = (kind === "positive") ? POSITIVE_TRIGGERS : ADVERSE_TRIGGERS;
-
-      wrap.innerHTML = `
-        <div class="input-group">
-          <label>${title}</label>
-          <textarea class="input" rows="2" placeholder="Short description..."></textarea>
-        </div>
-
-        <div class="row">
-          <div class="input-group">
-            <label>Duration (min)</label>
-            <input class="input duration" type="number" min="0" step="1" placeholder="e.g. 30" />
-          </div>
-          <div class="input-group">
-            <label>${triggerLabel}</label>
-            <select class="input trigger">
-              <option value="">Select</option>
-              ${optionList(triggers)}
-            </select>
-          </div>
-        </div>
-
-        <div class="input-group">
-          <label>Trigger detail (optional)</label>
-          <input class="input detail" type="text" placeholder="e.g., potassium helped, intense PT session, shifted hydrocortisone timing" />
-        </div>
-
-        <button class="btn btn-ghost remove" type="button">Remove</button>
-      `;
-
-      wrap.querySelector(".remove").addEventListener("click", () => wrap.remove());
-      return wrap;
-    }
-
-    function initEvents() {
-      const posWrap = document.getElementById("p-positive-events") || document.getElementById("positive-events");
-      const advWrap = document.getElementById("p-adverse-events") || document.getElementById("adverse-events");
-      const addPos = document.getElementById("p-add-positive-event") || document.getElementById("add-positive-event");
-      const addAdv = document.getElementById("p-add-adverse-event") || document.getElementById("add-adverse-event");
-
-      if (addPos && posWrap && !addPos.getAttribute("onclick")) {
-        addPos.addEventListener("click", () => {
-          posWrap.appendChild(newEpisodeItem("positive"));
-        });
-      }
-
-
-      if (addAdv && advWrap && !addAdv.getAttribute("onclick")) {
-        addAdv.addEventListener("click", () => {
-          advWrap.appendChild(newEpisodeItem("adverse"));
-        });
-      }
-    }
-
-    // Backward-compatible helpers used by inline onclick handlers
-    window.addPositiveEvent = function(){
-      const posWrap = document.getElementById("p-positive-events") || document.getElementById("positive-events");
-      if (posWrap) posWrap.appendChild(newEpisodeItem("positive"));
-    };
-    window.addAdverseEvent = function(){
-      const advWrap = document.getElementById("p-adverse-events") || document.getElementById("adverse-events");
-      if (advWrap) advWrap.appendChild(newEpisodeItem("adverse"));
-    };
-
-    function readEpisodeItems(containerId, fallbackId) {
-      const wrap = document.getElementById(containerId) || (fallbackId ? document.getElementById(fallbackId) : null);
-      if (!wrap) return [];
-      const items = [...wrap.querySelectorAll(".event-item")];
-      return items.map(el => {
-        const desc = (el.querySelector("textarea")?.value || "").trim();
-        const durationRaw = (el.querySelector("input.duration")?.value || "").trim();
-        const durationMin = durationRaw === "" ? null : Number(durationRaw);
-        const trigger = (el.querySelector("select.trigger")?.value || "").trim();
-        const detail = (el.querySelector("input.detail")?.value || "").trim();
-        return {
-          desc,
-          durationMin: Number.isFinite(durationMin) ? durationMin : null,
-          trigger: trigger || null,
-          detail: detail || null
-        };
-      }).filter(x => x.desc || x.trigger || x.detail || (x.durationMin !== null));
-    }
-
-    function readPositiveEvents() {
-      return readEpisodeItems("p-positive-events", "positive-events");
-    }
-
-    function readAdverseEvents() {
-      return readEpisodeItems("p-adverse-events", "adverse-events");
-    }
-function collectPilotPayload() {
-      const date = localDateStr();
-      const morningBP = parseBP(val("p-morning-bp"));
-      const eveningBP = parseBP(val("p-evening-bp"));
-
-      return {
-        date,
-        baseline_rating: mustEnum(val("p-global-rating"), ["much_worse","worse","same","better","much_better"], null),
-        baseline_confidence: mustEnum(val("p-global-confidence"), ["low","medium","high"], null),
-
-        energy_capacity: asNumber(val("p-energy-capacity")),
-        energy_confidence: mustEnum(val("p-energy-confidence"), ["low","medium","high"], null),
-
-        symptom_drift: {
-          brain_fog: asNumber(val("p-fog")),
-          step_gait_effort: asNumber(val("p-gait")),
-          gait_initiation_effort: asNumber(val("p-gait-init")),
-          sustained_walking_effort: asNumber(val("p-gait-sustain")),
-          neurologic_fatigue: asNumber(val("p-fatigue")),
-          sleep_quality: asNumber(val("p-sleep")),
-          leg_stiffness: asNumber(val("p-stiff")),
-          post_rest_stiffness: asNumber(val("p-postrest")),
-          symptom_volatility: asNumber(val("p-volatility"))
-        },
-
-        pain_impact: {
-          severity: asNumber(val("p-painimpact")),
-          interfered_with_sleep: checked("p-pain-sleep"),
-          limited_walking: checked("p-pain-walk"),
-          forced_extra_rest: checked("p-pain-rest"),
-          required_rescue_meds: checked("p-pain-meds"),
-          changed_gait_mechanics: checked("p-pain-gait"),
-          primary_driver: mustEnum(val("p-pain-location"), ["piriformis_glute","low_back","hip","thigh","calf","foot","other"], null)
-        },
-
-        context_changes: {
-          poor_sleep_last_night: checked("p-conf-sleep"),
-          unusual_physical_exertion: checked("p-conf-exertion"),
-          medication_timing_change: checked("p-conf-medtiming"),
-          dose_change: checked("p-conf-dosechange"),
-          missed_dose: checked("p-conf-misseddose"),
-          new_supplement_added: checked("p-conf-newsupp"),
-          new_medication_added: checked("p-conf-newmed"),
-          travel_or_disrupted_schedule: checked("p-conf-travel"),
-          high_stress: (asNumber(val("p-conf-stress")) ?? 0),
-          infection_symptoms: checked("p-conf-infection"),
-          gi_upset_or_dehydration_risk: checked("p-conf-gi"),
-          night_pain_likely_electrolyte_related: checked("p-conf-elec"),
-          electrolyte_rescue_window: val("p-conf-elec-window") || "",
-          electrolyte_rescue_type: val("p-conf-elec-type") || "",
-          electrolyte_rescue_helped_within: val("p-conf-elec-helped") || "",
-          electrolyte_rescue_notes: val("p-conf-elec-notes") || "",
-          nothing_unusual: checked("p-conf-none")
-        },
-
-        vitals: {
-          morning: { ...morningBP, hr: asNumber(val("p-morning-hr")) },
-          evening: { ...eveningBP, hr: asNumber(val("p-evening-hr")) }
-        },
-
-        protocol_adherence: {
-          nervonic_acid_taken: checked("p-nervonic"),
-          nervonic_acid_missed: checked("p-na-missed"),
-          nac_taken: checked("p-nac"),
-          r_ala_taken: checked("p-ala"),
-          vitamin_e_taken: checked("p-vite")
-        },
-
-        
-        external_neuromuscular_training: {
-          level: (asNumber(val("p-nmt-level")) ?? 0),
-          label: mustEnum(val("p-nmt-label"), ["none","light","full"], "none")
-        },
-
-fast_markers: {
-          near_fall_or_balance_scare: checked("p-fast-nearfall"),
-          electrolyte_rescue_required: checked("p-fast-electrolyte"),
-          spasm_or_clonus_episode: checked("p-fast-spasm"),
-          night_pain_woke_me: checked("p-fast-nightpain"),
-          restless_legs_at_night: checked("p-fast-restless")
-        },
-
-        positive_events: readPositiveEvents(),
-        daily_summary: trimText(val("p-daily-summary")) || null,
-        adverse_events: readAdverseEvents(),
-        notes: trimText(val("p-notes")) || null,
-        food_notes: trimText(val("p-food-notes")) || null
-      };
-    }
-
-    function collectPassengerPayload() {
-      return {
-        date: localDateStr(),
-        notes: trimText(val("n-notes")) || null,
-        safety: { feels_different: checked("n-safety"), details: trimText(val("n-safety-notes")) || null },
-        protocol_adherence: {
-          nervonic_acid_taken: checked("n-nervonic"),
-          nac_taken: checked("n-nac"),
-          r_ala_taken: checked("n-ala"),
-          vitamin_e_taken: checked("n-vite")
-        }
-      };
-    }
-
-    function collectLabPayload() {
-      const date = trimText(val("lab-date"));
-      return {
-        date: date || localDateStr(),
-        lab: {
-          test_date: date || null,
-          vlcfa_c26: trimText(val("lab-vlcfa")) || null,
-          liver_alt_ast: trimText(val("lab-liver")) || null,
-          notes: trimText(val("lab-notes")) || null
-        }
-      };
-    }
-
-    async function saveUserLog(profileId, payload) {
-      try {
-        const uid = window.CURRENT_UID;
-        if (!uid) throw new Error("Not authenticated");
-
-        // Ensure date exists
-        const dateStr = payload.date || localDateStr();
-        const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
-
-        const finalPayload = {
-          ...payload,
-          date: dateStr,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          clientUpdatedAt: new Date().toISOString()
-        };
-
-        await docRef.set(finalPayload, { merge: true });
-      } catch (err) {
-        if (err?.message && String(err.message).toLowerCase().includes('terminated')) {
-          alert("Database connection interrupted. The page will now refresh to restore connection.");
-          window.location.reload();
+        if (!overlay || !emailEl || !passEl || !btnIn || !btnUp || !btnDemo || !errEl) {
+          setTimeout(ensureAuthUI, 50);
           return;
         }
-        console.error("Save error:", err);
-        alert("Failed to save: " + (err?.message || err));
-        throw err;
-      }
-    }
-window.saveUserLog = saveUserLog;
 
+        const showErr = (msg) => {
+          errEl.textContent = msg || "";
+          errEl.style.display = msg ? "block" : "none";
+        };
 
-    // --- PDF EXPORT (range + dense table + notes appendix) ---
-    async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
-      const q = db
-        .collection(userProfilePath(patientId, "logs"))
-        .where("date", ">=", startDate)
-        .where("date", "<=", endDate)
-        .orderBy("date", dir);
-      const snapshot = await q.get();
-      return snapshot.docs.map((d) => d.data());
-    }
-
-
-    // Fetch last N logs (default 30), ordered by date desc.
-    async function fetchPatientLogs(patientId, days = 30) {
-      const q = db
-        .collection(userProfilePath(patientId, "logs"))
-        .orderBy("date", "desc")
-        .limit(days);
-      const snapshot = await q.get();
-      return snapshot.docs.map((d) => d.data());
-    }
-
-    function _safeTxt(v) {
-      const s = String(v ?? "");
-      return s.replace(/\s+/g, " ").trim();
-    }
-
-
-    function _yesNo(v) { return v ? "Yes" : "No"; }
-
-    function _fmtSymptomShift(sd) {
-      if (!sd || typeof sd !== "object") return [];
-      const order = [
-        ["brain_fog","Brain fog"],
-        ["step_gait_effort","Step-by-step gait effort"],
-        ["gait_initiation_effort","Gait initiation effort"],
-        ["sustained_walking_effort","Sustained walking effort"],
-        ["neurologic_fatigue","Neurologic fatigue"],
-        ["sleep_quality","Sleep quality"],
-        ["leg_stiffness","Leg stiffness"],
-        ["post_rest_stiffness","Post-rest stiffness"],
-        ["symptom_volatility","Symptom volatility"]
-      ];
-      const out = [];
-      order.forEach(([k,label]) => {
-        const v = sd[k];
-        if (v !== null && v !== undefined && v !== "" && !Number.isNaN(Number(v))) {
-          out.push(`${label}: ${v}`);
+        // FIX #4: Prevent form default submit and route through single handler
+        if (authForm) {
+          authForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (_authInProgress) return;
+            _authInProgress = true;
+            showErr("");
+            const email = (emailEl.value || "").trim();
+            const pass  = (passEl.value || "").trim();
+            if (!email || !pass) { showErr("Enter email and password."); _authInProgress = false; return; }
+            try {
+              await window.__authApi.signIn(email, pass);
+              showAuthOverlay(false);
+              onAuthReady();
+            } catch (e) {
+              showErr(e?.message || String(e));
+            } finally {
+              _authInProgress = false;
+            }
+          });
         }
-      });
-      return out;
-    }
-//       return out;  // FIX: was causing "Return statements are only valid inside functions."
-    }
 
-    function _fmtPainImpact(pi) {
-      if (!pi || typeof pi !== "object") return [];
-      const out = [];
-      if (pi.severity !== undefined && pi.severity !== null && pi.severity !== "") {
-        out.push(`Pain impact (0–10): ${pi.severity}`);
-      }
-      const bools = [
-        ["interfered_with_sleep","Interfered with sleep"],
-        ["limited_walking","Limited walking"],
-        ["forced_extra_rest","Forced extra rest"],
-        ["required_rescue_meds","Required rescue meds"],
-        ["changed_gait_mechanics","Changed gait mechanics"],
-      ];
-      for (const [k,label] of bools) {
-        if (pi[k] === undefined) continue;
-        out.push(`  ${label}: ${_yesNo(!!pi[k])}`);
-      }
-      if (pi.primary_driver) out.push(`  Primary driver: ${_safeTxt(pi.primary_driver)}`);
-      return out;
-    }
-
-    function _fmtConfounders(cc) {
-      if (!cc || typeof cc !== "object") return [];
-      const out = [];
-
-      // Backwards compatibility: accept older key names
-      const pickCC = (...keys) => {
-        for (const k of keys) {
-          if (cc[k] !== undefined && cc[k] !== null) return cc[k];
-        }
-        return undefined;
-      };
-
-      const checks = [
-        ["poor_sleep_last_night", "Poor sleep last night", ["poor_sleep_last_night","poor_sleep"]],
-        ["unusual_physical_exertion", "Unusual exertion", ["unusual_physical_exertion","unusual_exertion"]],
-        ["medication_timing_change", "Medication timing change", ["medication_timing_change","medication_timing_change"]],
-        ["dose_change", "Dose change", ["dose_change","dose_change"]],
-        ["missed_dose", "Missed dose", ["missed_dose","missed_dose"]],
-        ["new_supplement_added", "New supplement", ["new_supplement_added","new_supplement"]],
-        ["new_medication_added", "New medication", ["new_medication_added","new_med"]],
-        ["travel_or_disrupted_schedule", "Travel or schedule change", ["travel_or_disrupted_schedule","travel_or_schedule_change"]],
-        ["infection_symptoms", "Infection symptoms", ["infection_symptoms","infection_symptoms"]],
-        ["gi_upset_or_dehydration_risk", "GI upset or dehydration risk", ["gi_upset_or_dehydration_risk","gi_or_dehydration"]]
-      ];
-
-      checks.forEach(([, label, keys]) => {
-        if (pickCC(...keys) === true) out.push(label);
-      });
-
-      const stress = pickCC("high_stress","high_stress");
-      if (stress !== undefined && stress !== null && stress !== "" && stress !== 0) out.push(`High stress: ${stress}`);
-
-      // Electrolyte-related (optional details)
-      if (pickCC("night_pain_likely_electrolyte_related","night_pain_likely_electrolyte_related") === true) {
-        const detail = [];
-        const win = pickCC("electrolyte_rescue_window");
-        const typ = pickCC("electrolyte_rescue_type");
-        const helped = pickCC("electrolyte_rescue_helped_within");
-        if (win) detail.push(`window: ${win}`);
-        if (typ) detail.push(`type: ${typ}`);
-        if (helped) detail.push(`helped: ${helped}`);
-        out.push(detail.length ? `Electrolyte rescue likely (${detail.join(", ")})` : "Electrolyte rescue likely");
-      }
-
-      if (pickCC("nothing_unusual") === true) out.push("Nothing unusual");
-
-      return out;
-    }
-
-    function _abbrBaseline(v) {
-      switch (v) {
-        case "much_worse": return "MW";
-        case "worse": return "W";
-        case "same": return "S";
-        case "better": return "B";
-        case "much_better": return "MB";
-        default: return "-";
-      }
-    }
-
-    function _ctxCodes(ctx) {
-      if (!ctx) return "";
-      const parts = [];
-      if (ctx.poor_sleep) parts.push("SLP");
-      if (ctx.unusual_exertion) parts.push("EX");
-      if (ctx.medication_timing_change) parts.push("MEDT");
-      if (ctx.dose_change) parts.push("DOSE");
-      if (ctx.missed_dose) parts.push("MISS");
-      if (ctx.new_supplement) parts.push("NEW");
-      if (ctx.new_medication) parts.push("NEWMED");
-      if (ctx.electrolyte_night_pain) {
-        const t = ctx.electrolyte_type ? ctx.electrolyte_type.toUpperCase() : "";
-        const w = ctx.electrolyte_helped_within ? ctx.electrolyte_helped_within : "";
-        parts.push(`ELEC${t}${w ? "-" + w : ""}`);
-      }
-      if (ctx.travel_or_schedule_change) parts.push("TRV");
-      if ((ctx.high_stress ?? 0) > 0) parts.push(`STR${ctx.high_stress}`);
-      if (ctx.infection_symptoms) parts.push("INF");
-      if (ctx.gi_or_dehydration) parts.push("GI");
-      if (ctx.nothing_unusual) parts.push("NONE");
-      return parts.join(" ");
-    }
-
-    function _protoPilot(p) {
-      if (!p) return "";
-      const yn = (b) => (b ? "Y" : "N");
-      return `NA:${yn(p.nervonic_acid_taken)}${p.nervonic_acid_missed ? "(miss)" : ""}  NAC:${yn(p.nac_taken)}  ALA:${yn(p.r_ala_taken)}  E:${yn(p.vitamin_e_taken)}`;
-    }
-
-    function _protoPassenger(p) {
-      if (!p) return "";
-      const yn = (b) => (b ? "Y" : "N");
-      return `NA:${yn(p.nervonic_acid_taken)}  NAC:${yn(p.nac_taken)}  ALA:${yn(p.r_ala_taken)}  E:${yn(p.vitamin_e_taken)}`;
-    }
-
-    function _vitalsLine(v) {
-      const fmtBP = (o) => {
-        if (!o) return "-";
-        const s = o.bp_sys ?? null;
-        const d = o.bp_dia ?? null;
-        return (s && d) ? `${s}/${d}` : "-";
-      };
-      const fmtHR = (o) => {
-        if (!o) return "-";
-        return (o.hr || o.hr === 0) ? String(o.hr) : "-";
-      };
-      const am = v?.morning;
-      const pm = v?.evening;
-      return `AM ${fmtBP(am)} HR ${fmtHR(am)}   PM ${fmtBP(pm)} HR ${fmtHR(pm)}`;
-    }
-
-    function _appendWrapped(pdf, text, x, y, maxWidth, lineH) {
-      const lines = pdf.splitTextToSize(text, maxWidth);
-      for (const ln of lines) {
-        pdf.text(ln, x, y);
-        y += lineH;
-      }
-      return y;
-    }
-
-    async function generatePilotPDF(logs, label, startDate, endDate, dir, patientMeta = {}) {
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ unit: "pt", format: "letter" });
-
-      const pageW = pdf.internal.pageSize.getWidth();
-      const margin = 36;
-      const maxW = pageW - margin * 2;
-
-      // Normalize order for reporting table
-      const ordered = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
-      if (dir === "desc") ordered.reverse();
-
-      // Header
-      const pn = (patientMeta?.patientName || '').trim() || 'Patrick Fuellbeck';
-      const pdob = (patientMeta?.patientDob || '').trim();
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(15);
-      pdf.text(`AMN Protocol: ${label}`, margin, 48);
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      pdf.text(`Patient: ${pn}${pdob ? `   |   DOB: ${pdob}` : ""}`, margin, 64);
-      pdf.text(`Range: ${startDate} to ${endDate}   |   Logs: ${ordered.length}   |   Generated: ${new Date().toLocaleDateString()}`, margin, 78);
-
-      let y = 106;
-
-      // Daily Summary header (trend scan)
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(12);
-      pdf.text("Daily Summary (Trend Scan)", margin, y);
-      y += 14;
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
-      pdf.text("Baseline status, key symptom scores (0–10), and contextual drivers for each logged day.", margin, y);
-      y += 12;
-      pdf.text("Baseline codes: MW W S B MB.  Context codes: SLP EX MEDT DOSE MISS NEW TRV STR1-3 INF GI NONE.", margin, y);
-      y += 18;
-
-      // Dense daily matrix header (plain English)
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(8);
-      const xDate = margin;
-      const xBase = margin + 56;
-      const xEnergy = margin + 92;
-      const xPain = margin + 132;
-      const xSleep = margin + 168;
-      const xGait = margin + 208;
-      const xStiff = margin + 252;
-      const xFog = margin + 308;
-      const xFat = margin + 360;
-      const xCtx = margin + 416;
-      const xEvt = margin + 520;
-
-      pdf.text("Date", xDate, y);
-      pdf.text("Baseline", xBase, y);
-      pdf.text("Energy", xEnergy, y);
-      pdf.text("Pain", xPain, y);
-      pdf.text("Sleep", xSleep, y);
-      pdf.text("Gait", xGait, y);
-      pdf.text("Stiff", xStiff, y);
-      pdf.text("Fog", xFog, y);
-      pdf.text("Fatigue", xFat, y);
-      pdf.text("Context", xCtx, y);
-      pdf.text("Events", xEvt, y);
-      pdf.line(margin, y + 4, margin + maxW, y + 4);
-      y += 16;
-
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
-
-      const appendix = [];
-
-      for (const log of ordered) {
-        if (y > 720) { pdf.addPage(); y = 54; }
-
-        const sd = log.symptom_drift || {};
-        const pi = log.pain_impact || {};
-        const ctx = log.context_changes || {};
-
-        const date = _safeTxt(log.date) || "-";
-        const bl = _abbrBaseline(log.baseline_rating);
-        const E = (log.energy_capacity ?? "-");
-        const P = (pi.severity ?? "-");
-        const SL = (sd.sleep_quality ?? "-");
-        const G = (sd.gait_effort ?? "-");
-        const ST = (sd.leg_stiffness ?? "-");
-        const FG = (sd.brain_fog ?? "-");
-        const FT = (sd.neurologic_fatigue ?? "-");
-        const NMTL = (log.external_neuromuscular_training && typeof log.external_neuromuscular_training.level !== "undefined")
-          ? log.external_neuromuscular_training.level
-          : null;
-        const NMT = (NMTL === 0 || NMTL === 1 || NMTL === 2) ? `NT${NMTL}` : "";
-        const CTX = [_ctxCodes(ctx), NMT].filter(Boolean).join(" ");
-        const EVT = Array.isArray(log.adverse_events) ? String(log.adverse_events.length) : "0";
-
-        pdf.text(date, xDate, y);
-        pdf.text(String(bl), xBase, y);
-        pdf.text(String(E), xEnergy, y);
-        pdf.text(String(P), xPain, y);
-        pdf.text(String(SL), xSleep, y);
-        pdf.text(String(G), xGait, y);
-        pdf.text(String(ST), xStiff, y);
-        pdf.text(String(FG), xFog, y);
-        pdf.text(String(FT), xFat, y);
-        pdf.text(_safeTxt(CTX).slice(0, 20), xCtx, y);
-        pdf.text(EVT, xEvt, y);
-        y += 14;
-
-        // Appendix entry (full details)
-        appendix.push({
-          date,
-          protocol: _protoPilot(log.protocol_adherence),
-          vitals: _vitalsLine(log.vitals),
-          baseline_rating: log.baseline_rating || null,
-          baseline_confidence: log.baseline_confidence || null,
-          energy_capacity: log.energy_capacity ?? null,
-          energy_confidence: log.energy_confidence || null,
-          symptom_drift: log.symptom_drift || null,
-          pain_impact: log.pain_impact || null,
-          context_changes: log.context_changes || null,
-          neuromuscular_training_external: (log.external_neuromuscular_training ? {
-            label: (log.external_neuromuscular_training.label ?? null),
-            level: (typeof log.external_neuromuscular_training.level !== "undefined" ? log.external_neuromuscular_training.level : null)
-          } : null),
-
-          daily_summary: log.daily_summary || null,
-          food_notes: log.food_notes || null,
-          notes: log.notes || null,
-          adverse_events: log.adverse_events || null,
-          positive_events: log.positive_events || null,
-          lab: (log.lab || log.lab_date || log.lab_vlcfa || log.lab_liver || log.lab_notes) ? ({
-            // Prefer nested `lab` map (current schema). Fall back to legacy flat fields.
-            test_date: (log.lab && (log.lab.test_date || log.lab.lab_date)) || log.lab_date || null,
-            vlcfa_c26: (log.lab && (log.lab.vlcfa_c26 || log.lab.vlcfa_c26_0 || log.lab.vlcfa)) || log.lab_vlcfa || null,
-            liver_alt_ast: (log.lab && (log.lab.liver_alt_ast || log.lab.liver)) || log.lab_liver || null,
-            notes: (log.lab && log.lab.notes) || log.lab_notes || null
-          }) : null
-        });
-      }
-
-      // Appendix
-      pdf.addPage();
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(13);
-      pdf.text("Notes Appendix (Full Details)", margin, 54);
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
-      y = 78;
-
-      for (const a of appendix) {
-        if (y > 720) { pdf.addPage(); y = 54; }
-        pdf.setFont("helvetica", "bold");
-        pdf.text(a.date, margin, y);
-        pdf.setFont("helvetica", "normal");
-        y += 14;
-
-        const blocks = [];
-        if (a.protocol) blocks.push(`Protocol: ${a.protocol}`);
-        if (a.vitals) blocks.push(`Vitals: ${a.vitals}`);
-        if (a.baseline_rating || a.baseline_confidence) blocks.push(`Baseline: ${_safeTxt(a.baseline_rating)}  (conf: ${_safeTxt(a.baseline_confidence) || "-"})`);
-        if (a.energy_capacity !== null || a.energy_confidence) blocks.push(`Energy: ${a.energy_capacity ?? "-"}/10  (conf: ${_safeTxt(a.energy_confidence) || "-"})`);
-        if (a.symptom_drift) blocks.push(`Symptom drift: ${_safeTxt(JSON.stringify(a.symptom_drift))}`);
-        if (a.pain_impact) blocks.push(`Pain impact: ${_safeTxt(JSON.stringify(a.pain_impact))}`);
-        if (a.context_changes) blocks.push(`Context: ${_safeTxt(JSON.stringify(a.context_changes))}`);
-        if (a.neuromuscular_training_external) blocks.push(`Neuromuscular training (external): ${_safeTxt(a.neuromuscular_training_external.label)} (level: ${a.neuromuscular_training_external.level ?? '-'})`);
-        if (a.daily_summary) blocks.push(`Daily summary: ${_safeTxt(a.daily_summary)}`);
-        if (a.food_notes) blocks.push(`Food: ${_safeTxt(a.food_notes)}`);
-        if (a.notes) blocks.push(`Notes: ${_safeTxt(a.notes)}`);
-        if (a.lab) {
-          const lab = a.lab || null;
-          if (lab && (lab.vlcfa_c26 || lab.liver_alt_ast || lab.notes || lab.test_date)) {
-            const parts = [];
-            if (lab.test_date) parts.push(`Date: ${_safeTxt(lab.test_date)}`);
-            parts.push(`VLCFA (C26:0): ${_safeTxt(lab.vlcfa_c26 ?? "-")}`);
-            parts.push(`Liver (ALT/AST): ${_safeTxt(lab.liver_alt_ast ?? "-")}`);
-            if (lab.notes) parts.push(`Notes: ${_safeTxt(lab.notes)}`);
-            blocks.push(`Periodic labs: ${parts.join(" | ")}`);
-          } else {
-            blocks.push(`Periodic labs: None`);
+        btnIn.addEventListener("click", async () => {
+          if (_authInProgress) return;
+          _authInProgress = true;
+          showErr("");
+          const email = (emailEl.value || "").trim();
+          const pass  = (passEl.value || "").trim();
+          if (!email || !pass) { showErr("Enter email and password."); _authInProgress = false; return; }
+          try {
+            await window.__authApi.signIn(email, pass);
+            showAuthOverlay(false);
+            onAuthReady();
+          } catch (e) {
+            showErr(e?.message || String(e));
+          } finally {
+            _authInProgress = false;
           }
-        }
+        });
 
-        // Events
-        if (Array.isArray(a.adverse_events) && a.adverse_events.length) {
-          const ev = a.adverse_events.map(e => `- ${_safeTxt(e?.description || "")} (${_safeTxt(e?.time_of_day || "")}${e?.duration_minutes ? `, ${e.duration_minutes}m` : ""}${e?.suspected_driver ? `, driver: ${_safeTxt(e.suspected_driver)}` : ""})`).join(" | ");
-          blocks.push(`Adverse events: ${ev}`);
-        }
-        if (Array.isArray(a.positive_events) && a.positive_events.length) {
-          const ev = a.positive_events.map(e => `- ${_safeTxt(e?.description || "")} (${_safeTxt(e?.time_of_day || "")}${e?.duration_minutes ? `, ${e.duration_minutes}m` : ""}${e?.suspected_driver ? `, driver: ${_safeTxt(e.suspected_driver)}` : ""})`).join(" | ");
-          blocks.push(`Wins: ${ev}`);
-        }
+        btnUp.addEventListener("click", async () => {
+          if (_authInProgress) return;
+          _authInProgress = true;
+          showErr("");
+          const email = (emailEl.value || "").trim();
+          const pass  = (passEl.value || "").trim();
+          if (!email || !pass) { showErr("Enter email and password."); _authInProgress = false; return; }
+          try {
+            await window.__authApi.signUp(email, pass);
+            showAuthOverlay(false);
+            onAuthReady();
+          } catch (e) {
+            showErr(e?.message || String(e));
+          } finally {
+            _authInProgress = false;
+          }
+        });
 
-        for (const b of blocks) {
-          if (y > 720) { pdf.addPage(); y = 54; }
-          y = _appendWrapped(pdf, b, margin, y, maxW, 12);
-        }
-        y += 10;
-        pdf.setDrawColor(200);
-        pdf.line(margin, y, margin + maxW, y);
-        y += 14;
+        btnDemo.addEventListener("click", () => {
+          showErr("");
+          enterDemoMode();
+        });
+
+        window.__authUIReady = true;
       }
 
-      pdf.save(`Pilot_${startDate}_to_${endDate}.pdf`);
-    }
+      function showAuthOverlay(show) {
+        ensureAuthUI();
+        const o = document.getElementById("auth-overlay");
+        if (!o) return;
+        if (show) o.removeAttribute("hidden");
+        else o.setAttribute("hidden", "hidden");
+      }
 
-    async function generatePassengerPDF(logs, label, startDate, endDate, dir, patientMeta = {}) {
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ unit: "pt", format: "letter" });
+      function enterDemoMode() {
+        window.__DEMO_MODE__ = true;
+        showAuthOverlay(false);
+        const disableIds = ["p-save-log","n-save-log","lab-save-results-btn","clinician-export-btn"];
+        disableIds.forEach((id) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.disabled = true; el.style.opacity = "0.5"; el.style.cursor = "not-allowed";
+          el.title = "Demo mode: cloud sync disabled";
+        });
+        let b = document.getElementById("demo-banner");
+        if (!b) {
+          b = document.createElement("div"); b.id = "demo-banner";
+          b.style.cssText = "position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;font-size:13px;line-height:1.25;";
+          b.innerHTML = "Viewing in demo mode (read-only). Cloud sync and exports are disabled.";
+          document.body.appendChild(b);
+        }
+      }
 
-      const pageW = pdf.internal.pageSize.getWidth();
-      const margin = 36;
-      const maxW = pageW - margin * 2;
+      function onAuthReady() { /* placeholder for post-auth init */ }
 
-      const ordered = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
-      if (dir === "desc") ordered.reverse();
+      window.signOutProtocol = async function() {
+        try { await auth.signOut(); } catch(e) { console.error(e); }
+      };
 
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(15);
-      pdf.text(`AMN Protocol: ${label}`, margin, 48);
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      const pn = (patientMeta?.patientName || '').trim() || (label === 'Passenger' ? 'Nieve' : '');
-      const pdob = (patientMeta?.patientDob || '').trim();
-      if (pn) pdf.text(`Patient: ${pn}${pdob ? `   |   DOB: ${pdob}` : ""}`, margin, 64);
-      pdf.text(`Range: ${startDate} to ${endDate}   |   Logs: ${ordered.length}   |   Generated: ${new Date().toLocaleDateString()}`, margin, pn ? 78 : 64);
+      function requireUid() {
+        if (window.__DEMO_MODE__) throw new Error("Demo mode: not signed in");
+        if (!window.CURRENT_UID) throw new Error("Not signed in. Please sign in again.");
+        return window.CURRENT_UID;
+      }
 
-      let y = pn ? 106 : 92;
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(9);
-      pdf.text("DATE", margin, y);
-      pdf.text("PROTO", margin + 90, y);
-      pdf.text("SAFETY", margin + 270, y);
-      pdf.line(margin, y + 4, margin + maxW, y + 4);
-      y += 18;
+      db.enablePersistence().catch((err) => {
+        console.warn("Firestore persistence not enabled:", (err && err.code) ? err.code : err);
+      });
 
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
+      auth.onAuthStateChanged((user) => {
+        window.CURRENT_UID = user?.uid || null;
+        showAuthOverlay(!window.CURRENT_UID);
+      });
 
-      const appendix = [];
+      function userProfilePath(profile, ...rest) {
+        const uid = requireUid();
+        const tail = rest.length ? "/" + rest.map(encodeURIComponent).join("/") : "";
+        return `users/${uid}/profiles/${encodeURIComponent(profile)}${tail}`;
+      }
 
-      for (const log of ordered) {
-        if (y > 720) { pdf.addPage(); y = 54; }
-        const date = _safeTxt(log.date) || "-";
-        const proto = _protoPassenger(log.protocol_adherence);
-        const safety = log.safety?.feels_different ? "FEELS DIFFERENT" : "Normal";
-        pdf.text(date, margin, y);
-        pdf.text(_safeTxt(proto).slice(0, 28), margin + 90, y);
-        pdf.text(safety, margin + 270, y);
-        y += 14;
+      // ---------------------------
+      // Helpers
+      // ---------------------------
+      function localDateStr(d = new Date()) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      }
+      function el(id) { return document.getElementById(id); }
+      function val(id) { return el(id)?.value ?? ""; }
+      function checked(id) { return !!el(id)?.checked; }
+      function asNumber(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
+      function trimText(s) { return String(s ?? "").replace(/\s+/g, " ").trim(); }
+      function mustEnum(value, allowed, fallback = null) { return allowed.includes(value) ? value : fallback; }
+      function parseBP(bpText) {
+        const t = trimText(bpText);
+        const m = t.match(/(\d{2,3})\s*\/\s*(\d{2,3})/);
+        if (!m) return { bp_sys: null, bp_dia: null };
+        return { bp_sys: asNumber(m[1]), bp_dia: asNumber(m[2]) };
+      }
 
-        appendix.push({
+      // FIX #3: displayValue helper — always returns 'N/A' for null/undefined/empty
+      function displayValue(v, suffix) {
+        if (v === null || v === undefined || v === '') return 'N/A';
+        return String(v) + (suffix || '');
+      }
+
+      // ---------------------------
+      // Event list UI (Pilot)
+      // ---------------------------
+      window.POSITIVE_TRIGGERS = [
+        "Sleep improvement","Rest / pacing","Mindfulness practice","Light movement / mobility",
+        "Food / hydration","Medication / supplement adjustment (non-core)","Other","Unknown"
+      ];
+      window.ADVERSE_TRIGGERS = [
+        "Poor sleep","Overexertion","Stress","Illness / infection","Travel / disrupted schedule",
+        "Medication / supplement adjustment (non-core)","Electrolyte shift (suspected)","Other","Unknown"
+      ];
+      const POSITIVE_TRIGGERS = window.POSITIVE_TRIGGERS;
+      const ADVERSE_TRIGGERS = window.ADVERSE_TRIGGERS;
+
+      function escapeHTML(input) {
+        return String(input ?? "")
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
+      }
+      function optionList(options) {
+        return options.map(o => `<option value="${escapeHTML(o)}">${escapeHTML(o)}</option>`).join("");
+      }
+
+      function newEpisodeItem(kind) {
+        const wrap = document.createElement("div");
+        wrap.className = "event-item";
+        const title = (kind === "positive") ? "What improved" : "What happened";
+        const triggerLabel = (kind === "positive") ? "What helped (optional)" : "What drove it (optional)";
+        const triggers = (kind === "positive") ? POSITIVE_TRIGGERS : ADVERSE_TRIGGERS;
+        wrap.innerHTML = `
+          <div class="input-group"><label>${title}</label><textarea class="input" rows="2" placeholder="Short description..."></textarea></div>
+          <div class="row">
+            <div class="input-group"><label>Duration (min)</label><input class="input duration" type="number" min="0" step="1" placeholder="e.g. 30" /></div>
+            <div class="input-group"><label>${triggerLabel}</label><select class="input trigger"><option value="">Select</option>${optionList(triggers)}</select></div>
+          </div>
+          <div class="input-group"><label>Trigger detail (optional)</label><input class="input detail" type="text" placeholder="e.g., potassium helped, intense PT session" /></div>
+          <button class="btn btn-ghost remove" type="button">Remove</button>`;
+        wrap.querySelector(".remove").addEventListener("click", () => wrap.remove());
+        return wrap;
+      }
+
+      function initEvents() {
+        const posWrap = document.getElementById("p-positive-events");
+        const advWrap = document.getElementById("p-adverse-events");
+        const addPos = document.getElementById("p-add-positive-event");
+        const addAdv = document.getElementById("p-add-adverse-event");
+        if (addPos && posWrap && !addPos.getAttribute("onclick")) {
+          addPos.addEventListener("click", () => posWrap.appendChild(newEpisodeItem("positive")));
+        }
+        if (addAdv && advWrap && !addAdv.getAttribute("onclick")) {
+          addAdv.addEventListener("click", () => advWrap.appendChild(newEpisodeItem("adverse")));
+        }
+      }
+
+      window.addPositiveEvent = function(){
+        const posWrap = document.getElementById("p-positive-events");
+        if (posWrap) posWrap.appendChild(newEpisodeItem("positive"));
+      };
+      window.addAdverseEvent = function(){
+        const advWrap = document.getElementById("p-adverse-events");
+        if (advWrap) advWrap.appendChild(newEpisodeItem("adverse"));
+      };
+
+      function readEpisodeItems(containerId, fallbackId) {
+        const wrap = document.getElementById(containerId) || (fallbackId ? document.getElementById(fallbackId) : null);
+        if (!wrap) return [];
+        return [...wrap.querySelectorAll(".event-item")].map(el => {
+          const desc = (el.querySelector("textarea")?.value || "").trim();
+          const durationRaw = (el.querySelector("input.duration")?.value || "").trim();
+          const durationMin = durationRaw === "" ? null : Number(durationRaw);
+          const trigger = (el.querySelector("select.trigger")?.value || "").trim();
+          const detail = (el.querySelector("input.detail")?.value || "").trim();
+          return { desc, durationMin: Number.isFinite(durationMin) ? durationMin : null, trigger: trigger || null, detail: detail || null };
+        }).filter(x => x.desc || x.trigger || x.detail || (x.durationMin !== null));
+      }
+      function readPositiveEvents() { return readEpisodeItems("p-positive-events", "positive-events"); }
+      function readAdverseEvents() { return readEpisodeItems("p-adverse-events", "adverse-events"); }
+
+      function collectPilotPayload() {
+        const date = localDateStr();
+        const morningBP = parseBP(val("p-morning-bp"));
+        const eveningBP = parseBP(val("p-evening-bp"));
+        return {
           date,
-          protocol: proto,
-          safety: log.safety || null,
-          notes: log.notes || null
-        });
+          baseline_rating: mustEnum(val("p-global-rating"), ["much_worse","worse","same","better","much_better"], null),
+          baseline_confidence: mustEnum(val("p-global-confidence"), ["low","medium","high"], null),
+          energy_capacity: asNumber(val("p-energy-capacity")),
+          energy_confidence: mustEnum(val("p-energy-confidence"), ["low","medium","high"], null),
+          symptom_drift: {
+            brain_fog: asNumber(val("p-fog")),
+            step_gait_effort: asNumber(val("p-gait")),
+            gait_initiation_effort: asNumber(val("p-gait-init")),
+            sustained_walking_effort: asNumber(val("p-gait-sustain")),
+            neurologic_fatigue: asNumber(val("p-fatigue")),
+            sleep_quality: asNumber(val("p-sleep")),
+            leg_stiffness: asNumber(val("p-stiff")),
+            post_rest_stiffness: asNumber(val("p-postrest")),
+            symptom_volatility: asNumber(val("p-volatility"))
+          },
+          pain_impact: {
+            severity: asNumber(val("p-painimpact")),
+            interfered_with_sleep: checked("p-pain-sleep"),
+            limited_walking: checked("p-pain-walk"),
+            forced_extra_rest: checked("p-pain-rest"),
+            required_rescue_meds: checked("p-pain-meds"),
+            changed_gait_mechanics: checked("p-pain-gait"),
+            primary_driver: mustEnum(val("p-pain-location"), ["piriformis_glute","low_back","hip","thigh","calf","foot","other"], null)
+          },
+          context_changes: {
+            poor_sleep_last_night: checked("p-conf-sleep"),
+            unusual_physical_exertion: checked("p-conf-exertion"),
+            medication_timing_change: checked("p-conf-medtiming"),
+            dose_change: checked("p-conf-dosechange"),
+            missed_dose: checked("p-conf-misseddose"),
+            new_supplement_added: checked("p-conf-newsupp"),
+            new_medication_added: checked("p-conf-newmed"),
+            travel_or_disrupted_schedule: checked("p-conf-travel"),
+            high_stress: (asNumber(val("p-conf-stress")) ?? 0),
+            infection_symptoms: checked("p-conf-infection"),
+            gi_upset_or_dehydration_risk: checked("p-conf-gi"),
+            night_pain_likely_electrolyte_related: checked("p-conf-elec"),
+            electrolyte_rescue_window: val("p-conf-elec-window") || "",
+            electrolyte_rescue_type: val("p-conf-elec-type") || "",
+            nothing_unusual: checked("p-conf-none")
+          },
+          vitals: {
+            morning: { ...morningBP, hr: asNumber(val("p-morning-hr")) },
+            evening: { ...eveningBP, hr: asNumber(val("p-evening-hr")) }
+          },
+          protocol_adherence: {
+            nervonic_acid_taken: checked("p-nervonic"),
+            nervonic_acid_missed: checked("p-na-missed"),
+            nac_taken: checked("p-nac"),
+            r_ala_taken: checked("p-ala"),
+            vitamin_e_taken: checked("p-vite")
+          },
+          external_neuromuscular_training: {
+            level: (asNumber(val("p-nmt-level")) ?? 0),
+            label: mustEnum(val("p-nmt-label"), ["none","light","full"], "none")
+          },
+          fast_markers: {
+            near_fall_or_balance_scare: checked("p-fast-nearfall"),
+            electrolyte_rescue_required: checked("p-fast-electrolyte"),
+            spasm_or_clonus_episode: checked("p-fast-spasm"),
+            night_pain_woke_me: checked("p-fast-nightpain"),
+            restless_legs_at_night: checked("p-fast-restless")
+          },
+          positive_events: readPositiveEvents(),
+          daily_summary: trimText(val("p-daily-summary")) || null,
+          adverse_events: readAdverseEvents(),
+          notes: trimText(val("p-notes")) || null,
+          food_notes: trimText(val("p-food-notes")) || null
+        };
       }
 
-      // Appendix
-      pdf.addPage();
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(13);
-      pdf.text("Notes Appendix (Full Details)", margin, 54);
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
-      y = 78;
-
-      for (const a of appendix) {
-        if (y > 720) { pdf.addPage(); y = 54; }
-        pdf.setFont("helvetica", "bold");
-        pdf.text(a.date, margin, y);
-        pdf.setFont("helvetica", "normal");
-        y += 14;
-        if (a.protocol) y = _appendWrapped(pdf, `Protocol: ${a.protocol}`, margin, y, maxW, 12);
-        if (a.safety) y = _appendWrapped(pdf, `Safety: ${_safeTxt(JSON.stringify(a.safety))}`, margin, y, maxW, 12);
-        if (a.notes) y = _appendWrapped(pdf, `Notes: ${_safeTxt(a.notes)}`, margin, y, maxW, 12);
-        y += 10;
-        pdf.setDrawColor(200);
-        pdf.line(margin, y, margin + maxW, y);
-        y += 14;
+      function collectPassengerPayload() {
+        return {
+          date: localDateStr(),
+          notes: trimText(val("n-notes")) || null,
+          safety: { feels_different: checked("n-safety"), details: trimText(val("n-safety-notes")) || null },
+          protocol_adherence: {
+            nervonic_acid_taken: checked("n-nervonic"),
+            nac_taken: checked("n-nac"),
+            r_ala_taken: checked("n-ala"),
+            vitamin_e_taken: checked("n-vite")
+          }
+        };
       }
 
-      pdf.save(`Passenger_${startDate}_to_${endDate}.pdf`);
-    }
+      function collectLabPayload() {
+        const date = trimText(val("lab-date"));
+        return {
+          date: date || localDateStr(),
+          lab: {
+            test_date: date || null,
+            vlcfa_c26: trimText(val("lab-vlcfa")) || null,
+            liver_alt_ast: trimText(val("lab-liver")) || null,
+            notes: trimText(val("lab-notes")) || null
+          }
+        };
+      }
 
-    // Helper to render blank instead of "null" or "undefined"
-    function valRender(val, suffix = "") {
-      if (val === null || val === undefined || val === "") return "";
-      return val + suffix;
-    }
-    function yesNo(val) {
-      if (val === null || val === undefined) return "";
-      return val ? "Yes" : "No";
-    }
-
-    async function exportProtocolReport(profileId, opts = {}) {
-  const uid = window.CURRENT_UID;
-  if (!uid) {
-    alert("Must be logged in to export.");
-    return;
-  }
-
-  // Render helpers
-  function displayValue(v) {
-    if (v === null || v === undefined || v === "") {
-      return "N/A";
-    }
-    return v;
-  }
-  const vr = (val, suffix = "") => {
-    const dv = displayValue(val);
-    if (dv === "N/A") return dv;
-    return String(dv) + suffix;
-  };
-  const yn = (val) => {
-    if (val === true) return "Yes";
-    if (val === false) return "No";
-    return "N/A";
-  };
-  const pick = (obj, ...keys) => {
-    for (const k of keys) {
-      if (!obj) continue;
-      const v = obj[k];
-      if (v !== undefined && v !== null && v !== "") return v;
-    }
-    return undefined;
-  };
-  const bpRender = (v) => {
-    if (!v || typeof v !== "object") return "";
-    if (v.bp) return displayValue(v.bp);
-
-    const sys = pick(v, "bp// 1) Fetch logs + functional tests, then merge by date (required for PDF report)
-    async function fetchMergedReportData(userId) {
-      const logsRef = db.collection(`users/${userId}/profiles/${encodeURIComponent(profileId)}/logs`);
-      const testsRef = db.collection(`users/${userId}/profiles/${encodeURIComponent(profileId)}/tests`);
-
-      const [logsSnap, testsSnap] = await Promise.all([
-        logsRef.get(),
-        testsRef.get()
-      ]);
-
-      const mergedData = {};
-
-      logsSnap.forEach((doc) => {
-        const data = doc.data() || {};
-        const dateKey = String(data.date || doc.id || "").trim();
-        if (!dateKey) return;
-        mergedData[dateKey] = Object.assign({}, data, { date: dateKey, tests: [] });
-      });
-
-      testsSnap.forEach((doc) => {
-        const testData = doc.data() || {};
-        const dateKey = String(testData.test_date || testData.date || (doc.id ? String(doc.id).split("_")[0] : "") || "").trim();
-        if (!dateKey) return;
-
-        if (!mergedData[dateKey]) {
-          mergedData[dateKey] = { date: dateKey, tests: [] };
+      async function saveUserLog(profileId, payload) {
+        try {
+          const uid = window.CURRENT_UID;
+          if (!uid) throw new Error("Not authenticated");
+          const dateStr = payload.date || localDateStr();
+          const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
+          const finalPayload = { ...payload, date: dateStr, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), clientUpdatedAt: new Date().toISOString() };
+          await docRef.set(finalPayload, { merge: true });
+        } catch (err) {
+          if (err?.message && String(err.message).toLowerCase().includes('terminated')) {
+            alert("Database connection interrupted. The page will now refresh to restore connection.");
+            window.location.reload();
+            return;
+          }
+          console.error("Save error:", err);
+          alert("Failed to save: " + (err?.message || err));
+          throw err;
         }
-        if (!Array.isArray(mergedData[dateKey].tests)) mergedData[dateKey].tests = [];
-        mergedData[dateKey].tests.push(testData);
-      });
+      }
+      window.saveUserLog = saveUserLog;
 
-      let rows = Object.values(mergedData);
+      async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
+        const q = db.collection(userProfilePath(patientId, "logs"))
+          .where("date", ">=", startDate).where("date", "<=", endDate).orderBy("date", dir);
+        const snapshot = await q.get();
+        return snapshot.docs.map((d) => d.data());
+      }
 
-      // Optional client-side date filter (if modal passes it)
-      const startDate = opts?.startDate || null;
-      const endDate = opts?.endDate || null;
-      if (startDate || endDate) {
-        rows = rows.filter((r) => {
-          const d = String(r.date || "");
-          if (!d) return false;
-          if (startDate && d < startDate) return false;
-          if (endDate && d > endDate) return false;
-          return true;
+      async function fetchPatientLogs(patientId, days = 30) {
+        const q = db.collection(userProfilePath(patientId, "logs")).orderBy("date", "desc").limit(days);
+        const snapshot = await q.get();
+        return snapshot.docs.map((d) => d.data());
+      }
+
+      function _safeTxt(v) { return String(v ?? "").replace(/\s+/g, " ").trim(); }
+      function _yesNo(v) { return v ? "Yes" : "No"; }
+
+      // FIX #1: Removed stray closing brace that caused SyntaxError
+      function _fmtSymptomShift(sd) {
+        if (!sd || typeof sd !== "object") return [];
+        const order = [
+          ["brain_fog","Brain fog"],["step_gait_effort","Step-by-step gait effort"],
+          ["gait_initiation_effort","Gait initiation effort"],["sustained_walking_effort","Sustained walking effort"],
+          ["neurologic_fatigue","Neurologic fatigue"],["sleep_quality","Sleep quality"],
+          ["leg_stiffness","Leg stiffness"],["post_rest_stiffness","Post-rest stiffness"],
+          ["symptom_volatility","Symptom volatility"]
+        ];
+        const out = [];
+        order.forEach(([k,label]) => {
+          const v = sd[k];
+          if (v !== null && v !== undefined && v !== "" && !Number.isNaN(Number(v))) {
+            out.push(`${label}: ${v}`);
+          }
         });
+        return out;
       }
 
-      // Sort by date to match export order
-      const dir = (opts?.dir || "desc").toLowerCase() === "asc" ? "asc" : "desc";
-      rows.sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
-      if (dir === "desc") rows.reverse();
-
-      return rows;
-    }
-
-    const logs = await fetchMergedReportData(uid);
-
-    if (!logs.length) {
-      alert("No data found to export.");
-      return;
-    }
-"");
-        if (!d) return false;
-        if (startDate && d < startDate) return false;
-        if (endDate && d > endDate) return false;
-        return true;
-      });
-    }
-
-    if (!logs.length) {
-      alert("No data found for that date range.");
-      return;
-    }
-
-    // 2) Generate HTML report
-    const pn = (document.getElementById("export-patient-name")?.value || '').trim() || 'Patrick Fuellbeck';
-    const dob = document.getElementById("export-patient-dob")?.value || "";
-
-    let html = `
-      <div class="report-header">
-      <p class="report-credit">Researched and Prepared By: Patrick Shipp Nutrition RNCP | www.patrickshipp.com</p>
-        <h1>Protocol Report: ${pn}</h1>
-        ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
-        <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-        <p><strong>Records:</strong> ${logs.length}</p>
-      </div>
-    `;
-
-    logs.forEach(log => {
-      // Support both current + legacy schemas
-      const protocol = log.protocol_adherence || log.protocol || {};
-      const vitals = log.vitals || {};
-      const vAm = vitals.morning || {};
-      const vPm = vitals.evening || {};
-
-      const sd = log.symptom_drift || log.ratings || {};
-      const pi = log.pain_impact || {};
-      const ctx = log.context_changes || log.confounders || {};
-      const fm = log.fast_markers || log.fastMarkers || {};
-      const ext = log.external_neuromuscular_training || log.external_variables || {};
-
-      const labs = log.lab || log.periodic_labs || {};
-
-      // Wins can be stored as positive_events (current) or wins (legacy)
-      const winsArr = Array.isArray(log.positive_events) ? log.positive_events : (Array.isArray(log.wins) ? log.wins : []);
-      const adverseArr = Array.isArray(log.adverse_events) ? log.adverse_events : [];
-
-      const dayTitle = (log.date !== undefined && log.date !== null && log.date !== "") ? String(log.date) : "N/A";
-
-      html += `<div class="report-day-block">
-        <div class="day-title">Date: ${dayTitle}</div>`;
-
-      // Protocol adherence
-      html += `<div class="report-section"><h3>Protocol Adherence</h3>
-        <p>NA: ${yn(pick(protocol, "nervonic_acid_taken", "nervonic_acid"))}, NAC: ${yn(pick(protocol, "nac_taken", "nac"))}, ALA: ${yn(pick(protocol, "r_ala_taken", "ala"))}, Vit E: ${yn(pick(protocol, "vitamin_e_taken", "vit_e"))}</p>
-      </div>`;
-
-      // Vitals
-      html += `<div class="report-section"><h3>Vitals AM & PM</h3>
-        <p><strong>AM:</strong> BP: ${vr(bpRender(vAm) || "")} | HR: ${vr(pick(vAm, "hr"), " bpm")}</p>
-        <p><strong>PM:</strong> BP: ${vr(bpRender(vPm) || "")} | HR: ${vr(pick(vPm, "hr"), " bpm")}</p>
-      </div>`;
-
-      
-      // Functional tests (stored in separate collection; merged into log.tests for export)
-      const testsArr = Array.isArray(log.tests) ? log.tests : [];
-      html += `<div class="report-section"><h3>Functional Tests</h3>`;
-      if (!testsArr.length) {
-        html += `<p>N/A</p></div>`;
-      } else {
-        html += `<ul>`;
-        testsArr.forEach(t => {
-          const td = displayValue(t.test_date || t.date || "");
-          const six = t.six_minute_walk || {};
-          const sts = t.sit_to_stand_5x || {};
-          html += `<li><strong>${td}</strong><br/>
-            6-min walk: distance ${vr(six.distance_m, " m")}, rest breaks ${vr(six.rest_breaks_count)}, device ${vr(six.assistive_device)}, course ${vr(six.course_length_m, " m")}, RPE ${vr(six.perceived_exertion)}<br/>
-            5x sit-to-stand: time ${vr(sts.time_seconds, " s")}, used arms ${vr(sts.used_arms)}, chair ${vr(sts.chair_height_cm, " cm")}<br/>
-            Notes: ${vr(t.notes)}
-          </li>`;
-        });
-        html += `</ul></div>`;
+      function _fmtPainImpact(pi) {
+        if (!pi || typeof pi !== "object") return [];
+        const out = [];
+        if (pi.severity !== undefined && pi.severity !== null && pi.severity !== "") {
+          out.push(`Pain impact (0–10): ${pi.severity}`);
+        }
+        const bools = [
+          ["interfered_with_sleep","Interfered with sleep"],["limited_walking","Limited walking"],
+          ["forced_extra_rest","Forced extra rest"],["required_rescue_meds","Required rescue meds"],
+          ["changed_gait_mechanics","Changed gait mechanics"],
+        ];
+        for (const [k,label] of bools) {
+          if (pi[k] === undefined) continue;
+          out.push(`  ${label}: ${_yesNo(!!pi[k])}`);
+        }
+        if (pi.primary_driver) out.push(`  Primary driver: ${_safeTxt(pi.primary_driver)}`);
+        return out;
       }
 
-      // Global status
-      html += `<div class="report-section"><h3>Global Status</h3>
-        <p>Baseline Rating: ${vr(pick(log, "baseline_rating", "global_baseline"))} (Confidence: ${vr(pick(log, "baseline_confidence"))})</p>
-        <p>Energy/Capacity: ${vr(pick(log, "energy_capacity"))} (Confidence: ${vr(pick(log, "energy_confidence"))})</p>
-      </div>`;
-
-      // Fast markers (checkboxes)
-      html += `<div class="report-section"><h3>Fast Markers</h3>
-        <ul>
-          <li>Near-fall or balance scare: ${yn(pick(fm, "near_fall_or_balance_scare", "near_fall"))}</li>
-          <li>Electrolyte rescue required: ${yn(pick(fm, "electrolyte_rescue_required", "electrolyte_rescue", "electrolyte_rescue_needed"))}</li>
-          <li>Spasm or clonus episode: ${yn(pick(fm, "spasm_or_clonus_episode", "spasm_or_clonus"))}</li>
-          <li>Night pain woke me: ${yn(pick(fm, "night_pain_woke_me"))}</li>
-          <li>Restless legs at night: ${yn(pick(fm, "restless_legs_at_night", "restless_legs"))}</li>
-        </ul>
-      </div>`;
-
-      // Symptom shift (0-10) (sliders)
-      html += `<div class="report-section"><h3>Symptom Shift (0-10)</h3>
-        <ul>
-          <li>Brain Fog: ${vr(pick(sd, "brain_fog"))}</li>
-          <li>Step-by-step gait effort: ${vr(pick(sd, "step_gait_effort", "gait_effort_step_by_step", "gait_effort"))}</li>
-          <li>Gait initiation effort: ${vr(pick(sd, "gait_initiation_effort", "gait_initiation"))}</li>
-          <li>Sustained walking effort: ${vr(pick(sd, "sustained_walking_effort", "sustained_walking"))}</li>
-          <li>Neurologic fatigue: ${vr(pick(sd, "neurologic_fatigue"))}</li>
-          <li>Sleep Quality: ${vr(pick(sd, "sleep_quality"))}</li>
-          <li>Leg Stiffness: ${vr(pick(sd, "leg_stiffness"))}</li>
-          <li>Post-rest stiffness: ${vr(pick(sd, "post_rest_stiffness"))}</li>
-          <li>Symptom volatility: ${vr(pick(sd, "symptom_volatility"))}</li>
-        </ul>
-      </div>`;
-
-      // Pain impact
-      html += `<div class="report-section"><h3>Pain Impact</h3>
-        <p>Severity: ${vr(pick(pi, "severity"))} | Driver: ${vr(pick(pi, "primary_driver", "driver"))}</p>
-        <p>Interfered sleep: ${yn(pick(pi, "interfered_with_sleep", "interfered_sleep"))},
-           Limited walk: ${yn(pick(pi, "limited_walking", "limited_walk"))},
-           Forced rest: ${yn(pick(pi, "forced_rest_breaks", "forced_extra_rest"))},
-           Meds: ${yn(pick(pi, "required_meds", "required_rescue_meds"))},
-           Changed gait: ${yn(pick(pi, "changed_gait", "changed_gait_mechanics"))}</p>
-      </div>`;
-
-      // Confounders / context changes
-      html += `<div class="report-section"><h3>Confounders</h3>
-        <p>Poor sleep: ${yn(pick(ctx, "poor_sleep_last_night"))},
-           Unusual exertion: ${yn(pick(ctx, "unusual_physical_exertion"))},
-           Medication timing: ${yn(pick(ctx, "medication_timing_change"))},
-           Dose change: ${yn(pick(ctx, "dose_change"))},
-           Missed dose: ${yn(pick(ctx, "missed_dose"))},
-           New supplement: ${yn(pick(ctx, "new_supplement_or_change"))},
-           Travel/Schedule: ${yn(pick(ctx, "travel_or_schedule_change"))},
-           High stress (0-3): ${vr(pick(ctx, "high_stress"))},
-           Infection: ${yn(pick(ctx, "infection_symptoms"))},
-           GI/Dehydration: ${yn(pick(ctx, "gi_upset_or_dehydration"))},
-           Night pain likely electrolyte-related: ${yn(pick(ctx, "night_pain_electrolyte_related"))},
-           Nothing unusual: ${yn(pick(ctx, "nothing_unusual"))}</p>
-      </div>`;
-
-      // External variables
-      const extLevel = (ext && typeof ext.level !== "undefined") ? ext.level : (typeof ext.neuromuscular_training_level !== "undefined" ? ext.neuromuscular_training_level : undefined);
-      const extLabel = (ext && ext.label) ? ext.label : "";
-      html += `<div class="report-section"><h3>External Variables</h3>
-        <p>Neuro Training Level: ${vr(extLevel)}${extLabel ? ` (${extLabel})` : ""}</p>
-      </div>`;
-
-      // Periodic labs
-      const vlcfa = pick(labs, "vlcfa_c26", "vlcfa");
-      const liver = pick(labs, "liver_alt_ast");
-      const labNotes = pick(labs, "notes");
-      if (vlcfa !== undefined || liver !== undefined || labNotes !== undefined) {
-        html += `<div class="report-section"><h3>Periodic Lab Results</h3>
-          <p>VLCFA: ${vr(vlcfa)}</p>
-          <p>Liver (ALT/AST): ${vr(liver)}</p>
-          <p>Notes: ${vr(labNotes)}</p>
-        </div>`;
+      function _fmtConfounders(cc) {
+        if (!cc || typeof cc !== "object") return [];
+        const out = [];
+        const pickCC = (...keys) => { for (const k of keys) { if (cc[k] !== undefined && cc[k] !== null) return cc[k]; } return undefined; };
+        const checks = [
+          ["poor_sleep_last_night","Poor sleep last night",["poor_sleep_last_night","poor_sleep"]],
+          ["unusual_physical_exertion","Unusual exertion",["unusual_physical_exertion"]],
+          ["medication_timing_change","Medication timing change",["medication_timing_change"]],
+          ["dose_change","Dose change",["dose_change"]],
+          ["missed_dose","Missed dose",["missed_dose"]],
+          ["new_supplement_added","New supplement",["new_supplement_added"]],
+          ["new_medication_added","New medication",["new_medication_added"]],
+          ["travel_or_disrupted_schedule","Travel or schedule change",["travel_or_disrupted_schedule"]],
+          ["infection_symptoms","Infection symptoms",["infection_symptoms"]],
+          ["gi_upset_or_dehydration_risk","GI upset or dehydration risk",["gi_upset_or_dehydration_risk"]]
+        ];
+        checks.forEach(([,label,keys]) => { if (pickCC(...keys) === true) out.push(label); });
+        const stress = pickCC("high_stress");
+        if (stress !== undefined && stress !== null && stress !== "" && stress !== 0) out.push(`High stress: ${stress}`);
+        if (pickCC("night_pain_likely_electrolyte_related") === true) {
+          const win = pickCC("electrolyte_rescue_window");
+          const typ = pickCC("electrolyte_rescue_type");
+          const detail = [win && `window: ${win}`, typ && `type: ${typ}`].filter(Boolean);
+          out.push(detail.length ? `Electrolyte rescue likely (${detail.join(", ")})` : "Electrolyte rescue likely");
+        }
+        if (pickCC("nothing_unusual") === true) out.push("Nothing unusual");
+        return out;
       }
 
-      // Functional tests
-      html += `<div class="report-section"><h3>Functional Tests</h3>`;
-      if (Array.isArray(log.functional_tests) && log.functional_tests.length > 0) {
-        log.functional_tests.forEach(ft => {
-          html += `<p>Type: ${vr(ft?.test_type)} | Duration: ${vr(ft?.duration_seconds)}s | Distance: ${vr(ft?.distance_meters)}m | Notes: ${vr(ft?.notes)}</p>`;
-        });
-      } else {
-        html += `<p>None</p>`;
+      function _abbrBaseline(v) {
+        switch (v) {
+          case "much_worse": return "MW"; case "worse": return "W"; case "same": return "S";
+          case "better": return "B"; case "much_better": return "MB"; default: return "-";
+        }
       }
-      html += `</div>`;
 
-      // Notes
-      html += `<div class="report-section"><h3>Notes</h3>
-        <p><strong>Food:</strong> ${vr(pick(log, "food_notes"))}</p>
-        <p><strong>General:</strong> ${vr(pick(log, "notes", "general_notes"))}</p>
-      </div>`;
-
-      // Adverse events
-      html += `<div class="report-section"><h3>Adverse Events</h3>`;
-      if (adverseArr.length > 0) {
-        adverseArr.forEach(ae => {
-          html += `<p>• ${vr(ae?.description)}${(ae?.time_of_day ? ` (${ae.time_of_day})` : "")} (Dur: ${vr(pick(ae || {}, "duration_minutes", "duration_min"))}m, Trigger: ${vr(pick(ae || {}, "suspected_driver", "trigger"))})</p>`;
-        });
-      } else {
-        html += `<p>None</p>`;
+      function _ctxCodes(ctx) {
+        if (!ctx) return "";
+        const parts = [];
+        if (ctx.poor_sleep_last_night) parts.push("SLP");
+        if (ctx.unusual_physical_exertion) parts.push("EX");
+        if (ctx.medication_timing_change) parts.push("MEDT");
+        if (ctx.dose_change) parts.push("DOSE");
+        if (ctx.missed_dose) parts.push("MISS");
+        if (ctx.new_supplement_added) parts.push("NEW");
+        if (ctx.new_medication_added) parts.push("NEWMED");
+        if (ctx.night_pain_likely_electrolyte_related) {
+          const t = ctx.electrolyte_rescue_type ? ctx.electrolyte_rescue_type.toUpperCase() : "";
+          const w = ctx.electrolyte_rescue_window ? ctx.electrolyte_rescue_window : "";
+          parts.push(`ELEC${t}${w ? "-" + w : ""}`);
+        }
+        if (ctx.travel_or_disrupted_schedule) parts.push("TRV");
+        if ((ctx.high_stress ?? 0) > 0) parts.push(`STR${ctx.high_stress}`);
+        if (ctx.infection_symptoms) parts.push("INF");
+        if (ctx.gi_upset_or_dehydration_risk) parts.push("GI");
+        if (ctx.nothing_unusual) parts.push("NONE");
+        return parts.join(" ");
       }
-      html += `</div>`;
 
-      // Wins
-      html += `<div class="report-section"><h3>Wins</h3>`;
-      if (winsArr.length > 0) {
-        winsArr.forEach(w => {
-          html += `<p>• ${vr(w?.description)}${(w?.time_of_day ? ` (${w.time_of_day})` : "")} (Dur: ${vr(pick(w || {}, "duration_minutes", "duration_min"))}m, Trigger: ${vr(pick(w || {}, "suspected_driver", "trigger"))})</p>`;
-        });
-      } else {
-        html += `<p>None</p>`;
+      function _protoPilot(p) {
+        if (!p) return "";
+        const yn = (b) => (b ? "Y" : "N");
+        return `NA:${yn(p.nervonic_acid_taken)}${p.nervonic_acid_missed ? "(miss)" : ""}  NAC:${yn(p.nac_taken)}  ALA:${yn(p.r_ala_taken)}  E:${yn(p.vitamin_e_taken)}`;
       }
-      html += `</div>`;
 
-      // Daily summary
-      html += `<div class="report-section"><h3>Daily Summary</h3>
-        <p>${vr(pick(log, "daily_summary"))}</p>
-      </div>`;
+      function _protoPassenger(p) {
+        if (!p) return "";
+        const yn = (b) => (b ? "Y" : "N");
+        return `NA:${yn(p.nervonic_acid_taken)}  NAC:${yn(p.nac_taken)}  ALA:${yn(p.r_ala_taken)}  E:${yn(p.vitamin_e_taken)}`;
+      }
 
-      html += `</div>`; // end day block
-    });
-    // 3) Inject and print
-    const reportView = document.getElementById("report-view");
-    reportView.innerHTML = html;
+      // FIX #3: bpRender now checks for null values to prevent "null/null" output
+      function _vitalsLine(v) {
+        const fmtBP = (o) => {
+          if (!o) return "N/A";
+          const s = o.bp_sys ?? null;
+          const d = o.bp_dia ?? null;
+          return (s !== null && d !== null) ? `${s}/${d}` : "N/A";
+        };
+        const fmtHR = (o) => {
+          if (!o) return "N/A";
+          return (o.hr !== null && o.hr !== undefined) ? String(o.hr) : "N/A";
+        };
+        return `AM ${fmtBP(v?.morning)} HR ${fmtHR(v?.morning)}   PM ${fmtBP(v?.evening)} HR ${fmtHR(v?.evening)}`;
+      }
 
-    // Guard: don't print empty output
-    if (!reportView.textContent || !reportView.textContent.trim()) {
-      alert("Nothing to export (report is empty).");
-      return;
-    }
+      function _appendWrapped(pdf, text, x, y, maxWidth, lineH) {
+        const lines = pdf.splitTextToSize(text, maxWidth);
+        for (const ln of lines) { pdf.text(ln, x, y); y += lineH; }
+        return y;
+      }
 
-    // Make sure it is visible before printing (some Safari paths ignore @media print display toggles)
-    reportView.style.display = "block";
-    document.title = "Protocol Report";
+      // FIX #2: exportProtocolReport now fetches AND merges functional tests by date
+      async function exportProtocolReport(profileId, opts = {}) {
+        const uid = window.CURRENT_UID;
+        if (!uid) { alert("Must be logged in to export."); return; }
 
-    const cleanup = () => {
-      reportView.innerHTML = "";
-      reportView.style.display = "none";
-      window.removeEventListener("afterprint", cleanup);
-    };
-    window.addEventListener("afterprint", cleanup);
+        // FIX #3: vr helper always returns 'N/A' for missing values
+        const vr = (val, suffix = "") => {
+          if (val === null || val === undefined || val === "") return "N/A";
+          return String(val) + suffix;
+        };
+        const yn = (val) => {
+          if (val === true) return "Yes";
+          if (val === false) return "No";
+          return "N/A";
+        };
+        const pick = (obj, ...keys) => {
+          for (const k of keys) {
+            if (!obj) continue;
+            const v = obj[k];
+            if (v !== undefined && v !== null && v !== "") return v;
+          }
+          return undefined;
+        };
+        // FIX #3: bpRender returns N/A instead of "" for missing/null BP
+        const bpRender = (v) => {
+          if (!v || typeof v !== "object") return "N/A";
+          if (v.bp) return v.bp;
+          // FIX: explicitly check for null (not just undefined/empty string)
+          if (v.bp_sys !== undefined && v.bp_sys !== null &&
+              v.bp_dia !== undefined && v.bp_dia !== null &&
+              v.bp_sys !== "" && v.bp_dia !== "") return `${v.bp_sys}/${v.bp_dia}`;
+          return "N/A";
+        };
 
-    // If a print window was provided, render the report into that window and print from there.
-    if (opts?.printWindow && typeof opts.printWindow.print === "function") {
-      const w = opts.printWindow;
-      const doc = w.document;
+        try {
+          const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
+          const snapshot = await logsRef.orderBy("date", "desc").get();
+          if (snapshot.empty) { alert("No data found to export."); return; }
+          let logs = [];
+          snapshot.forEach(doc => logs.push(doc.data()));
 
-      // Copy current <style> content so the report CSS + print rules come along
-      const styleEl = document.querySelector("style");
-      const styleText = styleEl ? styleEl.innerHTML : "";
+          // FIX #2: Fetch functional tests collection and merge into logs by date
+          try {
+            const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/tests`);
+            const testsSnap = await testsRef.get();
+            const testsByDate = {};
+            testsSnap.forEach(doc => {
+              const t = doc.data();
+              const td = t.test_date || "";
+              if (!td) return;
+              if (!testsByDate[td]) testsByDate[td] = [];
+              testsByDate[td].push(t);
+            });
+            // Merge tests into matching log entries by date
+            logs = logs.map(log => ({
+              ...log,
+              functional_tests: testsByDate[log.date] || log.functional_tests || []
+            }));
+          } catch (testsErr) {
+            console.warn("Could not fetch functional tests (non-fatal):", testsErr);
+          }
 
-      doc.open();
-      doc.write(`<!doctype html>
+          const startDate = opts?.startDate || null;
+          const endDate = opts?.endDate || null;
+          if (startDate || endDate) {
+            logs = logs.filter(l => {
+              const d = String(l.date || "");
+              if (!d) return false;
+              if (startDate && d < startDate) return false;
+              if (endDate && d > endDate) return false;
+              return true;
+            });
+          }
+          if (!logs.length) { alert("No data found for that date range."); return; }
+
+          const pn = (document.getElementById("export-patient-name")?.value || '').trim() || 'Patrick Fuellbeck';
+          const dob = document.getElementById("export-patient-dob")?.value || "";
+
+          let html = `
+            <div class="report-header">
+            <p class="report-credit">Researched and Prepared by Patrick Shipp Nutrition, RNCP | www.patrickshipp.com</p>
+              <h1>Protocol Report: ${pn}</h1>
+              ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
+              <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+              <p><strong>Records:</strong> ${logs.length}</p>
+            </div>`;
+
+          logs.forEach(log => {
+            const protocol = log.protocol_adherence || log.protocol || {};
+            const vitals = log.vitals || {};
+            const vAm = vitals.morning || {};
+            const vPm = vitals.evening || {};
+            const sd = log.symptom_drift || log.ratings || {};
+            const pi = log.pain_impact || {};
+            const ctx = log.context_changes || log.confounders || {};
+            const fm = log.fast_markers || log.fastMarkers || {};
+            const ext = log.external_neuromuscular_training || log.external_variables || {};
+            const labs = log.lab || log.periodic_labs || {};
+            const winsArr = Array.isArray(log.positive_events) ? log.positive_events : (Array.isArray(log.wins) ? log.wins : []);
+            const adverseArr = Array.isArray(log.adverse_events) ? log.adverse_events : [];
+            const dayTitle = vr(log.date);
+
+            html += `<div class="report-day-block"><div class="day-title">Date: ${dayTitle}</div>`;
+
+            html += `<div class="report-section"><h3>Protocol Adherence</h3>
+              <p>NA: ${yn(pick(protocol,"nervonic_acid_taken","nervonic_acid"))}, NAC: ${yn(pick(protocol,"nac_taken","nac"))}, ALA: ${yn(pick(protocol,"r_ala_taken","ala"))}, Vit E: ${yn(pick(protocol,"vitamin_e_taken","vit_e"))}</p>
+            </div>`;
+
+            html += `<div class="report-section"><h3>Vitals AM &amp; PM</h3>
+              <p><strong>AM:</strong> BP: ${bpRender(vAm)} | HR: ${vr(pick(vAm,"hr")," bpm")}</p>
+              <p><strong>PM:</strong> BP: ${bpRender(vPm)} | HR: ${vr(pick(vPm,"hr")," bpm")}</p>
+            </div>`;
+
+            html += `<div class="report-section"><h3>Global Status</h3>
+              <p>Baseline Rating: ${vr(pick(log,"baseline_rating","global_baseline"))} (Confidence: ${vr(pick(log,"baseline_confidence"))})</p>
+              <p>Energy/Capacity: ${vr(pick(log,"energy_capacity"))} (Confidence: ${vr(pick(log,"energy_confidence"))})</p>
+            </div>`;
+
+            html += `<div class="report-section"><h3>Fast Markers</h3><ul>
+              <li>Near-fall or balance scare: ${yn(pick(fm,"near_fall_or_balance_scare","near_fall"))}</li>
+              <li>Electrolyte rescue required: ${yn(pick(fm,"electrolyte_rescue_required","electrolyte_rescue"))}</li>
+              <li>Spasm or clonus episode: ${yn(pick(fm,"spasm_or_clonus_episode","spasm_or_clonus"))}</li>
+              <li>Night pain woke me: ${yn(pick(fm,"night_pain_woke_me"))}</li>
+              <li>Restless legs at night: ${yn(pick(fm,"restless_legs_at_night","restless_legs"))}</li>
+            </ul></div>`;
+
+            html += `<div class="report-section"><h3>Symptom Shift (0-10)</h3><ul>
+              <li>Brain Fog: ${vr(pick(sd,"brain_fog"))}</li>
+              <li>Step-by-step gait effort: ${vr(pick(sd,"step_gait_effort","gait_effort_step_by_step","gait_effort"))}</li>
+              <li>Gait initiation effort: ${vr(pick(sd,"gait_initiation_effort","gait_initiation"))}</li>
+              <li>Sustained walking effort: ${vr(pick(sd,"sustained_walking_effort","sustained_walking"))}</li>
+              <li>Neurologic fatigue: ${vr(pick(sd,"neurologic_fatigue"))}</li>
+              <li>Sleep Quality: ${vr(pick(sd,"sleep_quality"))}</li>
+              <li>Leg Stiffness: ${vr(pick(sd,"leg_stiffness"))}</li>
+              <li>Post-rest stiffness: ${vr(pick(sd,"post_rest_stiffness"))}</li>
+              <li>Symptom volatility: ${vr(pick(sd,"symptom_volatility"))}</li>
+            </ul></div>`;
+
+            html += `<div class="report-section"><h3>Pain Impact</h3>
+              <p>Severity: ${vr(pick(pi,"severity"))} | Driver: ${vr(pick(pi,"primary_driver","driver"))}</p>
+              <p>Interfered sleep: ${yn(pick(pi,"interfered_with_sleep"))}, Limited walk: ${yn(pick(pi,"limited_walking"))}, Forced rest: ${yn(pick(pi,"forced_extra_rest","forced_rest_breaks"))}, Meds: ${yn(pick(pi,"required_rescue_meds","required_meds"))}, Changed gait: ${yn(pick(pi,"changed_gait_mechanics","changed_gait"))}</p>
+            </div>`;
+
+            html += `<div class="report-section"><h3>Confounders</h3>
+              <p>Poor sleep: ${yn(pick(ctx,"poor_sleep_last_night"))}, Unusual exertion: ${yn(pick(ctx,"unusual_physical_exertion"))}, Medication timing: ${yn(pick(ctx,"medication_timing_change"))}, Dose change: ${yn(pick(ctx,"dose_change"))}, Missed dose: ${yn(pick(ctx,"missed_dose"))}, New supplement: ${yn(pick(ctx,"new_supplement_added"))}, Travel/Schedule: ${yn(pick(ctx,"travel_or_disrupted_schedule"))}, High stress (0-3): ${vr(pick(ctx,"high_stress"))}, Infection: ${yn(pick(ctx,"infection_symptoms"))}, GI/Dehydration: ${yn(pick(ctx,"gi_upset_or_dehydration_risk"))}, Electrolyte night pain: ${yn(pick(ctx,"night_pain_likely_electrolyte_related"))}, Nothing unusual: ${yn(pick(ctx,"nothing_unusual"))}</p>
+            </div>`;
+
+            const extLevel = (ext && typeof ext.level !== "undefined") ? ext.level : undefined;
+            const extLabel = (ext && ext.label) ? ext.label : "";
+            html += `<div class="report-section"><h3>External Variables</h3>
+              <p>Neuro Training Level: ${vr(extLevel)}${extLabel ? ` (${extLabel})` : ""}</p>
+            </div>`;
+
+            const vlcfa = pick(labs,"vlcfa_c26","vlcfa");
+            const liver = pick(labs,"liver_alt_ast");
+            const labNotes = pick(labs,"notes");
+            if (vlcfa !== undefined || liver !== undefined || labNotes !== undefined) {
+              html += `<div class="report-section"><h3>Periodic Lab Results</h3>
+                <p>VLCFA: ${vr(vlcfa)}</p>
+                <p>Liver (ALT/AST): ${vr(liver)}</p>
+                <p>Notes: ${vr(labNotes)}</p>
+              </div>`;
+            }
+
+            // FIX #2: Functional tests now merged from tests collection; render all fields
+            html += `<div class="report-section"><h3>Functional Tests</h3>`;
+            const ftArr = Array.isArray(log.functional_tests) ? log.functional_tests : [];
+            if (ftArr.length > 0) {
+              ftArr.forEach(ft => {
+                const sw = ft.six_minute_walk || {};
+                const sts = ft.sit_to_stand_5x || {};
+                html += `<p><strong>Test date:</strong> ${vr(ft.test_date)}</p>`;
+                html += `<p><em>6-Min Walk:</em> Distance: ${vr(sw.distance_m,"m")}, Breaks: ${vr(sw.rest_breaks_count)}, Device: ${vr(sw.assistive_device)}, RPE: ${vr(sw.perceived_exertion)}</p>`;
+                html += `<p><em>5x Sit-Stand:</em> Time: ${vr(sts.time_seconds,"s")}, Used arms: ${vr(sts.used_arms)}, Chair: ${vr(sts.chair_height_cm,"cm")}</p>`;
+                if (ft.notes) html += `<p>Notes: ${vr(ft.notes)}</p>`;
+              });
+            } else {
+              html += `<p>N/A</p>`;
+            }
+            html += `</div>`;
+
+            html += `<div class="report-section"><h3>Notes</h3>
+              <p><strong>Food:</strong> ${vr(pick(log,"food_notes"))}</p>
+              <p><strong>General:</strong> ${vr(pick(log,"notes","general_notes"))}</p>
+            </div>`;
+
+            html += `<div class="report-section"><h3>Adverse Events</h3>`;
+            if (adverseArr.length > 0) {
+              adverseArr.forEach(ae => {
+                html += `<p>• ${vr(ae?.desc || ae?.description)}${ae?.trigger ? ` [${ae.trigger}]` : ""}${ae?.durationMin ? ` (${ae.durationMin}m)` : ""}${ae?.detail ? ` — ${ae.detail}` : ""}</p>`;
+              });
+            } else { html += `<p>N/A</p>`; }
+            html += `</div>`;
+
+            html += `<div class="report-section"><h3>Wins</h3>`;
+            if (winsArr.length > 0) {
+              winsArr.forEach(w => {
+                html += `<p>• ${vr(w?.desc || w?.description)}${w?.trigger ? ` [${w.trigger}]` : ""}${w?.durationMin ? ` (${w.durationMin}m)` : ""}${w?.detail ? ` — ${w.detail}` : ""}</p>`;
+              });
+            } else { html += `<p>N/A</p>`; }
+            html += `</div>`;
+
+            html += `<div class="report-section"><h3>Daily Summary</h3><p>${vr(pick(log,"daily_summary"))}</p></div>`;
+            html += `</div>`; // end day block
+          });
+
+          // FIX #4: Print via popup window to avoid iOS Safari scroll container truncation
+          const reportView = document.getElementById("report-view");
+          reportView.innerHTML = html;
+          if (!reportView.textContent || !reportView.textContent.trim()) {
+            alert("Nothing to export (report is empty.)"); return;
+          }
+          reportView.style.display = "block";
+          document.title = "Protocol Report";
+
+          const cleanup = () => {
+            reportView.innerHTML = "";
+            reportView.style.display = "none";
+            window.removeEventListener("afterprint", cleanup);
+          };
+          window.addEventListener("afterprint", cleanup);
+
+          if (opts?.printWindow && typeof opts.printWindow.print === "function") {
+            const w = opts.printWindow;
+            const doc = w.document;
+            const styleEl = document.querySelector("style");
+            const styleText = styleEl ? styleEl.innerHTML : "";
+            doc.open();
+            // FIX #4: Override scroll container CSS in print window so iOS Safari renders full content
+            doc.write(`<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Protocol Report</title>
   <style>${styleText}</style>
+  <style>
+    /* FIX: iOS Safari print — never use scroll containers or vh units */
+    body { overflow: visible !important; background: #fff !important; }
+    #report-view {
+      display: block !important;
+      position: static !important;
+      height: auto !important;
+      overflow: visible !important;
+      width: 100% !important;
+      padding: 20px !important;
+    }
+  </style>
 </head>
 <body>
   <div id="report-view" style="display:block;">${html}</div>
 </body>
 </html>`);
-      doc.close();
+            doc.close();
+            w.focus();
+            setTimeout(() => {
+              try { w.print(); } catch(e) { console.error(e); }
+              setTimeout(() => { try { w.close(); } catch(e) {} }, 500);
+              cleanup();
+            }, 350);
+          } else {
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                window.print();
+                setTimeout(cleanup, 5000);
+              });
+            });
+          }
+        } catch (err) {
+          console.error("Export error:", err);
+          alert("Export failed: " + err.message);
+        }
+      }
 
-      // Wait for layout/fonts, then print
-      w.focus();
-      setTimeout(() => {
-        try { w.print(); } catch(e) { console.error(e); }
-        // Close the print window after a moment (optional)
-        setTimeout(() => { try { w.close(); } catch(e) {} }, 500);
-        cleanup();
-      }, 250);
+      // FIX #2: exportPassengerReport also fetches/merges functional tests
+      async function exportPassengerReport(profileId, opts = {}) {
+        const uid = window.CURRENT_UID;
+        if (!uid) { alert("Must be logged in to export."); return; }
+        const yn = (val) => (val === true ? "Yes" : (val === false ? "No" : "N/A"));
+        const vr = (val, suffix = "") => {
+          if (val === null || val === undefined || val === "") return "N/A";
+          return String(val) + suffix;
+        };
+        try {
+          const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
+          const snapshot = await logsRef.orderBy("date", opts?.dir || "desc").get();
+          let logs = snapshot.docs.map(d => d.data());
+          const startDate = opts?.startDate || null;
+          const endDate = opts?.endDate || null;
+          if (startDate || endDate) {
+            logs = logs.filter(l => {
+              const d = l?.date || "";
+              if (!d) return false;
+              if (startDate && d < startDate) return false;
+              if (endDate && d > endDate) return false;
+              return true;
+            });
+          }
+          if (!logs.length) { alert("No data found for that date range."); return; }
 
-    } else {
-      // In-page print: wait for layout to settle (Safari race avoidance)
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.print();
-          // Fallback cleanup if afterprint doesn't fire
-          setTimeout(cleanup, 5000);
-        });
-      });
-    }
-  } catch (err) {
-    console.error("Export error:", err);
-    alert("Export failed: " + err.message);
-  }
-}
+          const pn = (String(opts?.patientName || (document.getElementById("export-patient-name")?.value || ""))).trim() || "Nieve";
+          const dob = String(opts?.patientDob || (document.getElementById("export-patient-dob")?.value || "")).trim();
 
-    // Expose a single export runner to the non-module modal UI
-    
+          let html = `
+            <div class="report-header">
+            <p class="report-credit">Researched and Prepared by Patrick Shipp Nutrition, RNCP | www.patrickshipp.com</p>
+              <h1>Passenger Report: ${pn}</h1>
+              ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
+              <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+              <p><strong>Records:</strong> ${logs.length}</p>
+            </div>`;
 
-    // ===== Passenger (read-only / prophylactic) report export =====
-async function exportPassengerReport(profileId, opts = {}) {
-  const uid = window.CURRENT_UID;
-  if (!uid) {
-    alert("Must be logged in to export.");
-    return;
-  }
+          logs.forEach(log => {
+            const protocol = log.protocol_adherence || {};
+            const safety = log.safety || {};
+            html += `<div class="day-block"><div class="day-title">Date: ${vr(log.date)}</div>`;
+            html += `<div class="report-section"><h3>Protocol Adherence</h3>
+              <p>NA: ${yn(protocol.nervonic_acid_taken)} | NAC: ${yn(protocol.nac_taken)} | ALA: ${yn(protocol.r_ala_taken)} | Vit E: ${yn(protocol.vitamin_e_taken)}</p>
+            </div>`;
+            html += `<div class="report-section"><h3>Safety / Anything different?</h3>
+              <p>Feels different: ${yn(safety.feels_different)}</p>
+              <p><strong>Details:</strong> ${vr(safety.details)}</p>
+            </div>`;
+            html += `<div class="report-section"><h3>Notes</h3><p>${vr(log.notes)}</p></div>`;
+            html += `</div>`;
+          });
 
-  const yn = (val) => (val === true ? "Yes" : (val === false ? "No" : "N/A"));
-  const vr = (val, suffix = "") => {
-    if (val === null || val === undefined || val === "") return "N/A";
-    return String(val) + suffix;
-  };
+          const reportView = document.getElementById("report-view");
+          reportView.innerHTML = html;
+          if (!reportView.textContent || !reportView.textContent.trim()) {
+            alert("Nothing to export (report is empty.)"); return;
+          }
+          reportView.style.display = "block";
+          document.title = "Passenger Report";
 
-  try {
-    const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
-    const snapshot = await logsRef.orderBy("date", opts?.dir || "desc").get();
-    let logs = snapshot.docs.map(d => d.data());
+          const cleanup = () => {
+            reportView.innerHTML = "";
+            reportView.style.display = "none";
+            window.removeEventListener("afterprint", cleanup);
+          };
+          window.addEventListener("afterprint", cleanup);
 
-    // Optional range filter (from export modal)
-    const startDate = opts?.startDate || null;
-    const endDate = opts?.endDate || null;
-    if (startDate || endDate) {
-      logs = logs.filter(l => {
-        const d = l?.date || "";
-        if (!d) return false;
-        if (startDate && d < startDate) return false;
-        if (endDate && d > endDate) return false;
-        return true;
-      });
-    }
-
-    if (!logs.length) {
-      alert("No data found for that date range.");
-      return;
-    }
-
-    const pn = (String(opts?.patientName || (document.getElementById("export-patient-name")?.value || ""))).trim() || "Nieve";
-    const dob = String(opts?.patientDob || (document.getElementById("export-patient-dob")?.value || "")).trim();
-
-    let html = `
-      <div class="report-header">
-      <p class="report-credit">Researched and Prepared By: Patrick Shipp Nutrition RNCP | www.patrickshipp.com</p>
-        <h1>Passenger Report: ${pn}</h1>
-        ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
-        <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-        <p><strong>Records:</strong> ${logs.length}</p>
-      </div>
-    `;
-
-    logs.forEach(log => {
-      const protocol = log.protocol_adherence || {};
-      const safety = log.safety || {};
-      const dayTitle = (log.date || "Unknown date");
-
-      html += `<div class="day-block">`;
-      html += `<div class="day-title">Date: ${dayTitle}</div>`;
-
-      html += `<div class="report-section">
-        <h3>Protocol Adherence</h3>
-        <p>NA: ${yn(protocol.nervonic_acid_taken)} | NAC: ${yn(protocol.nac_taken)} | ALA: ${yn(protocol.r_ala_taken)} | Vit E: ${yn(protocol.vitamin_e_taken)}</p>
-      </div>`;
-
-      html += `<div class="report-section">
-        <h3>Safety / Anything different?</h3>
-        <p>Feels different: ${yn(safety.feels_different)}</p>
-        <p><strong>Details:</strong> ${vr(safety.details)}</p>
-      </div>`;
-
-      html += `<div class="report-section">
-        <h3>Notes</h3>
-        <p>${vr(log.notes)}</p>
-      </div>`;
-
-      html += `</div>`;
-    });
-
-    // Inject and print (same mechanics as main report)
-    const reportView = document.getElementById("report-view");
-    reportView.innerHTML = html;
-    if (!reportView.textContent || !reportView.textContent.trim()) {
-      alert("Nothing to export (report is empty).");
-      return;
-    }
-    reportView.style.display = "block";
-    document.title = "Passenger Report";
-
-    const cleanup = () => {
-      reportView.innerHTML = "";
-      reportView.style.display = "none";
-      window.removeEventListener("afterprint", cleanup);
-    };
-    window.addEventListener("afterprint", cleanup);
-
-    if (opts?.printWindow && typeof opts.printWindow.print === "function") {
-      const w = opts.printWindow;
-      const doc = w.document;
-      const styleEl = document.querySelector("style");
-      const styleText = styleEl ? styleEl.innerHTML : "";
-
-      doc.open();
-      doc.write(`<!doctype html>
+          if (opts?.printWindow && typeof opts.printWindow.print === "function") {
+            const w = opts.printWindow;
+            const doc = w.document;
+            const styleEl = document.querySelector("style");
+            const styleText = styleEl ? styleEl.innerHTML : "";
+            doc.open();
+            doc.write(`<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Passenger Report</title>
   <style>${styleText}</style>
+  <style>
+    body { overflow: visible !important; background: #fff !important; }
+    #report-view { display:block !important; position:static !important; height:auto !important; overflow:visible !important; width:100% !important; padding:20px !important; }
+  </style>
 </head>
 <body>
   <div id="report-view" style="display:block;">${html}</div>
 </body>
 </html>`);
-      doc.close();
-
-      w.focus();
-      setTimeout(() => {
-        try { w.print(); } catch(e) { console.error(e); }
-        setTimeout(() => { try { w.close(); } catch(e) {} }, 500);
-        cleanup();
-      }, 250);
-    } else {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.print();
-          setTimeout(cleanup, 5000);
-        });
-      });
-    }
-  } catch (err) {
-    console.error("Passenger export error:", err);
-    alert("Export failed: " + (err?.message || err));
-  }
-}
-
-window.__EXPORT_RUN = async function(args = {}) {
-      const patientId = args.patientId || "patrick";
-      const label = args.label || "";
-      const opts = {
-        printWindow: args.printWindow,
-        startDate: args.start || args.startDate || null,
-        endDate: args.end || args.endDate || null,
-        dir: args.dir || "desc",
-        patientName: args.patientName || "",
-        patientDob: args.patientDob || ""
-      };
-
-      // Passenger export uses a smaller schema than the Pilot (full protocol) export.
-      const isPassenger = (label || "").toLowerCase() === "passenger" || patientId !== "patrick";
-      if (isPassenger) {
-        await exportPassengerReport(patientId, opts);
-      } else {
-        await exportProtocolReport(patientId, opts);
-      }
-    };
-
-    function setBtn(btnId, busy, text) {
-      const b = el(btnId);
-      if (!b) return;
-      b.disabled = !!busy;
-      if (text) b.textContent = text;
-    }
-
-    // Inline onclick targets
-
-    window.setNeuromuscularTraining = function(level, label) {
-      const lvl = (typeof level === "number") ? level : parseInt(level, 10);
-      const lab = String(label || "").toLowerCase();
-      const allowed = { 0: "none", 1: "light", 2: "full" };
-      const finalLevel = (lvl in allowed) ? lvl : 0;
-      const finalLabel = allowed[finalLevel];
-
-      const lvlEl = byId("p-nmt-level");
-      const labEl = byId("p-nmt-label");
-      if (lvlEl) lvlEl.value = String(finalLevel);
-      if (labEl) labEl.value = finalLabel;
-
-      [0,1,2].forEach(i => {
-        const b = byId(`p-nmt-btn-${i}`);
-        if (!b) return;
-        if (i === finalLevel) b.classList.add("active");
-        else b.classList.remove("active");
-      });
-    };
-
-
-    window.handlePilotSave = async function() {
-      setBtn("p-save-log", true, "SAVING...");
-      try {
-        await saveUserLog("patrick", collectPilotPayload());
-        setBtn("p-save-log", false, "SAVED ✓");
-        setTimeout(() => setBtn("p-save-log", false, "SAVE DAILY LOG"), 1200);
-      } catch(e) {
-        console.error(e);
-        setBtn("p-save-log", false, "SAVE FAILED");
-        // Improved error alert
-        alert("Save failed: " + (e.message || e) + "\n\n(If this says 'Missing or insufficient permissions', your database rules block non-logged-in users.)");
-      }
-    };
-
-    function collectFunctionalTestPayload() {
-      const testDate = trimText(val("ft-date")) || localDateStr();
-      return {
-        test_date: testDate,
-        six_minute_walk: {
-          distance_m: asNumber(val("ft-6m-distance")),
-          rest_breaks_count: asNumber(val("ft-6m-restbreaks")),
-          assistive_device: trimText(val("ft-6m-device")) || null,
-          course_length_m: asNumber(val("ft-6m-course")),
-          perceived_exertion: asNumber(val("ft-6m-rpe"))
-        },
-        sit_to_stand_5x: {
-          time_seconds: asNumber(val("ft-5x-time")),
-          used_arms: mustEnum(val("ft-5x-arms"), ["yes","no"], null),
-          chair_height_cm: asNumber(val("ft-5x-chair"))
-        },
-        notes: trimText(val("ft-notes")) || null
-      };
-    }
-
-    window.saveFunctionalTest = async function() {
-      const btns = document.querySelectorAll('[onclick="window.saveFunctionalTest()"]');
-      btns.forEach(b => { try { b.disabled = true; b.textContent = "SAVING..."; } catch(e){} });
-
-      try {
-        const payload = collectFunctionalTestPayload();
-        // Path: users/patrick/tests/{id}
-        const id = `${payload.test_date}_${Date.now()}`;
-        const ref = db.doc(userProfilePath("patrick", "tests", id));
-        
-        await ref.set({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() }, { merge: true });
-        btns.forEach(b => { try { b.textContent = "SAVED ✓"; } catch(e){} });
-        setTimeout(() => btns.forEach(b => { try { b.disabled = false; b.textContent = "SAVE FUNCTIONAL TEST"; } catch(e){} }), 1400);
-      } catch (e) {
-        console.error(e);
-        btns.forEach(b => { try { b.disabled = false; b.textContent = "SAVE FUNCTIONAL TEST"; } catch(e){} });
-        alert("Functional test save failed: " + (e.message || e));
-      }
-    };
-
-    window.handlePassengerSave = async function() {
-      setBtn("n-save-log", true, "SAVING...");
-      try {
-        await saveUserLog("nieve", collectPassengerPayload());
-        setBtn("n-save-log", false, "SAVED ✓");
-        setTimeout(() => setBtn("n-save-log", false, "SAVE DAILY LOG"), 1200);
-      } catch(e) {
-        console.error(e);
-        setBtn("n-save-log", false, "SAVE FAILED");
-        alert("Save failed: " + (e.message || e) + "\n\n(If this says 'Missing or insufficient permissions', your database rules block non-logged-in users.)");
-      }
-    };
-
-    window.handlePassengerSafety = async function() {
-      // Save safety report as part of the daily log (same doc)
-      await window.handlePassengerSave();
-    };
-
-    window.handleLabSave = async function() {
-      setBtn("lab-save-results-btn", true, "SAVING...");
-      try {
-        await saveUserLog("patrick", collectLabPayload());
-        setBtn("lab-save-results-btn", false, "SAVED ✓");
-        setTimeout(() => setBtn("lab-save-results-btn", false, "SAVE LAB RESULTS ONLY"), 1600);
-      } catch(e) {
-        console.error(e);
-        setBtn("lab-save-results-btn", false, "SAVE LAB RESULTS ONLY");
-        alert("Lab save failed: " + (e.message || e));
-      }
-    };
-
-    window.showTrendsTab = function(which) {
-      const sum = el("trends-summary-pane");
-      const charts = el("trends-charts-pane");
-      const details = el("trends-details-pane");
-
-      const t1 = el("tab-summary");
-      const t2 = el("tab-charts");
-      const t3 = el("tab-details");
-
-      if (!sum || !charts || !t1 || !t2) return;
-
-      const hasDetails = !!details && !!t3;
-
-      // hide panes
-      sum.style.display = "none";
-      charts.style.display = "none";
-      if (hasDetails) details.style.display = "none";
-
-      // reset active tabs
-      t1.classList.remove("active");
-      t2.classList.remove("active");
-      if (hasDetails) t3.classList.remove("active");
-
-      if (which === "charts") {
-        charts.style.display = "block";
-        t2.classList.add("active");
-        if (typeof window.renderTrendsCharts === "function") window.renderTrendsCharts();
-        return;
-      }
-
-      if (which === "details" && hasDetails) {
-        details.style.display = "block";
-        t3.classList.add("active");
-        if (typeof window.renderTrendsDetails === "function") window.renderTrendsDetails();
-        return;
-      }
-
-      // summary default
-      sum.style.display = "block";
-      t1.classList.add("active");
-    };
-
-    // Basic trends rendering (safe/no-crash)
-    let _globalChart = null;
-
-    window.renderTrends = async function() {
-      // lightweight summary text only (avoid blocking UI)
-      try {
-        const logs = await fetchPatientLogs("patrick", 30);
-        const elSum = el("change-summary");
-        if (!elSum) return;
-
-        const withRating = logs.filter(l => !!l.baseline_rating);
-        const total = logs.length;
-        const rated = withRating.length;
-
-        // simple counts
-        const counts = { much_worse:0, worse:0, same:0, better:0, much_better:0 };
-        withRating.forEach(l => { if (counts[l.baseline_rating] !== undefined) counts[l.baseline_rating]++; });
-
-        elSum.innerHTML = `
-          <div>Last 30 days: <strong>${total}</strong> logs found. Baseline rating recorded on <strong>${rated}</strong> days.</div>
-          <div style="margin-top:10px;">
-            much better: ${counts.much_better} • better: ${counts.better} • same: ${counts.same} • worse: ${counts.worse} • much worse: ${counts.much_worse}
-          </div>
-          <div style="margin-top:10px; color: var(--text-secondary); font-size: 0.85rem;">
-            Note: This is descriptive only. It does not adjust for confounders or missing data.
-          </div>
-        `;
-      } catch(e) {
-        console.error(e);
-      }
-    };
-
-    window._trendCharts = window._trendCharts || {};
-
-    function _destroyTrendChart(key){
-      try{
-        if(window._trendCharts[key]){
-          window._trendCharts[key].destroy();
-          delete window._trendCharts[key];
-        }
-      }catch(e){}
-    }
-
-    function _buildLineChart(canvasId, labels, data, yMin, yMax, seriesLabel){
-      const canvas = document.getElementById(canvasId);
-      if(!canvas) return;
-      const ctx = canvas.getContext("2d");
-      _destroyTrendChart(canvasId);
-
-      // If there is no data at all, show an empty chart frame (Chart.js handles nulls)
-      window._trendCharts[canvasId] = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels,
-          datasets: [{
-            label: seriesLabel,
-            data,
-            tension: 0.25,
-            spanGaps: false,
-            pointRadius: 3
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { display: true } },
-          scales: {
-            y: {
-              min: yMin,
-              max: yMax,
-              ticks: { stepSize: 1 }
-            },
-            x: {
-              ticks: { maxRotation: 0, autoSkip: true }
-            }
+            doc.close();
+            w.focus();
+            setTimeout(() => {
+              try { w.print(); } catch(e) { console.error(e); }
+              setTimeout(() => { try { w.close(); } catch(e) {} }, 500);
+              cleanup();
+            }, 350);
+          } else {
+            requestAnimationFrame(() => { requestAnimationFrame(() => { window.print(); setTimeout(cleanup, 5000); }); });
           }
+        } catch (err) {
+          console.error("Passenger export error:", err);
+          alert("Export failed: " + (err?.message || err));
         }
-      });
-    }
-
-    function _mapBaselineTo15(v){
-      if(v == null) return null;
-      if(typeof v === "number") return v; // already 1–5
-      const s = String(v).toLowerCase();
-      if(s === "much_worse") return 1;
-      if(s === "worse") return 2;
-      if(s === "same") return 3;
-      if(s === "better") return 4;
-      if(s === "much_better") return 5;
-      // fallback for earlier variants
-      if(s.includes("much") && s.includes("worse")) return 1;
-      if(s.includes("worse")) return 2;
-      if(s.includes("same")) return 3;
-      if(s.includes("better") && s.includes("much")) return 5;
-      if(s.includes("better")) return 4;
-      return null;
-    }
-
-    function _num(v){
-      const n = Number(v);
-      return Number.isFinite(n) ? n : null;
-    }
-
-    function _getPainSeverity(log){
-      // supports either pain_impact: {severity: ...} or painImpactSeverity or pain_severity
-      if(log && log.pain_impact && log.pain_impact.severity != null) return _num(log.pain_impact.severity);
-      if(log && log.painImpactSeverity != null) return _num(log.painImpactSeverity);
-      if(log && log.pain_severity != null) return _num(log.pain_severity);
-      return null;
-    }
-
-    function _getSymptom(log, key){
-      // symptom_drift: {brain_fog:..., leg_stiffness:...} OR flat keys
-      if(log && log.symptom_drift && log.symptom_drift[key] != null) return _num(log.symptom_drift[key]);
-      if(log && log[key] != null) return _num(log[key]);
-      return null;
-    }
-
-    window.renderTrendsCharts = async function() {
-      try {
-        const logs = await fetchPatientLogs("patrick", 30);
-        const ordered = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
-        const labels = ordered.map(l => l.date || "");
-
-        // Build datasets (use null for missing values so lines break rather than lie)
-        const global = ordered.map(l => _mapBaselineTo15(l.baseline_rating));
-        const energy = ordered.map(l => _num(l.energy_capacity));
-        const pain = ordered.map(l => _getPainSeverity(l));
-        const sleep = ordered.map(l => _getSymptom(l, "sleep_quality"));
-        const gaitEffort = ordered.map(l => _getSymptom(l, "gait_effort"));
-        const legStiffness = ordered.map(l => _getSymptom(l, "leg_stiffness"));
-        const brainFog = ordered.map(l => _getSymptom(l, "brain_fog"));
-        const neuroFatigue = ordered.map(l => _getSymptom(l, "neurologic_fatigue"));
-
-        // Charts
-        _buildLineChart("chart-global", labels, global, 1, 5, "Global baseline (1–5)");
-        _buildLineChart("chart-energy", labels, energy, 0, 10, "Energy / Capacity (0–10)");
-        _buildLineChart("chart-pain", labels, pain, 0, 10, "Pain impact (0–10)");
-        _buildLineChart("chart-sleep", labels, sleep, 0, 10, "Sleep quality (0–10)");
-        _buildLineChart("chart-gait-effort", labels, gaitEffort, 0, 10, "Gait effort (0–10)");
-        _buildLineChart("chart-leg-stiffness", labels, legStiffness, 0, 10, "Leg stiffness (0–10)");
-        _buildLineChart("chart-brain-fog", labels, brainFog, 0, 10, "Brain fog (0–10)");
-        _buildLineChart("chart-neuro-fatigue", labels, neuroFatigue, 0, 10, "Neurologic fatigue (0–10)");
-
-        // If the tab was opened while hidden, force a resize after layout settles.
-        setTimeout(() => {
-          Object.values(window._trendCharts).forEach(ch => { try{ ch.resize(); }catch(e){} });
-        }, 50);
-      } catch (err) {
-        console.warn("renderTrendsCharts failed:", err);
       }
-    };
 
-    window.renderTrendsDetails = async function() {
-      const host = el("trends-details-content");
-      if (!host) return;
-
-      const logs = await fetchPatientLogs("patrick", 365); // pilot history (same collection used in Trends)
-      const rows = [];
-
-      function pushMetric(key, label, getter) {
-        const vals = [];
-        for (const l of logs) {
-          const v = getter(l);
-          if (v === null || v === undefined || v === "") continue;
-          const n = Number(v);
-          if (!Number.isFinite(n)) continue;
-          vals.push({ date: l.date, v: n });
+      window.__EXPORT_RUN = async function(args = {}) {
+        const patientId = args.patientId || "patrick";
+        const label = args.label || "";
+        const opts = {
+          printWindow: args.printWindow,
+          startDate: args.start || args.startDate || null,
+          endDate: args.end || args.endDate || null,
+          dir: args.dir || "desc",
+          patientName: args.patientName || "",
+          patientDob: args.patientDob || ""
+        };
+        const isPassenger = (label || "").toLowerCase() === "passenger" || patientId !== "patrick";
+        if (isPassenger) {
+          await exportPassengerReport(patientId, opts);
+        } else {
+          await exportProtocolReport(patientId, opts);
         }
-        if (vals.length === 0) return;
-        vals.sort((a,b)=> String(a.date).localeCompare(String(b.date)));
-        const ns = vals.map(x=>x.v);
-        const sum = ns.reduce((a,b)=>a+b,0);
-        const mean = sum / ns.length;
-        const min = Math.min(...ns);
-        const max = Math.max(...ns);
-        const last = vals[vals.length-1];
-        rows.push({ key, label, n: ns.length, mean, min, max, lastDate: last.date, last: last.v });
+      };
+
+      function setBtn(btnId, busy, text) {
+        const b = el(btnId);
+        if (!b) return;
+        b.disabled = !!busy;
+        if (text) b.textContent = text;
       }
 
-      // These keys match the saved pilot log schema in this build (snake_case).
-      pushMetric("baseline_rating", "Global Baseline Rating (1–5)", l => _mapBaselineTo15(l.baseline_rating));
-      pushMetric("energy_capacity", "Energy / Capacity (0–10)", l => l.energy_capacity);
-      pushMetric("pain_impact", "Pain Impact (0–10)", l => (l.pain_impact ? l.pain_impact.severity : null));
-      pushMetric("sleep_quality", "Sleep Quality (0–10)", l => (l.symptom_drift ? l.symptom_drift.sleep_quality : null));
+      window.setNeuromuscularTraining = function(level, label) {
+        const lvl = (typeof level === "number") ? level : parseInt(level, 10);
+        const allowed = { 0: "none", 1: "light", 2: "full" };
+        const finalLevel = (lvl in allowed) ? lvl : 0;
+        const finalLabel = allowed[finalLevel];
+        const lvlEl = byId("p-nmt-level");
+        const labEl = byId("p-nmt-label");
+        if (lvlEl) lvlEl.value = String(finalLevel);
+        if (labEl) labEl.value = finalLabel;
+        [0,1,2].forEach(i => {
+          const b = byId(`p-nmt-btn-${i}`);
+          if (!b) return;
+          if (i === finalLevel) b.classList.add("active");
+          else b.classList.remove("active");
+        });
+      };
 
-      // Symptom Shift sliders
-      pushMetric("brain_fog", "Brain Fog (0–10)", l => (l.symptom_drift ? l.symptom_drift.brain_fog : null));
-      pushMetric("gait_effort", "Gait Effort (0–10)", l => (l.symptom_drift ? l.symptom_drift.gait_effort : null));
-      pushMetric("gait_initiation", "Gait initiation effort (0–10)", l => (l.symptom_drift ? l.symptom_drift.gait_initiation : null));
-      pushMetric("sustained_walking", "Sustained walking effort (0–10)", l => (l.symptom_drift ? l.symptom_drift.sustained_walking : null));
-      pushMetric("neurologic_fatigue", "Neurologic fatigue (0–10)", l => (l.symptom_drift ? l.symptom_drift.neurologic_fatigue : null));
-      pushMetric("leg_stiffness", "Leg Stiffness (0–10)", l => (l.symptom_drift ? l.symptom_drift.leg_stiffness : null));
-      pushMetric("post_rest_stiffness", "Post-rest stiffness (0–10)", l => (l.symptom_drift ? l.symptom_drift.post_rest_stiffness : null));
-      pushMetric("symptom_volatility", "Symptom volatility (0–10)", l => (l.symptom_drift ? l.symptom_drift.symptom_volatility : null));
+      window.handlePilotSave = async function() {
+        setBtn("p-save-log", true, "SAVING...");
+        try {
+          await saveUserLog("patrick", collectPilotPayload());
+          setBtn("p-save-log", false, "SAVED ✓");
+          setTimeout(() => setBtn("p-save-log", false, "SAVE DAILY LOG"), 1200);
+        } catch(e) {
+          console.error(e);
+          setBtn("p-save-log", false, "SAVE FAILED");
+          alert("Save failed: " + (e.message || e));
+        }
+      };
 
-      if (rows.length === 0) {
-        host.innerHTML = '<div class="muted">No numeric trend data found yet. Add a few daily logs first.</div>';
-        return;
+      function collectFunctionalTestPayload() {
+        const testDate = trimText(val("ft-date")) || localDateStr();
+        return {
+          test_date: testDate,
+          six_minute_walk: {
+            distance_m: asNumber(val("ft-6m-distance")),
+            rest_breaks_count: asNumber(val("ft-6m-restbreaks")),
+            assistive_device: trimText(val("ft-6m-device")) || null,
+            course_length_m: asNumber(val("ft-6m-course")),
+            perceived_exertion: asNumber(val("ft-6m-rpe"))
+          },
+          sit_to_stand_5x: {
+            time_seconds: asNumber(val("ft-5x-time")),
+            used_arms: mustEnum(val("ft-5x-arms"), ["yes","no"], null),
+            chair_height_cm: asNumber(val("ft-5x-chair"))
+          },
+          notes: trimText(val("ft-notes")) || null
+        };
       }
 
-      const html = rows.map(r => {
-        const mean = (Math.round(r.mean*10)/10).toFixed(1);
-        return `
+      window.saveFunctionalTest = async function() {
+        const btns = document.querySelectorAll('[onclick="window.saveFunctionalTest()"]');
+        btns.forEach(b => { try { b.disabled = true; b.textContent = "SAVING..."; } catch(e){} });
+        try {
+          const payload = collectFunctionalTestPayload();
+          const id = `${payload.test_date}_${Date.now()}`;
+          const ref = db.doc(userProfilePath("patrick", "tests", id));
+          await ref.set({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() }, { merge: true });
+          btns.forEach(b => { try { b.textContent = "SAVED ✓"; } catch(e){} });
+          setTimeout(() => btns.forEach(b => { try { b.disabled = false; b.textContent = "SAVE FUNCTIONAL TEST"; } catch(e){} }), 1400);
+        } catch (e) {
+          console.error(e);
+          btns.forEach(b => { try { b.disabled = false; b.textContent = "SAVE FUNCTIONAL TEST"; } catch(e){} });
+          alert("Functional test save failed: " + (e.message || e));
+        }
+      };
+
+      window.handlePassengerSave = async function() {
+        setBtn("n-save-log", true, "SAVING...");
+        try {
+          await saveUserLog("nieve", collectPassengerPayload());
+          setBtn("n-save-log", false, "SAVED ✓");
+          setTimeout(() => setBtn("n-save-log", false, "SAVE DAILY LOG"), 1200);
+        } catch(e) {
+          console.error(e);
+          setBtn("n-save-log", false, "SAVE FAILED");
+          alert("Save failed: " + (e.message || e));
+        }
+      };
+
+      window.handlePassengerSafety = async function() { await window.handlePassengerSave(); };
+
+      window.handleLabSave = async function() {
+        setBtn("lab-save-results-btn", true, "SAVING...");
+        try {
+          await saveUserLog("patrick", collectLabPayload());
+          setBtn("lab-save-results-btn", false, "SAVED ✓");
+          setTimeout(() => setBtn("lab-save-results-btn", false, "SAVE LAB RESULTS ONLY"), 1600);
+        } catch(e) {
+          console.error(e);
+          setBtn("lab-save-results-btn", false, "SAVE LAB RESULTS ONLY");
+          alert("Lab save failed: " + (e.message || e));
+        }
+      };
+
+      window.showTrendsTab = function(which) {
+        const sum = el("trends-summary-pane");
+        const charts = el("trends-charts-pane");
+        const details = el("trends-details-pane");
+        const t1 = el("tab-summary"); const t2 = el("tab-charts"); const t3 = el("tab-details");
+        if (!sum || !charts || !t1 || !t2) return;
+        const hasDetails = !!details && !!t3;
+        sum.style.display = "none"; charts.style.display = "none";
+        if (hasDetails) details.style.display = "none";
+        t1.classList.remove("active"); t2.classList.remove("active");
+        if (hasDetails) t3.classList.remove("active");
+        if (which === "charts") {
+          charts.style.display = "block"; t2.classList.add("active");
+          if (typeof window.renderTrendsCharts === "function") window.renderTrendsCharts();
+          return;
+        }
+        if (which === "details" && hasDetails) {
+          details.style.display = "block"; t3.classList.add("active");
+          if (typeof window.renderTrendsDetails === "function") window.renderTrendsDetails();
+          return;
+        }
+        sum.style.display = "block"; t1.classList.add("active");
+      };
+
+      window.renderTrends = async function() {
+        try {
+          const logs = await fetchPatientLogs("patrick", 30);
+          const elSum = el("change-summary");
+          if (!elSum) return;
+          const withRating = logs.filter(l => !!l.baseline_rating);
+          const counts = { much_worse:0, worse:0, same:0, better:0, much_better:0 };
+          withRating.forEach(l => { if (counts[l.baseline_rating] !== undefined) counts[l.baseline_rating]++; });
+          elSum.innerHTML = `
+            <div>Last 30 days: <strong>${logs.length}</strong> logs found. Baseline rating recorded on <strong>${withRating.length}</strong> days.</div>
+            <div style="margin-top:10px;">much better: ${counts.much_better} • better: ${counts.better} • same: ${counts.same} • worse: ${counts.worse} • much worse: ${counts.much_worse}</div>
+            <div style="margin-top:10px; color:var(--text-secondary); font-size:0.85rem;">Note: Descriptive only. Does not adjust for confounders or missing data.</div>`;
+        } catch(e) { console.error(e); }
+      };
+
+      window._trendCharts = window._trendCharts || {};
+      function _destroyTrendChart(key){ try { if(window._trendCharts[key]){ window._trendCharts[key].destroy(); delete window._trendCharts[key]; } } catch(e){} }
+
+      function _buildLineChart(canvasId, labels, data, yMin, yMax, seriesLabel){
+        const canvas = document.getElementById(canvasId);
+        if(!canvas) return;
+        const ctx = canvas.getContext("2d");
+        _destroyTrendChart(canvasId);
+        window._trendCharts[canvasId] = new Chart(ctx, {
+          type: "line",
+          data: { labels, datasets: [{ label: seriesLabel, data, tension: 0.25, spanGaps: false, pointRadius: 3 }] },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: true } },
+            scales: { y: { min: yMin, max: yMax, ticks: { stepSize: 1 } }, x: { ticks: { maxRotation: 0, autoSkip: true } } }
+          }
+        });
+      }
+
+      function _mapBaselineTo15(v){
+        if(v == null) return null;
+        if(typeof v === "number") return v;
+        const s = String(v).toLowerCase();
+        if(s === "much_worse") return 1; if(s === "worse") return 2; if(s === "same") return 3;
+        if(s === "better") return 4; if(s === "much_better") return 5;
+        return null;
+      }
+      function _num(v){ const n = Number(v); return Number.isFinite(n) ? n : null; }
+      function _getPainSeverity(log){ if(log?.pain_impact?.severity != null) return _num(log.pain_impact.severity); return null; }
+      function _getSymptom(log, key){ if(log?.symptom_drift?.[key] != null) return _num(log.symptom_drift[key]); return null; }
+
+      window.renderTrendsCharts = async function() {
+        try {
+          const logs = await fetchPatientLogs("patrick", 30);
+          const ordered = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
+          const labels = ordered.map(l => l.date || "");
+          _buildLineChart("chart-global", labels, ordered.map(l => _mapBaselineTo15(l.baseline_rating)), 1, 5, "Global baseline (1–5)");
+          _buildLineChart("chart-energy", labels, ordered.map(l => _num(l.energy_capacity)), 0, 10, "Energy / Capacity (0–10)");
+          _buildLineChart("chart-pain", labels, ordered.map(l => _getPainSeverity(l)), 0, 10, "Pain impact (0–10)");
+          _buildLineChart("chart-sleep", labels, ordered.map(l => _getSymptom(l,"sleep_quality")), 0, 10, "Sleep quality (0–10)");
+          _buildLineChart("chart-gait-effort", labels, ordered.map(l => _getSymptom(l,"gait_effort")), 0, 10, "Gait effort (0–10)");
+          _buildLineChart("chart-leg-stiffness", labels, ordered.map(l => _getSymptom(l,"leg_stiffness")), 0, 10, "Leg stiffness (0–10)");
+          _buildLineChart("chart-brain-fog", labels, ordered.map(l => _getSymptom(l,"brain_fog")), 0, 10, "Brain fog (0–10)");
+          _buildLineChart("chart-neuro-fatigue", labels, ordered.map(l => _getSymptom(l,"neurologic_fatigue")), 0, 10, "Neurologic fatigue (0–10)");
+          setTimeout(() => { Object.values(window._trendCharts).forEach(ch => { try{ ch.resize(); }catch(e){} }); }, 50);
+        } catch (err) { console.warn("renderTrendsCharts failed:", err); }
+      };
+
+      window.renderTrendsDetails = async function() {
+        const host = el("trends-details-content");
+        if (!host) return;
+        const logs = await fetchPatientLogs("patrick", 365);
+        const rows = [];
+        function pushMetric(key, label, getter) {
+          const vals = [];
+          for (const l of logs) {
+            const v = getter(l);
+            if (v === null || v === undefined || v === "") continue;
+            const n = Number(v);
+            if (!Number.isFinite(n)) continue;
+            vals.push({ date: l.date, v: n });
+          }
+          if (vals.length === 0) return;
+          vals.sort((a,b)=> String(a.date).localeCompare(String(b.date)));
+          const ns = vals.map(x=>x.v);
+          const mean = ns.reduce((a,b)=>a+b,0) / ns.length;
+          const last = vals[vals.length-1];
+          rows.push({ label, n: ns.length, mean, min: Math.min(...ns), max: Math.max(...ns), lastDate: last.date, last: last.v });
+        }
+        pushMetric("baseline_rating","Global Baseline Rating (1–5)",l=>_mapBaselineTo15(l.baseline_rating));
+        pushMetric("energy_capacity","Energy / Capacity (0–10)",l=>l.energy_capacity);
+        pushMetric("pain_impact","Pain Impact (0–10)",l=>(l.pain_impact?l.pain_impact.severity:null));
+        pushMetric("sleep_quality","Sleep Quality (0–10)",l=>(l.symptom_drift?l.symptom_drift.sleep_quality:null));
+        pushMetric("brain_fog","Brain Fog (0–10)",l=>(l.symptom_drift?l.symptom_drift.brain_fog:null));
+        pushMetric("gait_effort","Gait Effort (0–10)",l=>(l.symptom_drift?l.symptom_drift.gait_effort:null));
+        pushMetric("gait_initiation","Gait initiation effort (0–10)",l=>(l.symptom_drift?l.symptom_drift.gait_initiation_effort:null));
+        pushMetric("sustained_walking","Sustained walking effort (0–10)",l=>(l.symptom_drift?l.symptom_drift.sustained_walking_effort:null));
+        pushMetric("neurologic_fatigue","Neurologic fatigue (0–10)",l=>(l.symptom_drift?l.symptom_drift.neurologic_fatigue:null));
+        pushMetric("leg_stiffness","Leg Stiffness (0–10)",l=>(l.symptom_drift?l.symptom_drift.leg_stiffness:null));
+        pushMetric("post_rest_stiffness","Post-rest stiffness (0–10)",l=>(l.symptom_drift?l.symptom_drift.post_rest_stiffness:null));
+        pushMetric("symptom_volatility","Symptom volatility (0–10)",l=>(l.symptom_drift?l.symptom_drift.symptom_volatility:null));
+
+        if (rows.length === 0) { host.innerHTML = '<div class="muted">No numeric trend data found yet.</div>'; return; }
+        host.innerHTML = rows.map(r => `
           <div class="row" style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,.08);">
             <div style="font-weight:700;">${r.label}</div>
-            <div class="muted" style="margin-top:6px;">
-              N=${r.n} • mean ${mean} • min ${r.min} • max ${r.max} • last ${r.last} (${r.lastDate})
-            </div>
-          </div>`;
-      }).join("");
+            <div class="muted" style="margin-top:6px;">N=${r.n} • mean ${(Math.round(r.mean*10)/10).toFixed(1)} • min ${r.min} • max ${r.max} • last ${r.last} (${r.lastDate})</div>
+          </div>`).join("");
+      };
 
-      host.innerHTML = `<div>${html}</div>`;
-    };
-
-    document.addEventListener("DOMContentLoaded", () => {
-      // prime slider visuals
-      Array.from(document.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
-
-      // Ensure the Energy/Capacity slider always shows its numeric value
-      if (document.getElementById('p-energy-capacity') && document.getElementById('p-energy-capacity-value')) {
-        window.updateSlider('p-energy-capacity', 'p-energy-capacity-value');
-      }
-
-      // Wire up Wins / Adverse Events buttons and rendering
-      if (typeof window.initEvents === 'function') {
-        window.initEvents();
-      }
-      // confounder accordion
-      const pharm = document.getElementById('p-conf-pharm');
-      const panel = document.getElementById('p-conf-pharm-panel');
-      if (pharm && panel) {
-        const sync = () => panel.style.display = pharm.checked ? 'block' : 'none';
-        pharm.addEventListener('change', sync);
-        sync();
-      }
-
-    });
+      document.addEventListener("DOMContentLoaded", () => {
+        Array.from(document.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
+        if (document.getElementById('p-energy-capacity') && document.getElementById('p-energy-capacity-value')) {
+          window.updateSlider('p-energy-capacity', 'p-energy-capacity-value');
+        }
+        if (typeof window.initEvents === 'function') window.initEvents();
+        const pharm = document.getElementById('p-conf-pharm');
+        const panel = document.getElementById('p-conf-pharm-panel');
+        if (pharm && panel) {
+          const sync = () => panel.style.display = pharm.checked ? 'block' : 'none';
+          pharm.addEventListener('change', sync);
+          sync();
+        }
+        ensureAuthUI();
+      });
+    }
   </script>
+
 <script>
-</script>
-<script>
-</script>
-<script>
-// Scroll hint toggle: show hint at top, hide after user scrolls (dev-modal)
+// Scroll hint toggle for dev-modal
 (function () {
   const modal = document.getElementById('dev-modal');
   if (!modal) return;
-
   const modalBody = modal.querySelector('.modal-body');
   if (!modalBody) return;
-
   const update = () => {
     const canScroll = modalBody.scrollHeight > modalBody.clientHeight + 8;
     const atTop = modalBody.scrollTop <= 2;
-
-    if (!canScroll) {
-      modalBody.classList.add('scroll-hint-hidden');
-      return;
-    }
+    if (!canScroll) { modalBody.classList.add('scroll-hint-hidden'); return; }
     if (atTop) modalBody.classList.remove('scroll-hint-hidden');
     else modalBody.classList.add('scroll-hint-hidden');
   };
-
   update();
   modalBody.addEventListener('scroll', update, { passive: true });
-
   const obs = new MutationObserver(update);
   obs.observe(modal, { attributes: true, attributeFilter: ['style', 'class'] });
 })();
-
 </script>
+
 <script>
 // Lock background scroll when dev-modal is open
 (function () {
   const modal = document.getElementById('dev-modal');
   if (!modal) return;
-
   const updateLock = () => {
-    const display = window.getComputedStyle(modal).display;
-    const isVisible = display !== 'none';
+    const isVisible = window.getComputedStyle(modal).display !== 'none';
     if (isVisible) document.body.classList.add('modal-open');
     else document.body.classList.remove('modal-open');
   };
-
   const observer = new MutationObserver(updateLock);
   observer.observe(modal, { attributes: true, attributeFilter: ['style', 'class'] });
-
   updateLock();
 })();
-
 </script>
+
 </body>
 </html>
