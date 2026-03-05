@@ -992,13 +992,15 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 <h2>Sign in</h2>
 <p>Sign in once on this device to sync and protect your logs.</p>
 <form id="login-form" onsubmit="handleLoginSubmit(event)">
-<input type="email" id="email-input" autocomplete="username" placeholder="Email">
-<input type="password" id="password-input" autocomplete="current-password" placeholder="Password">
-<button type="submit" id="login-btn">Log In</button>
-</form>
+<label for="auth-email">Email</label>
+<input autocomplete="username" id="auth-email" inputmode="email" type="email"/>
+<label for="auth-pass">Password</label>
+<input autocomplete="current-password" id="auth-pass" type="password"/>
 <div class="row">
+<button id="auth-signin" type="submit">Sign in</button>
 <button class="secondary" id="auth-signup" type="button">Create account</button>
 </div>
+</form>
 <div class="row" style="margin-top:10px;">
 <button class="secondary" id="auth-demo" style="width:100%;" type="button">View demo (read-only)</button>
 </div>
@@ -1879,12 +1881,35 @@ async function handleLoginSubmit(event) {
   event.preventDefault();
   if (isLoggingIn) return;
   isLoggingIn = true;
-  const email = document.getElementById('email-input')?.value || '';
-  const password = document.getElementById('password-input')?.value || '';
+
+  // Use the existing auth error surface if available
+  const errEl = document.getElementById("auth-error");
+  const showErr = (msg) => { if (errEl) errEl.textContent = msg || ""; };
+
+  showErr("");
+  const email = (document.getElementById("auth-email")?.value || "").trim();
+  const pass  = (document.getElementById("auth-pass")?.value || "").trim();
+  if (!email || !pass) {
+    showErr("Enter email and password.");
+    isLoggingIn = false;
+    return;
+  }
+
   try {
-    await firebase.auth().signInWithEmailAndPassword(email, password);
-  } catch (error) {
-    console.error("Login failed:", error);
+    if (window.__authApi && typeof window.__authApi.signIn === "function") {
+      await window.__authApi.signIn(email, pass);
+    showAuthOverlay(false);
+    onAuthReady();
+    } else if (window.firebase && firebase.auth) {
+      await firebase.auth().signInWithEmailAndPassword(email, pass);
+    showAuthOverlay(false);
+    onAuthReady();
+    } else {
+      throw new Error("Auth is not initialized.");
+    }
+  } catch (e) {
+    console.error("Login failed:", e);
+    showErr(e?.message || String(e));
   } finally {
     isLoggingIn = false;
   }
@@ -1896,14 +1921,12 @@ function ensureAuthUI() {
 
       const overlay = document.getElementById("auth-overlay");
       const formEl = document.getElementById("login-form");
-      const emailEl = document.getElementById("email-input");
-      const passEl = document.getElementById("password-input");
+      const emailEl = document.getElementById("auth-email");
+      const passEl = document.getElementById("auth-pass");
       const btnUp  = document.getElementById("auth-signup");
       const btnDemo = document.getElementById("auth-demo");
       const errEl  = document.getElementById("auth-error");
 
-      // If the elements aren't on the page yet (common when scripts run before body),
-      // don't mark ready. We'll retry shortly / on DOMContentLoaded.
       if (!overlay || !formEl || !emailEl || !passEl || !btnUp || !btnDemo || !errEl) {
         setTimeout(ensureAuthUI, 50);
         return;
@@ -1916,18 +1939,6 @@ function ensureAuthUI() {
 
       // Stable iOS login: submit handler + guard against double-submit
       formEl.addEventListener("submit", handleLoginSubmit);
-
-        const email = (emailEl.value || "").trim();
-        const pass  = (passEl.value || "").trim();
-        if (!email || !pass) return showErr("Enter email and password.");
-        try {
-          await window.__authApi.signIn(email, pass);
-          showAuthOverlay(false);
-          onAuthReady();
-        } catch (e) {
-          showErr(e?.message || String(e));
-        }
-      });
 
       btnUp.addEventListener("click", async () => {
         showErr("");
