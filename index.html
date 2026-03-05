@@ -466,6 +466,176 @@
       opacity: 0.6;
       z-index: 9999;
     }
+
+    /* 90-Day Progress Tracker */
+    .phase-tracker {
+      background: linear-gradient(135deg, #1C1C1E 0%, #2C2C2E 100%);
+      border: 1px solid #333;
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .phase-tracker::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-color), var(--accent-blue), var(--lab-purple));
+    }
+    .phase-tracker-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .phase-tracker-day {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--accent-color);
+      letter-spacing: -0.5px;
+    }
+    .phase-tracker-day .of-total {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .phase-tracker-badge {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .phase-tracker-badge.phase-1 { background: rgba(48, 209, 88, 0.15); color: var(--accent-color); border: 1px solid rgba(48, 209, 88, 0.3); }
+    .phase-tracker-badge.phase-2 { background: rgba(10, 132, 255, 0.15); color: var(--accent-blue); border: 1px solid rgba(10, 132, 255, 0.3); }
+    .phase-tracker-badge.phase-3 { background: rgba(191, 90, 242, 0.15); color: var(--lab-purple); border: 1px solid rgba(191, 90, 242, 0.3); }
+    .phase-tracker-badge.phase-done { background: rgba(48, 209, 88, 0.2); color: var(--accent-color); border: 1px solid rgba(48, 209, 88, 0.4); }
+    .phase-tracker-badge.phase-pre { background: rgba(142, 142, 147, 0.15); color: var(--text-secondary); border: 1px solid rgba(142, 142, 147, 0.3); }
+    .phase-tracker-title {
+      font-size: 0.85rem;
+      color: #ccc;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .phase-tracker-bar-bg {
+      height: 8px;
+      background: #333;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .phase-tracker-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.6s ease;
+      background: linear-gradient(90deg, var(--accent-color), var(--accent-blue));
+    }
+    .phase-tracker-bar-fill.phase-2-fill { background: linear-gradient(90deg, var(--accent-blue), var(--lab-purple)); }
+    .phase-tracker-bar-fill.phase-3-fill { background: linear-gradient(90deg, var(--lab-purple), var(--accent-color)); }
+    .phase-tracker-bar-fill.phase-done-fill { background: var(--accent-color); }
+    .phase-tracker-phases {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+    .phase-tracker-phases span.active-phase { color: #fff; font-weight: 700; }
+    .phase-tracker-start {
+      margin-top: 12px;
+      text-align: center;
+    }
+    .phase-tracker-start-btn {
+      background: rgba(48, 209, 88, 0.12);
+      border: 1px solid rgba(48, 209, 88, 0.3);
+      color: var(--accent-color);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      width: 100%;
+    }
+    .phase-tracker-start-btn:active { transform: scale(0.98); }
+    .phase-tracker-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+    .phase-tracker-reset {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      cursor: pointer;
+      padding: 0;
+      margin-top: 8px;
+      text-decoration: underline;
+      opacity: 0.7;
+    }
+    .phase-tracker-reset:hover { opacity: 1; }
+    .phase-tracker-info-btn {
+      background: none;
+      border: 1px solid #444;
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 4px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .phase-tracker-info-btn:hover { border-color: #666; color: #fff; }
+    /* Roadmap Modal */
+    #roadmap-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #roadmap-modal .roadmap-card {
+      background: #1C1C1E;
+      border: 1px solid #333;
+      border-radius: 16px;
+      max-width: 600px;
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    #roadmap-modal .roadmap-card::-webkit-scrollbar { display: none; }
+    #roadmap-modal h2 { font-size: 1.2rem; margin: 0 0 16px; color: #fff; }
+    #roadmap-modal h3 { font-size: 1rem; margin: 18px 0 8px; font-weight: 700; }
+    #roadmap-modal h3.rm-p1 { color: var(--accent-color); }
+    #roadmap-modal h3.rm-p2 { color: var(--accent-blue); }
+    #roadmap-modal h3.rm-p3 { color: var(--lab-purple); }
+    #roadmap-modal p, #roadmap-modal li { font-size: 0.85rem; color: #ccc; line-height: 1.55; }
+    #roadmap-modal ul { padding-left: 18px; margin: 6px 0; }
+    #roadmap-modal li { margin-bottom: 4px; }
+    #roadmap-modal .rm-close-btn {
+      display: block;
+      width: 100%;
+      margin-top: 20px;
+      padding: 12px;
+      background: rgba(48, 209, 88, 0.12);
+      border: 1px solid rgba(48, 209, 88, 0.3);
+      color: var(--accent-color);
+      font-weight: 700;
+      font-size: 0.9rem;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    #roadmap-modal .rm-section { border-top: 1px solid #333; padding-top: 14px; }
   
     #trends-charts-pane canvas{ width:100% !important; height:220px !important; display:block; }
   
@@ -921,6 +1091,205 @@ body.modal-open {
       try { window.clearDraft(); } catch(e){}
       window.scrollTo(0,0);
     };
+
+    // --- 90-DAY PROTOCOL PROGRESS TRACKER ---
+    (function initPhaseTracker() {
+      const LS_KEY = 'amn_protocol_start_date';
+
+      const PHASES = [
+        { num: 1, name: 'Tolerability & Baseline Lock', range: [1, 30], cls: 'phase-1', fillCls: '' },
+        { num: 2, name: 'Signal Detection', range: [31, 60], cls: 'phase-2', fillCls: 'phase-2-fill' },
+        { num: 3, name: 'Confirmation & Passenger Decision', range: [61, 90], cls: 'phase-3', fillCls: 'phase-3-fill' }
+      ];
+
+      function getStartDate() {
+        try { return localStorage.getItem(LS_KEY) || ''; } catch(e) { return ''; }
+      }
+
+      function setStartDateLocal(dateStr) {
+        try { localStorage.setItem(LS_KEY, dateStr); } catch(e) {}
+      }
+
+      function removeStartDateLocal() {
+        try { localStorage.removeItem(LS_KEY); } catch(e) {}
+      }
+
+      // Firestore sync helpers (called after Firebase is ready)
+      function saveToFirestore(dateStr) {
+        try {
+          if (window.CURRENT_UID && typeof firebase !== 'undefined' && firebase.firestore) {
+            firebase.firestore().collection('users').doc(window.CURRENT_UID)
+              .collection('settings').doc('protocol')
+              .set({ startDate: dateStr, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+          }
+        } catch(e) { console.warn('Phase tracker Firestore save failed:', e); }
+      }
+
+      function removeFromFirestore() {
+        try {
+          if (window.CURRENT_UID && typeof firebase !== 'undefined' && firebase.firestore) {
+            firebase.firestore().collection('users').doc(window.CURRENT_UID)
+              .collection('settings').doc('protocol')
+              .update({ startDate: firebase.firestore.FieldValue.delete(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          }
+        } catch(e) { console.warn('Phase tracker Firestore remove failed:', e); }
+      }
+
+      // Pull from Firestore on login — Firestore wins if localStorage is empty
+      window.__phaseTrackerSyncFromFirestore = async function() {
+        try {
+          if (!window.CURRENT_UID || typeof firebase === 'undefined') return;
+          const doc = await firebase.firestore().collection('users').doc(window.CURRENT_UID)
+            .collection('settings').doc('protocol').get();
+          if (doc.exists && doc.data()?.startDate) {
+            const remoteDate = doc.data().startDate;
+            const localDate = getStartDate();
+            if (!localDate) {
+              setStartDateLocal(remoteDate);
+              render();
+            } else if (localDate !== remoteDate) {
+              saveToFirestore(localDate);
+            }
+          } else if (getStartDate()) {
+            saveToFirestore(getStartDate());
+          }
+        } catch(e) { console.warn('Phase tracker Firestore sync failed:', e); }
+      };
+
+      function daysBetween(startStr) {
+        const start = new Date(startStr + 'T00:00:00');
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        return Math.floor((today - startDay) / 86400000) + 1;
+      }
+
+      function formatDate(dateStr) {
+        if (!dateStr) return '—';
+        const d = new Date(dateStr + 'T00:00:00');
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+      }
+
+      function addDays(dateStr, days) {
+        const d = new Date(dateStr + 'T00:00:00');
+        d.setDate(d.getDate() + days);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      }
+
+      function render() {
+        const tracker = byId('phase-tracker');
+        const setup = byId('phase-tracker-setup');
+        const active = byId('phase-tracker-active');
+        if (!tracker || !setup || !active) return;
+
+        const startDate = getStartDate();
+        if (!startDate) {
+          setup.style.display = 'block';
+          active.style.display = 'none';
+          const input = byId('phase-tracker-date-input');
+          if (input && !input.value) {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            input.value = `${y}-${m}-${d}`;
+          }
+          return;
+        }
+
+        setup.style.display = 'none';
+        active.style.display = 'block';
+
+        const currentDay = daysBetween(startDate);
+        const clampedDay = Math.max(0, Math.min(currentDay, 90));
+        const pct = Math.min(100, Math.max(0, (clampedDay / 90) * 100));
+
+        const dayEl = byId('pt-current-day');
+        if (dayEl) dayEl.textContent = currentDay <= 0 ? 'Pre' : (currentDay > 90 ? '90+' : String(currentDay));
+
+        // Determine phase
+        let phase = null;
+        if (currentDay <= 0) {
+          phase = { num: 0, name: 'Pre-Launch', cls: 'phase-pre', fillCls: '' };
+        } else if (currentDay > 90) {
+          phase = { num: 4, name: 'Protocol Complete', cls: 'phase-done', fillCls: 'phase-done-fill' };
+        } else {
+          phase = PHASES.find(p => currentDay >= p.range[0] && currentDay <= p.range[1]) || PHASES[0];
+        }
+
+        const badge = byId('pt-badge');
+        if (badge) {
+          badge.className = 'phase-tracker-badge ' + phase.cls;
+          badge.textContent = phase.num === 0 ? 'Pre-Launch' : (phase.num === 4 ? 'Complete' : 'Phase ' + phase.num);
+        }
+
+        const title = byId('pt-phase-title');
+        if (title) title.textContent = phase.name;
+
+        const bar = byId('pt-bar');
+        if (bar) {
+          bar.style.width = pct + '%';
+          bar.className = 'phase-tracker-bar-fill ' + (phase.fillCls || '');
+        }
+
+        // Highlight active phase label
+        for (let i = 1; i <= 3; i++) {
+          const label = byId('pt-label-' + i);
+          if (label) {
+            if (phase.num === i) label.classList.add('active-phase');
+            else label.classList.remove('active-phase');
+          }
+        }
+
+        const startLabel = byId('pt-start-label');
+        if (startLabel) startLabel.textContent = 'Started: ' + formatDate(startDate);
+
+        const endLabel = byId('pt-end-label');
+        if (endLabel) endLabel.textContent = 'Ends: ' + formatDate(addDays(startDate, 89));
+      }
+
+      window.setProtocolStartDate = function() {
+        const input = byId('phase-tracker-date-input');
+        if (!input || !input.value) { alert('Please select a start date.'); return; }
+        setStartDateLocal(input.value);
+        saveToFirestore(input.value);
+        render();
+      };
+
+      window.resetProtocolStartDate = function() {
+        if (!confirm('Reset your protocol start date? This only resets the tracker, not your logged data.')) return;
+        removeStartDateLocal();
+        removeFromFirestore();
+        render();
+      };
+
+      window.showRoadmapModal = function() {
+        const m = byId('roadmap-modal');
+        if (m) m.style.display = 'flex';
+      };
+      window.hideRoadmapModal = function() {
+        const m = byId('roadmap-modal');
+        if (m) m.style.display = 'none';
+      };
+
+      // Re-render when pilot view is shown
+      const origSelectProfile = window.selectProfile;
+      window.selectProfile = function(profile) {
+        origSelectProfile(profile);
+        if (profile === 'patrick') render();
+      };
+
+      // Initial render on page load
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', render);
+      } else {
+        render();
+      }
+    })();
   </script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -1160,6 +1529,95 @@ Conceptual Foundation and Mechanistic Framework
 <h2>The Pilot</h2>
 </header>
 <p id="date-display-p" style="color:var(--text-secondary); margin-bottom:20px; font-size:0.9rem;"></p>
+
+<!-- 90-Day Protocol Progress Tracker -->
+<div class="phase-tracker" id="phase-tracker">
+<div id="phase-tracker-setup" style="display:none;">
+  <div style="text-align:center; margin-bottom:8px;">
+    <span style="font-size:0.9rem; font-weight:700; color:#ccc;">Set Protocol Start Date</span>
+  </div>
+  <div style="font-size:0.8rem; color:var(--text-secondary); text-align:center; margin-bottom:12px; line-height:1.4;">
+    Pick the date you begin (or began) the 90-day protocol run.
+  </div>
+  <input type="date" id="phase-tracker-date-input" style="margin-bottom:10px;"/>
+  <button class="phase-tracker-start-btn" id="phase-tracker-set-btn" type="button" onclick="window.setProtocolStartDate()">Lock Start Date</button>
+</div>
+<div id="phase-tracker-active" style="display:none;">
+  <div class="phase-tracker-header">
+    <div class="phase-tracker-day">Day <span id="pt-current-day">0</span> <span class="of-total">of 90</span></div>
+    <div class="phase-tracker-badge phase-1" id="pt-badge">Phase 1</div>
+  </div>
+  <div class="phase-tracker-title" id="pt-phase-title">Tolerability &amp; Baseline Lock</div>
+  <div class="phase-tracker-bar-bg">
+    <div class="phase-tracker-bar-fill" id="pt-bar" style="width:0%;"></div>
+  </div>
+  <div class="phase-tracker-phases">
+    <span id="pt-label-1">Phase 1 (1–30)</span>
+    <span id="pt-label-2">Phase 2 (31–60)</span>
+    <span id="pt-label-3">Phase 3 (61–90)</span>
+  </div>
+  <div class="phase-tracker-meta">
+    <span id="pt-start-label">Started: —</span>
+    <span id="pt-end-label">Ends: —</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+    <button class="phase-tracker-info-btn" type="button" onclick="window.showRoadmapModal()">View 90-Day Roadmap</button>
+    <button class="phase-tracker-reset" id="phase-tracker-reset-btn" type="button" onclick="window.resetProtocolStartDate()" style="margin-top:0;">Reset start date</button>
+  </div>
+</div>
+</div>
+
+<!-- 90-Day Roadmap Modal -->
+<div id="roadmap-modal" onclick="if(event.target===this)window.hideRoadmapModal()">
+<div class="roadmap-card">
+<h2>The 90-Day AMN Protocol Roadmap</h2>
+<p>A structured 90-day observation protocol for tracking tolerability, detecting early biomarker signals, and building the evidence base for long-term treatment decisions in Adrenomyeloneuropathy.</p>
+
+<div class="rm-section">
+<h3 class="rm-p1">Phase 1: Tolerability &amp; Baseline Lock (Days 1&#8211;30)</h3>
+<p><strong>Goal:</strong> Confirm the supplement stack is well-tolerated and establish a clean, repeatable baseline across all tracked domains.</p>
+<ul>
+<li><strong>Daily logging:</strong> Record energy, cognition, gait, pain, mood, sleep quality, and any adverse or positive events every day.</li>
+<li><strong>Vitals:</strong> Track weight, blood pressure, heart rate, and temperature as available.</li>
+<li><strong>Supplement adherence:</strong> Log each supplement taken (dose, timing). Mark any missed doses or changes.</li>
+<li><strong>Adverse event capture:</strong> Flag anything new or unusual, even if minor. Early detection is the priority.</li>
+<li><strong>Baseline labs:</strong> If possible, draw baseline bloodwork (VLCFA, cortisol, inflammatory markers, standard metabolic panel) during this window.</li>
+<li><strong>Functional tests:</strong> Complete at least one timed functional test (e.g., 25-foot walk, grip strength, tandem stance) to anchor physical performance baseline.</li>
+</ul>
+<p><strong>Exit criteria:</strong> 30 days of consistent logging. No unresolved safety concerns. Baseline data locked.</p>
+</div>
+
+<div class="rm-section">
+<h3 class="rm-p2">Phase 2: Signal Detection (Days 31&#8211;60)</h3>
+<p><strong>Goal:</strong> With baseline established, begin watching for any early treatment signals&#8212;positive or negative&#8212;across subjective and objective domains.</p>
+<ul>
+<li><strong>Continue daily logging:</strong> Same domains. Consistency matters&#8212;the value is in the trend line, not any single day.</li>
+<li><strong>Pattern review:</strong> At Day 45 and Day 60, review the data for emerging trends. Is energy trending up? Gait stability improving or declining? Pain shifting?</li>
+<li><strong>Supplement adjustments:</strong> If Phase 1 was clean, consider any planned dose adjustments or additions per the protocol plan. Log changes carefully.</li>
+<li><strong>Repeat functional tests:</strong> Run the same timed tests performed in Phase 1 at least once during this window for comparison.</li>
+<li><strong>Mid-protocol labs:</strong> If feasible, repeat key bloodwork (especially VLCFA) around Day 45&#8211;60 to look for early metabolic signal.</li>
+</ul>
+<p><strong>Exit criteria:</strong> 60 days of consistent logging. Initial signal assessment documented. Any concerning trends flagged for review.</p>
+</div>
+
+<div class="rm-section">
+<h3 class="rm-p3">Phase 3: Confirmation &amp; Passenger Decision (Days 61&#8211;90)</h3>
+<p><strong>Goal:</strong> Confirm or refute early signals. Build enough evidence to make an informed go/no-go decision on continuing, modifying, or stopping the protocol.</p>
+<ul>
+<li><strong>Continue daily logging:</strong> Push through to 90 days. The full dataset is the deliverable.</li>
+<li><strong>Deep trend analysis:</strong> Compare Phase 3 averages against Phase 1 baseline. Look for statistically meaningful shifts in energy, cognition, gait, and pain.</li>
+<li><strong>Final functional tests:</strong> Complete the same timed tests one more time. Three data points (Phase 1, 2, 3) create a trend line.</li>
+<li><strong>End-of-protocol labs:</strong> Draw final bloodwork. Compare against baseline for objective biomarker movement.</li>
+<li><strong>Export &amp; review:</strong> Generate the full 90-day clinical export. Prepare a summary for your medical team if applicable.</li>
+<li><strong>Decision point:</strong> Based on the full 90-day evidence: Continue the current protocol? Modify dosing? Add or remove supplements? Stop and reassess? The data speaks.</li>
+</ul>
+<p><strong>Exit criteria:</strong> 90 days complete. Full dataset exported. Decision documented.</p>
+</div>
+
+<button class="rm-close-btn" type="button" onclick="window.hideRoadmapModal()">Close</button>
+</div>
+</div>
+
 <form id="patrick-form">
 <details style="margin-bottom: 20px; margin-top: 0;">
 <summary><div class="summary-text">Protocol Context<br/>&amp; References</div></summary>
@@ -1788,6 +2246,10 @@ Conceptual Foundation and Mechanistic Framework
       auth.onAuthStateChanged((user) => {
         window.CURRENT_UID = user?.uid || null;
         showAuthOverlay(!window.CURRENT_UID);
+        // Sync phase tracker start date from Firestore on login
+        if (user && typeof window.__phaseTrackerSyncFromFirestore === 'function') {
+          window.__phaseTrackerSyncFromFirestore();
+        }
       });
 
       function userProfilePath(profile, ...rest) {
