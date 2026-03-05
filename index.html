@@ -1606,6 +1606,7 @@ Conceptual Foundation and Mechanistic Framework
     window.enterDemoMode = function () {
       try { localStorage.setItem('amn_demo_mode', '1'); } catch (_) {}
       hideAuthModal();
+      if (typeof window.__enterDemoMode === 'function') window.__enterDemoMode();
     };
 
     if (location.protocol === 'file:') {
@@ -1703,24 +1704,6 @@ Conceptual Foundation and Mechanistic Framework
             }
           });
         }
-
-        btnIn.addEventListener("click", async () => {
-          if (_authInProgress) return;
-          _authInProgress = true;
-          showErr("");
-          const email = (emailEl.value || "").trim();
-          const pass  = (passEl.value || "").trim();
-          if (!email || !pass) { showErr("Enter email and password."); _authInProgress = false; return; }
-          try {
-            await window.__authApi.signIn(email, pass);
-            showAuthOverlay(false);
-            onAuthReady();
-          } catch (e) {
-            showErr(e?.message || String(e));
-          } finally {
-            _authInProgress = false;
-          }
-        });
 
         btnUp.addEventListener("click", async () => {
           if (_authInProgress) return;
@@ -1866,8 +1849,8 @@ Conceptual Foundation and Mechanistic Framework
             <div class="input-group"><label>${triggerLabel}</label><select class="input trigger"><option value="">Select</option>${optionList(triggers)}</select></div>
           </div>
           <div class="input-group"><label>Trigger detail (optional)</label><input class="input detail" type="text" placeholder="e.g., potassium helped, intense PT session" /></div>
-          <button class="btn btn-ghost remove" type="button">Remove</button>`;
-        wrap.querySelector(".remove").addEventListener("click", () => wrap.remove());
+          <button class="remove-btn" type="button">Remove</button>`;
+        wrap.querySelector(".remove-btn").addEventListener("click", () => wrap.remove());
         return wrap;
       }
 
@@ -1914,7 +1897,7 @@ Conceptual Foundation and Mechanistic Framework
         const eveningBP = parseBP(val("p-evening-bp"));
         return {
           date,
-          baseline_rating: mustEnum(val("p-global-rating"), ["much_worse","worse","same","better","much_better"], null),
+          baseline_rating: mustEnum(val("p-global-rating"), ["much_worse","worse","slightly_worse","baseline","slightly_better","better","much_better"], null),
           baseline_confidence: mustEnum(val("p-global-confidence"), ["low","medium","high"], null),
           energy_capacity: asNumber(val("p-energy-capacity")),
           energy_confidence: mustEnum(val("p-energy-confidence"), ["low","medium","high"], null),
@@ -2119,7 +2102,8 @@ Conceptual Foundation and Mechanistic Framework
 
       function _abbrBaseline(v) {
         switch (v) {
-          case "much_worse": return "MW"; case "worse": return "W"; case "same": return "S";
+          case "much_worse": return "MW"; case "worse": return "W"; case "slightly_worse": return "SW";
+          case "baseline": return "BL"; case "same": return "S"; case "slightly_better": return "SB";
           case "better": return "B"; case "much_better": return "MB"; default: return "-";
         }
       }
@@ -2567,14 +2551,14 @@ Conceptual Foundation and Mechanistic Framework
             html += `</div>`;
 
             html += `<div class="report-section"><h3>Notes</h3>
-              <p><strong>Food:</strong> ${vr(pick(log,"food_notes"))}</p>
-              <p><strong>General:</strong> ${vr(pick(log,"notes","general_notes"))}</p>
+              <p><strong>Food:</strong> ${escapeHTML(vr(pick(log,"food_notes")))}</p>
+              <p><strong>General:</strong> ${escapeHTML(vr(pick(log,"notes","general_notes")))}</p>
             </div>`;
 
             html += `<div class="report-section"><h3>Adverse Events</h3>`;
             if (adverseArr.length > 0) {
               adverseArr.forEach(ae => {
-                html += `<p>• ${vr(ae?.desc || ae?.description)}${ae?.trigger ? ` [${ae.trigger}]` : ""}${ae?.durationMin ? ` (${ae.durationMin}m)` : ""}${ae?.detail ? ` — ${ae.detail}` : ""}</p>`;
+                html += `<p>• ${escapeHTML(vr(ae?.desc || ae?.description))}${ae?.trigger ? ` [${escapeHTML(ae.trigger)}]` : ""}${ae?.durationMin ? ` (${ae.durationMin}m)` : ""}${ae?.detail ? ` — ${escapeHTML(ae.detail)}` : ""}</p>`;
               });
             } else { html += `<p>N/A</p>`; }
             html += `</div>`;
@@ -2582,12 +2566,12 @@ Conceptual Foundation and Mechanistic Framework
             html += `<div class="report-section"><h3>Wins</h3>`;
             if (winsArr.length > 0) {
               winsArr.forEach(w => {
-                html += `<p>• ${vr(w?.desc || w?.description)}${w?.trigger ? ` [${w.trigger}]` : ""}${w?.durationMin ? ` (${w.durationMin}m)` : ""}${w?.detail ? ` — ${w.detail}` : ""}</p>`;
+                html += `<p>• ${escapeHTML(vr(w?.desc || w?.description))}${w?.trigger ? ` [${escapeHTML(w.trigger)}]` : ""}${w?.durationMin ? ` (${w.durationMin}m)` : ""}${w?.detail ? ` — ${escapeHTML(w.detail)}` : ""}</p>`;
               });
             } else { html += `<p>N/A</p>`; }
             html += `</div>`;
 
-            html += `<div class="report-section"><h3>Daily Summary</h3><p>${vr(pick(log,"daily_summary"))}</p></div>`;
+            html += `<div class="report-section"><h3>Daily Summary</h3><p>${escapeHTML(vr(pick(log,"daily_summary")))}</p></div>`;
             html += `</div>`; // end day block
           });
 
@@ -2700,15 +2684,15 @@ Conceptual Foundation and Mechanistic Framework
           logs.forEach(log => {
             const protocol = log.protocol_adherence || {};
             const safety = log.safety || {};
-            html += `<div class="day-block"><div class="day-title">Date: ${vr(log.date)}</div>`;
+            html += `<div class="report-day-block"><div class="day-title">Date: ${vr(log.date)}</div>`;
             html += `<div class="report-section"><h3>Protocol Adherence</h3>
               <p>NA: ${yn(protocol.nervonic_acid_taken)} | NAC: ${yn(protocol.nac_taken)} | ALA: ${yn(protocol.r_ala_taken)} | Vit E: ${yn(protocol.vitamin_e_taken)}</p>
             </div>`;
             html += `<div class="report-section"><h3>Safety / Anything different?</h3>
               <p>Feels different: ${yn(safety.feels_different)}</p>
-              <p><strong>Details:</strong> ${vr(safety.details)}</p>
+              <p><strong>Details:</strong> ${escapeHTML(vr(safety.details))}</p>
             </div>`;
-            html += `<div class="report-section"><h3>Notes</h3><p>${vr(log.notes)}</p></div>`;
+            html += `<div class="report-section"><h3>Notes</h3><p>${escapeHTML(vr(log.notes))}</p></div>`;
             html += `</div>`;
           });
 
@@ -2943,11 +2927,11 @@ Conceptual Foundation and Mechanistic Framework
           const elSum = el("change-summary");
           if (!elSum) return;
           const withRating = logs.filter(l => !!l.baseline_rating);
-          const counts = { much_worse:0, worse:0, same:0, better:0, much_better:0 };
+          const counts = { much_worse:0, worse:0, slightly_worse:0, baseline:0, slightly_better:0, better:0, much_better:0 };
           withRating.forEach(l => { if (counts[l.baseline_rating] !== undefined) counts[l.baseline_rating]++; });
           elSum.innerHTML = `
             <div>Last 30 days: <strong>${logs.length}</strong> logs found. Baseline rating recorded on <strong>${withRating.length}</strong> days.</div>
-            <div style="margin-top:10px;">much better: ${counts.much_better} • better: ${counts.better} • same: ${counts.same} • worse: ${counts.worse} • much worse: ${counts.much_worse}</div>
+            <div style="margin-top:10px;">much better: ${counts.much_better} • better: ${counts.better} • slightly better: ${counts.slightly_better} • baseline: ${counts.baseline} • slightly worse: ${counts.slightly_worse} • worse: ${counts.worse} • much worse: ${counts.much_worse}</div>
             <div style="margin-top:10px; color:var(--text-secondary); font-size:0.85rem;">Note: Descriptive only. Does not adjust for confounders or missing data.</div>`;
         } catch(e) { console.error(e); }
       };
@@ -2975,7 +2959,8 @@ Conceptual Foundation and Mechanistic Framework
         if(v == null) return null;
         if(typeof v === "number") return v;
         const s = String(v).toLowerCase();
-        if(s === "much_worse") return 1; if(s === "worse") return 2; if(s === "same") return 3;
+        if(s === "much_worse") return 1; if(s === "worse") return 2; if(s === "slightly_worse") return 2.5;
+        if(s === "baseline" || s === "same") return 3; if(s === "slightly_better") return 3.5;
         if(s === "better") return 4; if(s === "much_better") return 5;
         return null;
       }
@@ -2992,7 +2977,7 @@ Conceptual Foundation and Mechanistic Framework
           _buildLineChart("chart-energy", labels, ordered.map(l => _num(l.energy_capacity)), 0, 10, "Energy / Capacity (0–10)");
           _buildLineChart("chart-pain", labels, ordered.map(l => _getPainSeverity(l)), 0, 10, "Pain impact (0–10)");
           _buildLineChart("chart-sleep", labels, ordered.map(l => _getSymptom(l,"sleep_quality")), 0, 10, "Sleep quality (0–10)");
-          _buildLineChart("chart-gait-effort", labels, ordered.map(l => _getSymptom(l,"gait_effort")), 0, 10, "Gait effort (0–10)");
+          _buildLineChart("chart-gait-effort", labels, ordered.map(l => _getSymptom(l,"step_gait_effort")), 0, 10, "Gait effort (0–10)");
           _buildLineChart("chart-leg-stiffness", labels, ordered.map(l => _getSymptom(l,"leg_stiffness")), 0, 10, "Leg stiffness (0–10)");
           _buildLineChart("chart-brain-fog", labels, ordered.map(l => _getSymptom(l,"brain_fog")), 0, 10, "Brain fog (0–10)");
           _buildLineChart("chart-neuro-fatigue", labels, ordered.map(l => _getSymptom(l,"neurologic_fatigue")), 0, 10, "Neurologic fatigue (0–10)");
@@ -3026,7 +3011,7 @@ Conceptual Foundation and Mechanistic Framework
         pushMetric("pain_impact","Pain Impact (0–10)",l=>(l.pain_impact?l.pain_impact.severity:null));
         pushMetric("sleep_quality","Sleep Quality (0–10)",l=>(l.symptom_drift?l.symptom_drift.sleep_quality:null));
         pushMetric("brain_fog","Brain Fog (0–10)",l=>(l.symptom_drift?l.symptom_drift.brain_fog:null));
-        pushMetric("gait_effort","Gait Effort (0–10)",l=>(l.symptom_drift?l.symptom_drift.gait_effort:null));
+        pushMetric("gait_effort","Gait Effort (0–10)",l=>(l.symptom_drift?l.symptom_drift.step_gait_effort:null));
         pushMetric("gait_initiation","Gait initiation effort (0–10)",l=>(l.symptom_drift?l.symptom_drift.gait_initiation_effort:null));
         pushMetric("sustained_walking","Sustained walking effort (0–10)",l=>(l.symptom_drift?l.symptom_drift.sustained_walking_effort:null));
         pushMetric("neurologic_fatigue","Neurologic fatigue (0–10)",l=>(l.symptom_drift?l.symptom_drift.neurologic_fatigue:null));
