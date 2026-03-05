@@ -300,7 +300,17 @@
   .pass { color: var(--green); font-weight: 700; }
   .fail { color: var(--red); font-weight: 700; }
   .report-meta { font-size: 0.75rem; color: var(--muted); margin-top: 8px; line-height: 1.8; }
-  .report-close-row { display: flex; justify-content: flex-end; margin-top: 14px; }
+  .report-close-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+  .btn-dl-report {
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
   .btn-close-report {
     background: #333;
     color: #fff;
@@ -521,6 +531,7 @@
     <div class="report-meta" id="report-meta"></div>
 
     <div class="report-close-row">
+      <button class="btn-dl-report" onclick="downloadReport()">Download</button>
       <button class="btn-close-report" onclick="closeReport()">Close</button>
     </div>
   </div>
@@ -1398,6 +1409,19 @@ function viewReport() {
 
 function closeReport() {
   document.getElementById('report-panel').classList.remove('visible');
+}
+
+function downloadReport() {
+  if (!state.report) return;
+  const json = JSON.stringify(state.report, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  a.href = url;
+  a.download = `amn-stress-test-${ts}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ============================================================
