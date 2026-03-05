@@ -1,6 +1,8 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
+<script>window.__AUTH_MODULE_LOADED__ = false;</script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 <title>The Protocol</title>
@@ -107,11 +109,6 @@
       transition: transform 0.2s;
       box-shadow: 0 0 20px rgba(48, 209, 88, 0.3);
     }
-.splash-credit{
-  margin-top:18px;
-  line-height:1.25;
-  padding:0 18px;
-}
     .enter-btn:active { transform: scale(0.95); }
 
     /* New Black Button Style */
@@ -669,23 +666,17 @@ body.modal-open {
     top: 0;
     width: 100%;
   }
-  /* Ensure the full report prints on iOS Safari (avoid 100vh clipping) */
-  #report-view {
-    position: static !important;
+
+  /* iOS Safari print: prevent truncation from scroll containers */
+  body, html {
+    overflow: visible !important;
     height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
   }
-  body {
+  #app-container, .view, #report-container, .scroll-container {
+    height: auto !important;
     overflow: visible !important;
+    position: static !important;
   }
-
-
-    /* iOS Safari PDF truncation guard: remove viewport-height and scrolling containers */
-    html, body { height:auto !important; overflow:visible !important; }
-    #app { height:auto !important; overflow:visible !important; }
-    #report-view { height:auto !important; max-height:none !important; overflow:visible !important; }
-
 }
 
 
@@ -700,11 +691,7 @@ body.modal-open {
   line-height: 1.35;
   color: rgba(255,255,255,0.75);
   pointer-events: none;
-
-  margin-top: 18px;
-  line-height: 1.25;
 }
-
 .splash-credits-site{ opacity: 0.9; }
 
 </style>
@@ -1000,43 +987,37 @@ const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML 
 </head>
 <body>
 <div id="report-view"></div>
-<div id="build-badge">build: 2026-03-04.11</div>
 <div id="auth-overlay">
 <div id="auth-card">
 <h2>Sign in</h2>
 <p>Sign in once on this device to sync and protect your logs.</p>
-
-<form id="auth-form" autocomplete="on" onsubmit="if(window.__doSignIn){window.__doSignIn();} return false;">
-  <label for="auth-email">Email</label>
-  <!-- Use username autocomplete so iOS Keychain recognizes this as a login form, while still allowing email input -->
-  <input id="auth-email" name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"/>
-
-  <label for="auth-pass">Password</label>
-  <input id="auth-pass" name="password" type="password" autocomplete="current-password"/>
-
-  <div class="row">
-    <button id="auth-signin" type="submit" onclick="if(window.__doSignIn){window.__doSignIn();}">Sign in</button>
-    <button id="auth-signup" class="secondary" type="button">Create account</button>
-  </div>
-
-  <div class="row" style="margin-top:10px;">
-    <button id="auth-demo" class="secondary" type="button" style="width:100%;" onclick="(window.__enterDemoMode||window.enterDemoMode||function(){})(); return false;">View demo (read-only)</button>
-  </div>
+<form id="login-form" onsubmit="handleLoginSubmit(event)">
+<input type="email" id="email-input" autocomplete="username" placeholder="Email">
+<input type="password" id="password-input" autocomplete="current-password" placeholder="Password">
+<button type="submit" id="login-btn">Log In</button>
 </form>
-
+<div class="row">
+<button class="secondary" id="auth-signup" type="button">Create account</button>
+</div>
+<div class="row" style="margin-top:10px;">
+<button class="secondary" id="auth-demo" style="width:100%;" type="button">View demo (read-only)</button>
+</div>
 <div id="auth-error"></div>
-<div id="auth-debug" style="margin-top:10px;color:#ffcc00;font-size:13px;line-height:1.25;white-space:pre-wrap;"></div>
-
 </div>
 </div>
-
 <div id="splash-overlay">
 <img alt="Pioneer Icon" class="hero-icon" src="icon.png"/>
 <h1>THE AMN DUAL-MECHANISM<br/>SUPPORT PROTOCOL</h1>
 <p class="title-sub">A Structured Approach to Redox Stabilization, Axonal Preservation,<br/>and Exploratory Myelin Support</p>
 <button class="enter-btn" onclick="window.enterApp()">Enter Protocol</button>
-<div class="splash-credit">Researched and Prepared By: Patrick Shipp Nutrition RNCP<br/>www.patrickshipp.com</div>
 <button class="read-overview-btn" id="read-overview-btn" onclick="window.toggleOverview(true)" type="button">Why this protocol exists</button>
+<div style="margin-top: 50px; line-height: 1.6; text-align: center; font-size: 14px; color: #8E8E93;">
+Researched and Prepared by
+
+Patrick Shipp Nutrition, RNCP
+
+www.patrickshipp.com
+</div>
 </div>
 <div aria-modal="true" class="app-modal" id="overview-modal" role="dialog">
 <div class="modal-card">
@@ -1532,7 +1513,7 @@ Conceptual Foundation and Mechanistic Framework
 <label>Notes</label>
 <textarea id="lab-notes" placeholder="Specific details..." rows="2"></textarea>
 </div>
-<!-- Removed: SAVE LAB RESULTS ONLY (labs saved with daily log) -->
+<button class="lab-save-btn" id="lab-save-results-btn" onclick="window.handleLabSave()" type="button">SAVE LAB RESULTS ONLY</button>
 <div class="history-list" id="lab-history-list"></div>
 </div>
 </details>
@@ -1606,7 +1587,7 @@ Conceptual Foundation and Mechanistic Framework
 <label>Notes</label>
 <textarea id="ft-notes" placeholder="Anything notable about setup, pain, fatigue, or conditions" rows="2"></textarea>
 </div>
-<!-- Removed: SAVE FUNCTIONAL TEST (saved with daily log) -->
+<button class="lab-save-btn" onclick="window.saveFunctionalTest()" style="margin-top:14px;" type="button">SAVE FUNCTIONAL TEST</button>
 <div class="history-list" id="ft-history-list"></div>
 </div>
 </details>
@@ -1760,21 +1741,7 @@ Conceptual Foundation and Mechanistic Framework
     // Even if Firebase fails to load, we still allow a read-only demo so you can show the UI.
     window.__AUTH_MODULE_LOADED__ = false;
 
-    
-// Demo mode auto-enable via URL or persisted flag
-try {
-  const qs = new URLSearchParams(location.search);
-  if (qs.has('demo') && qs.get('demo') !== '0') {
-    window.__DEMO_MODE__ = true;
-    try { localStorage.setItem('amn_demo_mode','1'); } catch(_) {}
-  } else {
-    try {
-      if (localStorage.getItem('amn_demo_mode') === '1') window.__DEMO_MODE__ = true;
-    } catch(_) {}
-  }
-} catch(_) {}
-
-// Demo mode can be entered even if Firebase/Auth scripts fail to load.
+    // Demo mode can be entered even if Firebase/Auth scripts fail to load.
 window.__enterDemoMode = function __enterDemoMode() {
   try {
     window.__DEMO_MODE__ = true;
@@ -1823,27 +1790,6 @@ window.__enterDemoMode = function __enterDemoMode() {
   }
 };
 
-
-// --- iOS Debug (visible in auth modal) ---
-(function(){
-  function dbg(msg){
-    try{
-      const el=document.getElementById('auth-debug');
-      if(!el) return;
-      el.textContent = String(msg);
-    }catch(e){}
-  }
-  window.__dbgAuth = dbg;
-  window.addEventListener('error', function(ev){
-    dbg('JS error: ' + (ev && ev.message ? ev.message : String(ev)));
-  });
-  window.addEventListener('unhandledrejection', function(ev){
-    const r = ev && ev.reason ? ev.reason : ev;
-    const msg = (r && r.code) ? (r.code + ': ' + (r.message||'')) : (r && r.message ? r.message : String(r));
-    dbg('Promise rejection: ' + msg);
-  });
-})();
-
 function setAuthError(msg) {
       const el = document.getElementById('auth-error');
       if (!el) return;
@@ -1858,15 +1804,9 @@ function setAuthError(msg) {
 
     // Demo mode is always available (no cloud sync)
     window.enterDemoMode = function () {
-  try { window.__DEMO_MODE__ = true; } catch (_) {}
-  try { localStorage.setItem('amn_demo_mode', '1'); } catch (_) {}
-  if (typeof window.__enterDemoMode === 'function') return window.__enterDemoMode();
-  // fallback: just hide overlay
-  try {
-    const overlay = document.getElementById('auth-overlay');
-    if (overlay) overlay.style.display = 'none';
-  } catch (_) {}
-};
+      try { localStorage.setItem('amn_demo_mode', '1'); } catch (_) {}
+      hideAuthModal();
+    };
 
     if (location.protocol === 'file:') {
       setAuthError('You opened this page as a local file (file://). Cloud login will not work in file mode. Use the Netlify URL, or run a local server (e.g., “python3 -m http.server”) and open http://localhost:8000. You can still use “View demo (read-only)”.');
@@ -1918,7 +1858,7 @@ function setAuthError(msg) {
       // - Demo still works
       // - Sign in / Create account show a clear error instead of doing nothing
       const demoBtn = document.getElementById('auth-demo');
-      const inBtn = document.getElementById('auth-signin');
+      const inBtn = document.getElementById('login-btn');
       const upBtn = document.getElementById('auth-signup');
       if (demoBtn) demoBtn.addEventListener('click', () => window.enterDemoMode());
       const explain = () => setAuthError('Cloud login did not initialize on this device/browser. Try reloading, disabling content blockers, and ensure third-party scripts are allowed. You can still use “View demo (read-only)”.');
@@ -1926,41 +1866,45 @@ function setAuthError(msg) {
       if (upBtn) upBtn.addEventListener('click', explain);
     } else {
     // Persist login on device/browser (one-time login per device).
-    // Persist login on device/browser (one-time login per device). iOS Safari can fail LOCAL in restricted storage mode.
-async function __initAuthPersistence() {
-  try {
-    await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-    return "LOCAL";
-  } catch (e1) {
-    try {
-      await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
-      return "SESSION";
-    } catch (e2) {
-      console.warn("Auth persistence unavailable:", (e1 && e1.code) ? e1.code : e1, (e2 && e2.code) ? e2.code : e2);
-      return "NONE";
-    }
-  }
-}
-__initAuthPersistence().then((mode)=>{ window.__AUTH_PERSISTENCE__ = mode; });
-var CURRENT_UID = null;
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
+      console.warn("Auth persistence not set:", (err && err.code) ? err.code : err);
+    });
+
+    var CURRENT_UID = null;
     CURRENT_UID = null;
         window.CURRENT_UID = null;
 
-    function ensureAuthUI() {
+    let isLoggingIn = false;
+async function handleLoginSubmit(event) {
+  event.preventDefault();
+  if (isLoggingIn) return;
+  isLoggingIn = true;
+  const email = document.getElementById('email-input')?.value || '';
+  const password = document.getElementById('password-input')?.value || '';
+  try {
+    await firebase.auth().signInWithEmailAndPassword(email, password);
+  } catch (error) {
+    console.error("Login failed:", error);
+  } finally {
+    isLoggingIn = false;
+  }
+}
+
+function ensureAuthUI() {
       // Attach button handlers once the auth DOM exists.
       if (window.__authUIReady) return;
 
       const overlay = document.getElementById("auth-overlay");
-      const emailEl = document.getElementById("auth-email");
-      const passEl = document.getElementById("auth-pass");
-      const btnIn  = document.getElementById("auth-signin");
+      const formEl = document.getElementById("login-form");
+      const emailEl = document.getElementById("email-input");
+      const passEl = document.getElementById("password-input");
       const btnUp  = document.getElementById("auth-signup");
       const btnDemo = document.getElementById("auth-demo");
       const errEl  = document.getElementById("auth-error");
 
       // If the elements aren't on the page yet (common when scripts run before body),
       // don't mark ready. We'll retry shortly / on DOMContentLoaded.
-      if (!overlay || !emailEl || !passEl || !btnIn || !btnUp || !btnDemo || !errEl) {
+      if (!overlay || !formEl || !emailEl || !passEl || !btnUp || !btnDemo || !errEl) {
         setTimeout(ensureAuthUI, 50);
         return;
       }
@@ -1970,71 +1914,20 @@ var CURRENT_UID = null;
         errEl.style.display = msg ? "block" : "none";
       };
 
-      // Sign in (click + form submit) — set up for iOS/macOS password autofill
-      const authForm = document.getElementById("auth-form");
-      const authApi = window.__authApi;
-      const doSignIn = async (ev) => {
-        if (ev && typeof ev.preventDefault === "function") ev.preventDefault();
-        if (window.__AMN_SIGNIN_INFLIGHT) return;
-        window.__AMN_SIGNIN_INFLIGHT = true;
-        showErr("");
-        const emailRaw = (emailEl.value || "").trim();
-        const pass  = (passEl.value  || ""); // do NOT trim passwords
+      // Stable iOS login: submit handler + guard against double-submit
+      formEl.addEventListener("submit", handleLoginSubmit);
 
-        if (!emailRaw || !pass) {
-          showErr("Please enter email and password.");
-          window.__AMN_SIGNIN_INFLIGHT = false;
-          return;
+        const email = (emailEl.value || "").trim();
+        const pass  = (passEl.value || "").trim();
+        if (!email || !pass) return showErr("Enter email and password.");
+        try {
+          await window.__authApi.signIn(email, pass);
+          showAuthOverlay(false);
+          onAuthReady();
+        } catch (e) {
+          showErr(e?.message || String(e));
         }
-
-        if (!window.__authApi || !window.__authApi.signIn) {
-          showErr("Auth module not ready. Please wait 1–2 seconds and try again.");
-          window.__AMN_SIGNIN_INFLIGHT = false;
-          try { btnIn.disabled = false; } catch(e) {}
-          return;
-        }
-
-        // If user typed a non-email identifier, try a deterministic alias so iOS Passwords can still work.
-        const normalizeUsernameToEmail = (s) => {
-          const cleaned = String(s).trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
-          return cleaned ? (cleaned + "@amn.local") : "";
-        };
-        const emailCandidates = [];
-        emailCandidates.push(emailRaw);
-        if (!emailRaw.includes("@")) {
-          const alias = normalizeUsernameToEmail(emailRaw);
-          if (alias && alias !== emailRaw) emailCandidates.push(alias);
-        }
-
-        // Disable button while signing in
-        try { btnIn.disabled = true; } catch(e) {}
-
-        let lastErr = null;
-        for (const email of emailCandidates) {
-          try {
-            await window.__authApi.signIn(email, pass);
-            // UI will be transitioned by onAuthStateChanged
-            lastErr = null;
-            break;
-          } catch (e) {
-            lastErr = e;
-            // If invalid-email and we have another candidate, keep trying.
-            continue;
-          }
-        }
-
-        if (lastErr) {
-          const msg = (lastErr && lastErr.code) ? String(lastErr.code) : (lastErr && lastErr.message ? String(lastErr.message) : "Sign in failed.");
-          showErr(msg.replace(/^auth\//, ""));
-        }
-
-        try { btnIn.disabled = false; } catch(e) {}
-        window.__AMN_SIGNIN_INFLIGHT = false;
-      };
-      // expose for any legacy inline handlers (and for debugging)
-      window.__doSignIn = () => doSignIn();
-      if (authForm) authForm.addEventListener("submit", doSignIn);
-
+      });
 
       btnUp.addEventListener("click", async () => {
         showErr("");
@@ -2127,40 +2020,19 @@ var CURRENT_UID = null;
     // Gate all Firestore reads/writes behind authentication.
     // If you are not signed in, the app will prompt once and then stay signed in on this device.
     auth.onAuthStateChanged((user) => {
-  // Demo mode must never be blocked by auth gating.
-  if (window.__DEMO_MODE__) {
-    window.CURRENT_UID = null;
-    showAuthOverlay(false);
-    // Demo mode initializes immediately on entry; do not override UI here.
-    return;
-  }
+      window.CURRENT_UID = user?.uid || null;
+      showAuthOverlay(!window.CURRENT_UID);
+    });
 
-  window.CURRENT_UID = user?.uid || null;
+    // --- NO AUTH / NO DEVICE ID ---
+    // Users are static profiles: "patrick" or "nieve".
+    // Path structure: users/{profileName}/logs/{date}
 
-  if (!window.CURRENT_UID) {
-    // Avoid iOS Passwords re-prompt loops: do not aggressively re-show the auth UI while a sign-in attempt is in flight.
-    if (!window.__AMN_SIGNIN_INFLIGHT) showAuthOverlay(true);
-    return;
-  }
-
-  showAuthOverlay(false);
-
-  // Run post-auth initialization exactly once per session.
-  if (!window.__AUTH_READY_RAN__) {
-    window.__AUTH_READY_RAN__ = true;
-    try { onAuthReady(); } catch (e) { console.error("onAuthReady failed:", e); }
-  }
-});
-// --- NO AUTH / NO DEVICE ID ---
-    // In test mode we use a single canonical store per authenticated user.
-    // Path structure: users/{uid}/logs/{date}
-
-    function userProfilePath(_profile, ...rest) {
-      // Canonical path (Firebase Auth): users/{uid}/{collection}/{doc}
-      // We intentionally ignore per-profile subpaths in test mode.
+    function userProfilePath(profile, ...rest) {
+      // Secure path (requires Firebase Auth): users/{uid}/profiles/{profile}/...
       const uid = requireUid();
       const tail = rest.length ? "/" + rest.map(encodeURIComponent).join("/") : "";
-      return `users/${uid}${tail}`;
+      return `users/${uid}/profiles/${encodeURIComponent(profile)}${tail}`;
     }
 
     // ---------------------------
@@ -2416,9 +2288,6 @@ fast_markers: {
           restless_legs_at_night: checked("p-fast-restless")
         },
 
-lab: collectLabPayload().lab,
-        functional_tests: collectFunctionalTestsForDaily(date),
-
         positive_events: readPositiveEvents(),
         daily_summary: trimText(val("p-daily-summary")) || null,
         adverse_events: readAdverseEvents(),
@@ -2461,7 +2330,7 @@ lab: collectLabPayload().lab,
 
         // Ensure date exists
         const dateStr = payload.date || localDateStr();
-        const docRef = db.doc(`users/${uid}/logs/${encodeURIComponent(dateStr)}`);
+        const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
 
         const finalPayload = {
           ...payload,
@@ -2487,47 +2356,15 @@ window.saveUserLog = saveUserLog;
 
     // --- PDF EXPORT (range + dense table + notes appendix) ---
     async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
-      // Logs
       const q = db
         .collection(userProfilePath(patientId, "logs"))
         .where("date", ">=", startDate)
         .where("date", "<=", endDate)
         .orderBy("date", dir);
       const snapshot = await q.get();
-      const logs = snapshot.docs.map((d) => d.data());
-
-      // Tests (optional join). Tests are stored as separate docs with test_date.
-      // We merge tests into logs by YYYY-MM-DD, and also support legacy IDs like YYYY-MM-DD_<timestamp>.
-      try {
-        const tq = db
-          .collection(userProfilePath(patientId, "tests"))
-          .where("test_date", ">=", startDate)
-          .where("test_date", "<=", endDate)
-          .orderBy("test_date", "asc");
-        const tsnap = await tq.get();
-        const testsByDate = {};
-        tsnap.docs.forEach(doc => {
-          const t = doc.data() || {};
-          const d = (t.test_date || "").slice(0,10);
-          if (!d) return;
-          if (!testsByDate[d]) testsByDate[d] = [];
-          testsByDate[d].push(t);
-        });
-
-        logs.forEach(l => {
-          const d = (l.date || "").slice(0,10);
-          const extra = testsByDate[d] || [];
-          if (extra.length) {
-            const existing = Array.isArray(l.functional_tests) ? l.functional_tests : [];
-            l.functional_tests = existing.concat(extra);
-          }
-        });
-      } catch (e) {
-        console.warn("Tests join skipped:", e);
-      }
-
-      return logs;
+      return snapshot.docs.map((d) => d.data());
     }
+
 
     // Fetch last N logs (default 30), ordered by date desc.
     async function fetchPatientLogs(patientId, days = 30) {
@@ -2736,14 +2573,7 @@ window.saveUserLog = saveUserLog;
       pdf.text(`Patient: ${pn}${pdob ? `   |   DOB: ${pdob}` : ""}`, margin, 64);
       pdf.text(`Range: ${startDate} to ${endDate}   |   Logs: ${ordered.length}   |   Generated: ${new Date().toLocaleDateString()}`, margin, 78);
 
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
-      pdf.setTextColor(120);
-      pdf.text("Researched and Prepared By: Patrick Shipp Nutrition RNCP", margin, 92);
-      pdf.text("www.patrickshipp.com", margin, 104);
-      pdf.setTextColor(0);
-
-      let y = 118;
+      let y = 106;
 
       // Daily Summary header (trend scan)
       pdf.setFont("helvetica", "bold");
@@ -2921,7 +2751,7 @@ window.saveUserLog = saveUserLog;
         y += 14;
       }
 
-      savePdf(pdf, `Pilot_${startDate}_to_${endDate}.pdf`);
+      pdf.save(`Pilot_${startDate}_to_${endDate}.pdf`);
     }
 
     async function generatePassengerPDF(logs, label, startDate, endDate, dir, patientMeta = {}) {
@@ -3001,13 +2831,13 @@ window.saveUserLog = saveUserLog;
         y += 14;
       }
 
-      savePdf(pdf, `Passenger_${startDate}_to_${endDate}.pdf`);
+      pdf.save(`Passenger_${startDate}_to_${endDate}.pdf`);
     }
 
     // Helper to render blank instead of "null" or "undefined"
     function valRender(val, suffix = "") {
-      if (val === null || val === undefined || val === "") return "N/A";
-      return String(val) + suffix;
+      if (val === null || val === undefined || val === "") return "";
+      return val + suffix;
     }
     function yesNo(val) {
       if (val === null || val === undefined) return "";
@@ -3022,9 +2852,16 @@ window.saveUserLog = saveUserLog;
   }
 
   // Render helpers
+  function displayValue(v) {
+    if (v === null || v === undefined || v === "") {
+      return "N/A";
+    }
+    return v;
+  }
   const vr = (val, suffix = "") => {
-    if (val === null || val === undefined || val === "") return "N/A";
-    return String(val) + suffix;
+    const dv = displayValue(val);
+    if (dv === "N/A") return dv;
+    return String(dv) + suffix;
   };
   const yn = (val) => {
     if (val === true) return "Yes";
@@ -3041,35 +2878,69 @@ window.saveUserLog = saveUserLog;
   };
   const bpRender = (v) => {
     if (!v || typeof v !== "object") return "";
-    if (v.bp) return v.bp;
+    if (v.bp) return displayValue(v.bp);
 
-    const sys = (v.bp_sys !== undefined) ? v.bp_sys : v.bp_systolic;
-    const dia = (v.bp_dia !== undefined) ? v.bp_dia : v.bp_diastolic;
+    const sys = pick(v, "bp// 1) Fetch logs + functional tests, then merge by date (required for PDF report)
+    async function fetchMergedReportData(userId) {
+      const logsRef = db.collection(`users/${userId}/profiles/${encodeURIComponent(profileId)}/logs`);
+      const testsRef = db.collection(`users/${userId}/profiles/${encodeURIComponent(profileId)}/tests`);
 
-    if (sys === undefined || sys === null || sys === "") return "";
-    if (dia === undefined || dia === null || dia === "") return "";
-    return `${sys}/${dia}`;
-  };
+      const [logsSnap, testsSnap] = await Promise.all([
+        logsRef.get(),
+        testsRef.get()
+      ]);
 
-  try {
-    // 1) Fetch data safely
-    const logsRef = db.collection(`users/${uid}/logs`);
-    const snapshot = await logsRef.orderBy("date", "desc").get();
+      const mergedData = {};
 
-    if (snapshot.empty) {
+      logsSnap.forEach((doc) => {
+        const data = doc.data() || {};
+        const dateKey = String(data.date || doc.id || "").trim();
+        if (!dateKey) return;
+        mergedData[dateKey] = Object.assign({}, data, { date: dateKey, tests: [] });
+      });
+
+      testsSnap.forEach((doc) => {
+        const testData = doc.data() || {};
+        const dateKey = String(testData.test_date || testData.date || (doc.id ? String(doc.id).split("_")[0] : "") || "").trim();
+        if (!dateKey) return;
+
+        if (!mergedData[dateKey]) {
+          mergedData[dateKey] = { date: dateKey, tests: [] };
+        }
+        if (!Array.isArray(mergedData[dateKey].tests)) mergedData[dateKey].tests = [];
+        mergedData[dateKey].tests.push(testData);
+      });
+
+      let rows = Object.values(mergedData);
+
+      // Optional client-side date filter (if modal passes it)
+      const startDate = opts?.startDate || null;
+      const endDate = opts?.endDate || null;
+      if (startDate || endDate) {
+        rows = rows.filter((r) => {
+          const d = String(r.date || "");
+          if (!d) return false;
+          if (startDate && d < startDate) return false;
+          if (endDate && d > endDate) return false;
+          return true;
+        });
+      }
+
+      // Sort by date to match export order
+      const dir = (opts?.dir || "desc").toLowerCase() === "asc" ? "asc" : "desc";
+      rows.sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+      if (dir === "desc") rows.reverse();
+
+      return rows;
+    }
+
+    const logs = await fetchMergedReportData(uid);
+
+    if (!logs.length) {
       alert("No data found to export.");
       return;
     }
-
-    let logs = [];
-    snapshot.forEach(doc => logs.push(doc.data()));
-
-    // Optional client-side date filter (if modal passes it)
-    const startDate = opts?.startDate || null;
-    const endDate = opts?.endDate || null;
-    if (startDate || endDate) {
-      logs = logs.filter(l => {
-        const d = String(l.date || "");
+"");
         if (!d) return false;
         if (startDate && d < startDate) return false;
         if (endDate && d > endDate) return false;
@@ -3130,6 +3001,27 @@ window.saveUserLog = saveUserLog;
         <p><strong>AM:</strong> BP: ${vr(bpRender(vAm) || "")} | HR: ${vr(pick(vAm, "hr"), " bpm")}</p>
         <p><strong>PM:</strong> BP: ${vr(bpRender(vPm) || "")} | HR: ${vr(pick(vPm, "hr"), " bpm")}</p>
       </div>`;
+
+      
+      // Functional tests (stored in separate collection; merged into log.tests for export)
+      const testsArr = Array.isArray(log.tests) ? log.tests : [];
+      html += `<div class="report-section"><h3>Functional Tests</h3>`;
+      if (!testsArr.length) {
+        html += `<p>N/A</p></div>`;
+      } else {
+        html += `<ul>`;
+        testsArr.forEach(t => {
+          const td = displayValue(t.test_date || t.date || "");
+          const six = t.six_minute_walk || {};
+          const sts = t.sit_to_stand_5x || {};
+          html += `<li><strong>${td}</strong><br/>
+            6-min walk: distance ${vr(six.distance_m, " m")}, rest breaks ${vr(six.rest_breaks_count)}, device ${vr(six.assistive_device)}, course ${vr(six.course_length_m, " m")}, RPE ${vr(six.perceived_exertion)}<br/>
+            5x sit-to-stand: time ${vr(sts.time_seconds, " s")}, used arms ${vr(sts.used_arms)}, chair ${vr(sts.chair_height_cm, " cm")}<br/>
+            Notes: ${vr(t.notes)}
+          </li>`;
+        });
+        html += `</ul></div>`;
+      }
 
       // Global status
       html += `<div class="report-section"><h3>Global Status</h3>
@@ -3200,41 +3092,23 @@ window.saveUserLog = saveUserLog;
       const vlcfa = pick(labs, "vlcfa_c26", "vlcfa");
       const liver = pick(labs, "liver_alt_ast");
       const labNotes = pick(labs, "notes");
-      {
+      if (vlcfa !== undefined || liver !== undefined || labNotes !== undefined) {
         html += `<div class="report-section"><h3>Periodic Lab Results</h3>
           <p>VLCFA: ${vr(vlcfa)}</p>
           <p>Liver (ALT/AST): ${vr(liver)}</p>
           <p>Notes: ${vr(labNotes)}</p>
         </div>`;
-
+      }
 
       // Functional tests
       html += `<div class="report-section"><h3>Functional Tests</h3>`;
-
-      const ft = log.functional_tests || log.functionalTests || null;
-
-      // Newer schema: one object per date with named tests (six_minute_walk / sit_to_stand_5x)
-      if (ft && !Array.isArray(ft) && (ft.six_minute_walk || ft.sit_to_stand_5x || ft.notes)) {
-        const six = ft.six_minute_walk || {};
-        const sts = ft.sit_to_stand_5x || {};
-
-        html += `<p><strong>6-Minute Walk Test</strong><br>
-          Distance: ${vr(six.distance_meters)} m | Rest breaks: ${vr(six.rest_breaks_count)} | Assistive device: ${vr(six.assistive_device)} | Course length: ${vr(six.course_length_meters)} m | Exertion: ${vr(six.perceived_exertion)}</p>`;
-
-        html += `<p><strong>5x Sit-to-Stand</strong><br>
-          Time: ${vr(sts.time_seconds)} s | Used arms: ${vr(sts.used_arms)} | Chair height: ${vr(sts.chair_height_cm)} cm</p>`;
-
-        if (ft.notes) html += `<p><strong>Notes:</strong> ${vr(ft.notes)}</p>`;
-      }
-      // Older schema: array of generic functional test rows
-      else if (Array.isArray(ft) && ft.length > 0) {
-        ft.forEach(row => {
-          html += `<p>Type: ${vr(row?.test_type)} | Duration: ${vr(row?.duration_seconds)} s | Distance: ${vr(row?.distance_meters)} m | Notes: ${vr(row?.notes)}</p>`;
+      if (Array.isArray(log.functional_tests) && log.functional_tests.length > 0) {
+        log.functional_tests.forEach(ft => {
+          html += `<p>Type: ${vr(ft?.test_type)} | Duration: ${vr(ft?.duration_seconds)}s | Distance: ${vr(ft?.distance_meters)}m | Notes: ${vr(ft?.notes)}</p>`;
         });
       } else {
-        html += `<p>N/A</p>`;
+        html += `<p>None</p>`;
       }
-
       html += `</div>`;
 
       // Notes
@@ -3299,8 +3173,8 @@ window.saveUserLog = saveUserLog;
       const doc = w.document;
 
       // Copy current <style> content so the report CSS + print rules come along
-      const styleText = Array.from(document.querySelectorAll("style")).map(s => s.innerHTML).join("\n\n");
-      const printGuardCss = `\nhtml, body { height: auto !important; overflow: visible !important; }\n#report-view { position: static !important; height: auto !important; max-height: none !important; overflow: visible !important; }\n`; 
+      const styleEl = document.querySelector("style");
+      const styleText = styleEl ? styleEl.innerHTML : "";
 
       doc.open();
       doc.write(`<!doctype html>
@@ -3309,7 +3183,7 @@ window.saveUserLog = saveUserLog;
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Protocol Report</title>
-  <style>${styleText}\n${printGuardCss}</style>
+  <style>${styleText}</style>
 </head>
 <body>
   <div id="report-view" style="display:block;">${html}</div>
@@ -3360,7 +3234,7 @@ async function exportPassengerReport(profileId, opts = {}) {
   };
 
   try {
-    const logsRef = db.collection(`users/${uid}/logs`);
+    const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
     const snapshot = await logsRef.orderBy("date", opts?.dir || "desc").get();
     let logs = snapshot.docs.map(d => d.data());
 
@@ -3442,8 +3316,8 @@ async function exportPassengerReport(profileId, opts = {}) {
     if (opts?.printWindow && typeof opts.printWindow.print === "function") {
       const w = opts.printWindow;
       const doc = w.document;
-      const styleText = Array.from(document.querySelectorAll("style")).map(s => s.innerHTML).join("\n\n");
-      const printGuardCss = `\nhtml, body { height: auto !important; overflow: visible !important; }\n#report-view { position: static !important; height: auto !important; max-height: none !important; overflow: visible !important; }\n`; 
+      const styleEl = document.querySelector("style");
+      const styleText = styleEl ? styleEl.innerHTML : "";
 
       doc.open();
       doc.write(`<!doctype html>
@@ -3452,7 +3326,7 @@ async function exportPassengerReport(profileId, opts = {}) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Passenger Report</title>
-  <style>${styleText}\n${printGuardCss}</style>
+  <style>${styleText}</style>
 </head>
 <body>
   <div id="report-view" style="display:block;">${html}</div>
@@ -3565,33 +3439,6 @@ window.__EXPORT_RUN = async function(args = {}) {
       };
     }
 
-    function collectFunctionalTestsForDaily(dateStr) {
-      try {
-        const payload = collectFunctionalTestPayload();
-        // Force the test_date to the day being saved in the daily log
-        payload.test_date = dateStr || payload.test_date || localDateStr();
-
-        const six = payload.six_minute_walk || {};
-        const sts = payload.sit_to_stand_5x || {};
-
-        const hasAny =
-          (six.distance_m != null) ||
-          (six.rest_breaks_count != null) ||
-          (six.assistive_device != null && String(six.assistive_device).trim() !== "") ||
-          (six.course_length_m != null) ||
-          (six.perceived_exertion != null) ||
-          (sts.time_seconds != null) ||
-          (sts.used_arms != null) ||
-          (sts.chair_height_cm != null) ||
-          (payload.notes != null && String(payload.notes).trim() !== "");
-
-        return hasAny ? [payload] : [];
-      } catch (e) {
-        console.warn("Functional test collection failed:", e);
-        return [];
-      }
-    }
-
     window.saveFunctionalTest = async function() {
       const btns = document.querySelectorAll('[onclick="window.saveFunctionalTest()"]');
       btns.forEach(b => { try { b.disabled = true; b.textContent = "SAVING..."; } catch(e){} });
@@ -3600,8 +3447,7 @@ window.__EXPORT_RUN = async function(args = {}) {
         const payload = collectFunctionalTestPayload();
         // Path: users/patrick/tests/{id}
         const id = `${payload.test_date}_${Date.now()}`;
-        const patientId = window.CURRENT_PATIENT_ID || "patrick";
-        const ref = db.doc(userProfilePath(patientId, "tests", id));
+        const ref = db.doc(userProfilePath("patrick", "tests", id));
         
         await ref.set({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() }, { merge: true });
         btns.forEach(b => { try { b.textContent = "SAVED ✓"; } catch(e){} });
@@ -3977,32 +3823,6 @@ window.__EXPORT_RUN = async function(args = {}) {
   updateLock();
 })();
 
-
-// Ensure legacy demo alias exists
-try { if (!window.enterDemoMode && window.__enterDemoMode) window.enterDemoMode = window.__enterDemoMode; } catch(e) {}
 </script>
 </body>
-</html
-    // iOS Safari can be finicky with direct downloads; prefer opening a blob URL (and sharing when available).
-    function savePdf(pdf, filename) {
-      try {
-        const blob = pdf.output("blob");
-        const file = new File([blob], filename, { type: "application/pdf" });
-
-        // If the Web Share API is available (iOS), offer share/save reliably.
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          navigator.share({ files: [file], title: filename }).catch(() => {});
-          return;
-        }
-
-        // Fallback: open in a new tab (user can then Share -> Save to Files).
-        const url = URL.createObjectURL(blob);
-        window.open(url, "_blank");
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      } catch (e) {
-        // Last resort
-        try { savePdf(pdf, filename); } catch (_) {}
-      }
-    }
-
->
+</html>
