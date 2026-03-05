@@ -837,13 +837,21 @@ function makePilotPayload(dateOffset = 0) {
       restless_legs_at_night:      Math.random() > 0.7
     },
     context_changes: {
-      poor_sleep_last_night:         Math.random() > 0.6,
-      unusual_physical_exertion:     Math.random() > 0.7,
-      travel_or_disrupted_schedule:  Math.random() > 0.9,
-      high_stress:                   rand(0,3),
-      infection_symptoms:            Math.random() > 0.95,
-      gi_upset_or_dehydration_risk:  Math.random() > 0.8,
-      nothing_unusual:               Math.random() > 0.5
+      poor_sleep_last_night:                Math.random() > 0.6,
+      unusual_physical_exertion:            Math.random() > 0.7,
+      medication_timing_change:             Math.random() > 0.85,
+      dose_change:                          Math.random() > 0.9,
+      missed_dose:                          Math.random() > 0.9,
+      new_supplement_added:                 Math.random() > 0.95,
+      new_medication_added:                 Math.random() > 0.97,
+      travel_or_disrupted_schedule:         Math.random() > 0.9,
+      high_stress:                          rand(0,3),
+      infection_symptoms:                   Math.random() > 0.95,
+      gi_upset_or_dehydration_risk:         Math.random() > 0.8,
+      night_pain_likely_electrolyte_related:Math.random() > 0.8,
+      electrolyte_rescue_type:              Math.random() > 0.8 ? randomItem(['na','k','mg','unsure']) : '',
+      electrolyte_rescue_window:            Math.random() > 0.8 ? randomItem(['15','30','60','120']) : '',
+      nothing_unusual:                      Math.random() > 0.5
     },
     positive_events: [],
     adverse_events:  [],
