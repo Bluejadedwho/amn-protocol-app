@@ -917,6 +917,7 @@ body.modal-open {
       const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML = '';
       const pos = document.getElementById('p-positive-events'); if (pos) pos.innerHTML = '';
       Array.from(form.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
+      try { window.clearDraft(); } catch(e){}
       window.scrollTo(0,0);
     };
   </script>
@@ -1396,7 +1397,6 @@ Conceptual Foundation and Mechanistic Framework
 <label>Notes</label>
 <textarea id="lab-notes" placeholder="Specific details..." rows="2"></textarea>
 </div>
-<button class="lab-save-btn" id="lab-save-results-btn" onclick="window.handleLabSave()" type="button">SAVE LAB RESULTS ONLY</button>
 <div class="history-list" id="lab-history-list"></div>
 </div>
 </details>
@@ -1456,7 +1456,6 @@ Conceptual Foundation and Mechanistic Framework
 <label>Notes</label>
 <textarea id="ft-notes" placeholder="Anything notable about setup, pain, fatigue, or conditions" rows="2"></textarea>
 </div>
-<button class="lab-save-btn" onclick="window.saveFunctionalTest()" style="margin-top:14px;" type="button">SAVE FUNCTIONAL TEST</button>
 <div class="history-list" id="ft-history-list"></div>
 </div>
 </details>
@@ -1575,7 +1574,7 @@ Conceptual Foundation and Mechanistic Framework
         window.__DEMO_MODE__ = true;
         const overlay = document.getElementById('auth-overlay');
         if (overlay) overlay.style.display = 'none';
-        const disableIds = ['p-save-log','n-save-log','lab-save-results-btn','clinician-export-btn'];
+        const disableIds = ['p-save-log','n-save-log','clinician-export-btn'];
         disableIds.forEach((id) => {
           const el = document.getElementById(id);
           if (!el) return;
@@ -1760,7 +1759,7 @@ Conceptual Foundation and Mechanistic Framework
       function enterDemoMode() {
         window.__DEMO_MODE__ = true;
         showAuthOverlay(false);
-        const disableIds = ["p-save-log","n-save-log","lab-save-results-btn","clinician-export-btn"];
+        const disableIds = ["p-save-log","n-save-log","clinician-export-btn"];
         disableIds.forEach((id) => {
           const el = document.getElementById(id);
           if (!el) return;
@@ -1815,7 +1814,7 @@ Conceptual Foundation and Mechanistic Framework
       function el(id) { return document.getElementById(id); }
       function val(id) { return el(id)?.value ?? ""; }
       function checked(id) { return !!el(id)?.checked; }
-      function asNumber(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
+      function asNumber(v) { const s = String(v ?? "").trim(); if (s === "") return null; const n = Number(s); return Number.isFinite(n) ? n : null; }
       function trimText(s) { return String(s ?? "").replace(/\s+/g, " ").trim(); }
       function mustEnum(value, allowed, fallback = null) { return allowed.includes(value) ? value : fallback; }
       function parseBP(bpText) {
@@ -2170,7 +2169,7 @@ Conceptual Foundation and Mechanistic Framework
         };
         const fmtHR = (o) => {
           if (!o) return "N/A";
-          return (o.hr !== null && o.hr !== undefined) ? String(o.hr) : "N/A";
+          return (o.hr !== null && o.hr !== undefined && o.hr !== 0) ? String(o.hr) : "N/A";
         };
         return `AM ${fmtBP(v?.morning)} HR ${fmtHR(v?.morning)}   PM ${fmtBP(v?.evening)} HR ${fmtHR(v?.evening)}`;
       }
@@ -2259,14 +2258,219 @@ Conceptual Foundation and Mechanistic Framework
           const pn = (document.getElementById("export-patient-name")?.value || '').trim() || 'Patrick Fuellbeck';
           const dob = document.getElementById("export-patient-dob")?.value || "";
 
+          // ── SUMMARY COMPUTATION ──────────────────────────────────────────
+          // Sort logs chronologically for trend analysis
+          const chronoLogs = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
+          const n = chronoLogs.length;
+
+          // Split into thirds for trend arrows
+          const third = Math.max(1, Math.floor(n / 3));
+          const earlyLogs = chronoLogs.slice(0, third);
+          const lateLogs  = chronoLogs.slice(n - third);
+
+          const _avg = (arr, getter) => {
+            const vals = arr.map(getter).filter(v => v !== null && v !== undefined && v !== "" && Number.isFinite(Number(v))).map(Number);
+            return vals.length ? vals.reduce((a,b) => a+b, 0) / vals.length : null;
+          };
+
+          const _trend = (earlyVal, lateVal, higherIsBetter) => {
+            if (earlyVal === null || lateVal === null) return "–";
+            const diff = lateVal - earlyVal;
+            if (Math.abs(diff) < 0.3) return "→";
+            if (higherIsBetter) return diff > 0 ? "↑" : "↓";
+            else return diff > 0 ? "↓" : "↑";  // higher is worse, so up arrow means worse
+          };
+
+          const _trendColor = (arrow) => ({
+            "↑": "#30D158", "↓": "#FF453A", "→": "#888", "–": "#888"
+          })[arrow] || "#888";
+
+          // Metric definitions: [key, label, getter, higherIsBetter]
+          const metricDefs = [
+            ["baseline",       "Global Baseline",       l => ({much_worse:1,worse:2,slightly_worse:2.5,baseline:3,same:3,slightly_better:3.5,better:4,much_better:5})[l.baseline_rating] || null, true],
+            ["energy",         "Energy / Capacity",     l => l.energy_capacity, true],
+            ["brain_fog",      "Brain Fog",              l => l.symptom_drift?.brain_fog, false],
+            ["gait_step",      "Gait (step effort)",    l => l.symptom_drift?.step_gait_effort, false],
+            ["gait_init",      "Gait (initiation)",     l => l.symptom_drift?.gait_initiation_effort, false],
+            ["gait_sustain",   "Sustained walking",     l => l.symptom_drift?.sustained_walking_effort, false],
+            ["neuro_fatigue",  "Neurologic fatigue",    l => l.symptom_drift?.neurologic_fatigue, false],
+            ["sleep",          "Sleep quality",         l => l.symptom_drift?.sleep_quality, true],
+            ["leg_stiff",      "Leg stiffness",         l => l.symptom_drift?.leg_stiffness, false],
+            ["post_rest",      "Post-rest stiffness",   l => l.symptom_drift?.post_rest_stiffness, false],
+            ["volatility",     "Symptom volatility",    l => l.symptom_drift?.symptom_volatility, false],
+            ["pain",           "Pain impact",           l => l.pain_impact?.severity, false],
+          ];
+
+          const metricRows = metricDefs.map(([key, label, getter, hib]) => {
+            const allVals = chronoLogs.map(getter).filter(v => v !== null && v !== undefined && v !== "" && Number.isFinite(Number(v))).map(Number);
+            if (!allVals.length) return null;
+            const avg = allVals.reduce((a,b)=>a+b,0)/allVals.length;
+            const early = _avg(earlyLogs, getter);
+            const late  = _avg(lateLogs, getter);
+            const arrow = _trend(early, late, hib);
+            const color = _trendColor(arrow);
+            return { label, avg: avg.toFixed(1), early: early?.toFixed(1)||"–", late: late?.toFixed(1)||"–", arrow, color, n: allVals.length };
+          }).filter(Boolean);
+
+          // Fast marker counts
+          const fmLabels = [
+            ["near_fall_or_balance_scare",   "Near-fall / balance scare"],
+            ["electrolyte_rescue_required",   "Electrolyte rescue"],
+            ["spasm_or_clonus_episode",       "Spasm / clonus"],
+            ["night_pain_woke_me",            "Night pain woke me"],
+            ["restless_legs_at_night",        "Restless legs"],
+          ];
+          const fmCounts = fmLabels.map(([key, label]) => ({
+            label,
+            count: chronoLogs.filter(l => l.fast_markers?.[key] === true).length,
+            pct: n ? Math.round(chronoLogs.filter(l => l.fast_markers?.[key] === true).length / n * 100) : 0
+          }));
+
+          // Protocol adherence %
+          const adherenceFields = [
+            ["nervonic_acid_taken", "Nervonic Acid"],
+            ["nac_taken",           "NAC"],
+            ["r_ala_taken",         "R-ALA"],
+            ["vitamin_e_taken",     "Vit E"],
+          ];
+          const adherenceRows = adherenceFields.map(([key, label]) => {
+            const taken = chronoLogs.filter(l => l.protocol_adherence?.[key] === true).length;
+            return { label, pct: n ? Math.round(taken / n * 100) : 0, taken, total: n };
+          });
+
+          // Confounder frequency
+          const confFields = [
+            ["poor_sleep_last_night",              "Poor sleep"],
+            ["unusual_physical_exertion",          "Unusual exertion"],
+            ["night_pain_likely_electrolyte_related","Electrolyte night pain"],
+            ["infection_symptoms",                 "Infection symptoms"],
+            ["gi_upset_or_dehydration_risk",       "GI / dehydration"],
+          ];
+          const confRows = confFields.map(([key, label]) => {
+            const cnt = chronoLogs.filter(l => l.context_changes?.[key] === true).length;
+            return { label, count: cnt, pct: n ? Math.round(cnt / n * 100) : 0 };
+          }).filter(r => r.count > 0);
+
+          // Functional test delta (first vs last)
+          const allTests = chronoLogs.flatMap(l => Array.isArray(l.functional_tests) ? l.functional_tests : [])
+            .filter(t => t && t.test_date)
+            .sort((a,b) => String(a.test_date).localeCompare(String(b.test_date)));
+          const firstTest = allTests[0] || null;
+          const lastTest  = allTests.length > 1 ? allTests[allTests.length - 1] : null;
+
+          const _testDelta = (a, b) => {
+            if (a === null || a === undefined || b === null || b === undefined) return "";
+            const diff = Number(b) - Number(a);
+            if (!Number.isFinite(diff)) return "";
+            const sign = diff > 0 ? "+" : "";
+            return ` (${sign}${diff.toFixed(diff % 1 === 0 ? 0 : 1)})`;
+          };
+
+          // ── SUMMARY HTML ─────────────────────────────────────────────────
+          const summaryHtml = `
+          <div style="background:#f7f7fa; border:2px solid #0A84FF; border-radius:10px; padding:18px; margin-bottom:28px; page-break-inside:avoid;">
+            <div style="font-size:17px; font-weight:800; color:#0A84FF; margin-bottom:14px; text-transform:uppercase; letter-spacing:0.5px;">
+              Period Summary — ${chronoLogs[0]?.date||""} to ${chronoLogs[n-1]?.date||""} (${n} day${n!==1?"s":""} logged)
+            </div>
+
+            <!-- SYMPTOM TRENDS -->
+            <div style="font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Symptom Trends (avg · early avg → late avg · direction)</div>
+            <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:16px;">
+              <tr style="background:#e8e8f0; font-weight:700;">
+                <td style="padding:5px 8px;">Metric</td>
+                <td style="padding:5px 8px; text-align:center;">Avg</td>
+                <td style="padding:5px 8px; text-align:center;">Early</td>
+                <td style="padding:5px 8px; text-align:center;">Late</td>
+                <td style="padding:5px 8px; text-align:center;">Trend</td>
+                <td style="padding:5px 8px; text-align:center;">N</td>
+              </tr>
+              ${metricRows.map((r,i) => `
+              <tr style="background:${i%2===0?"#fff":"#f5f5f8"};">
+                <td style="padding:5px 8px;">${r.label}</td>
+                <td style="padding:5px 8px; text-align:center;">${r.avg}</td>
+                <td style="padding:5px 8px; text-align:center; color:#888;">${r.early}</td>
+                <td style="padding:5px 8px; text-align:center; color:#888;">${r.late}</td>
+                <td style="padding:5px 8px; text-align:center; font-size:16px; font-weight:800; color:${r.color};">${r.arrow}</td>
+                <td style="padding:5px 8px; text-align:center; color:#999;">${r.n}</td>
+              </tr>`).join("")}
+            </table>
+
+            <!-- PROTOCOL ADHERENCE -->
+            <div style="font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Protocol Adherence</div>
+            <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:16px;">
+              ${adherenceRows.map((r,i) => `
+              <tr style="background:${i%2===0?"#fff":"#f5f5f8"};">
+                <td style="padding:5px 8px;">${r.label}</td>
+                <td style="padding:5px 8px;">${r.taken} / ${r.total} days</td>
+                <td style="padding:5px 8px; font-weight:700; color:${r.pct>=80?"#1a7a2e":r.pct>=60?"#b36800":"#cc2200"};">${r.pct}%</td>
+              </tr>`).join("")}
+            </table>
+
+            <!-- FAST MARKERS -->
+            <div style="font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Fast Markers (event days)</div>
+            <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:16px;">
+              ${fmCounts.map((r,i) => `
+              <tr style="background:${i%2===0?"#fff":"#f5f5f8"};">
+                <td style="padding:5px 8px;">${r.label}</td>
+                <td style="padding:5px 8px;">${r.count} / ${n} days</td>
+                <td style="padding:5px 8px; color:#888;">${r.pct}%</td>
+              </tr>`).join("")}
+            </table>
+
+            ${confRows.length ? `
+            <!-- CONFOUNDERS -->
+            <div style="font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Confounder Frequency</div>
+            <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:16px;">
+              ${confRows.map((r,i) => `
+              <tr style="background:${i%2===0?"#fff":"#f5f5f8"};">
+                <td style="padding:5px 8px;">${r.label}</td>
+                <td style="padding:5px 8px;">${r.count} / ${n} days</td>
+                <td style="padding:5px 8px; color:#888;">${r.pct}%</td>
+              </tr>`).join("")}
+            </table>` : ""}
+
+            ${firstTest ? `
+            <!-- FUNCTIONAL TEST DELTA -->
+            <div style="font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Functional Tests${lastTest ? " — First vs Last" : ""}</div>
+            <table style="width:100%; border-collapse:collapse; font-size:12px;">
+              <tr style="background:#e8e8f0; font-weight:700;">
+                <td style="padding:5px 8px;">Measure</td>
+                <td style="padding:5px 8px; text-align:center;">${firstTest.test_date}</td>
+                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${lastTest.test_date}</td><td style="padding:5px 8px; text-align:center;">Δ</td>` : ""}
+              </tr>
+              <tr style="background:#fff;">
+                <td style="padding:5px 8px;">6MW Distance (m)</td>
+                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.six_minute_walk?.distance_m)}</td>
+                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.six_minute_walk?.distance_m)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.six_minute_walk?.distance_m, lastTest.six_minute_walk?.distance_m)}</td>` : ""}
+              </tr>
+              <tr style="background:#f5f5f8;">
+                <td style="padding:5px 8px;">6MW Rest breaks</td>
+                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.six_minute_walk?.rest_breaks_count)}</td>
+                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.six_minute_walk?.rest_breaks_count)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.six_minute_walk?.rest_breaks_count, lastTest.six_minute_walk?.rest_breaks_count)}</td>` : ""}
+              </tr>
+              <tr style="background:#fff;">
+                <td style="padding:5px 8px;">5x STS Time (s)</td>
+                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.sit_to_stand_5x?.time_seconds)}</td>
+                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.sit_to_stand_5x?.time_seconds)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.sit_to_stand_5x?.time_seconds, lastTest.sit_to_stand_5x?.time_seconds)}</td>` : ""}
+              </tr>
+            </table>` : `<div style="font-size:12px; color:#999;">No functional tests recorded in this period.</div>`}
+
+            <div style="margin-top:14px; font-size:10.5px; color:#999; line-height:1.5;">
+              Trend arrows compare the average of the first third vs last third of the period (${third} day${third!==1?"s":""} each).
+              ↑ = improving &nbsp;↓ = worsening &nbsp;→ = stable (&lt;0.3 point difference).
+              Descriptive only — does not adjust for confounders or missing values.
+            </div>
+          </div>`;
+
           let html = `
             <div class="report-header">
-            <p class="report-credit">Researched and Prepared by Patrick Shipp Nutrition, RNCP | www.patrickshipp.com</p>
+              <p class="report-credit">Researched and Prepared by Patrick Shipp Nutrition, RNCP | www.patrickshipp.com</p>
               <h1>Protocol Report: ${pn}</h1>
               ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
               <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-              <p><strong>Records:</strong> ${logs.length}</p>
-            </div>`;
+              <p><strong>Period:</strong> ${opts?.startDate||chronoLogs[0]?.date||""} → ${opts?.endDate||chronoLogs[n-1]?.date||""} &nbsp;|&nbsp; <strong>${n}</strong> day${n!==1?"s":""} logged</p>
+            </div>
+            ${summaryHtml}`;
 
           logs.forEach(log => {
             const protocol = log.protocol_adherence || log.protocol || {};
@@ -2290,8 +2494,8 @@ Conceptual Foundation and Mechanistic Framework
             </div>`;
 
             html += `<div class="report-section"><h3>Vitals AM &amp; PM</h3>
-              <p><strong>AM:</strong> BP: ${bpRender(vAm)} | HR: ${vr(pick(vAm,"hr")," bpm")}</p>
-              <p><strong>PM:</strong> BP: ${bpRender(vPm)} | HR: ${vr(pick(vPm,"hr")," bpm")}</p>
+              <p><strong>AM:</strong> BP: ${bpRender(vAm)} | HR: ${(pick(vAm,"hr")&&pick(vAm,"hr")!==0) ? pick(vAm,"hr")+" bpm" : "N/A"}</p>
+              <p><strong>PM:</strong> BP: ${bpRender(vPm)} | HR: ${(pick(vPm,"hr")&&pick(vPm,"hr")!==0) ? pick(vPm,"hr")+" bpm" : "N/A"}</p>
             </div>`;
 
             html += `<div class="report-section"><h3>Global Status</h3>
@@ -2604,10 +2808,37 @@ Conceptual Foundation and Mechanistic Framework
         });
       };
 
+
+      function hasLabData() {
+        return !!(trimText(val("lab-vlcfa")) || trimText(val("lab-liver")) || trimText(val("lab-notes")));
+      }
+
+      function hasFunctionalTestData() {
+        return !!(val("ft-6m-distance") || val("ft-5x-time") || val("ft-notes"));
+      }
+
       window.handlePilotSave = async function() {
         setBtn("p-save-log", true, "SAVING...");
         try {
+          // 1. Always save the daily log
           await saveUserLog("patrick", collectPilotPayload());
+
+          // 2. Save labs if any lab fields were filled in
+          if (hasLabData()) {
+            await saveUserLog("patrick", collectLabPayload());
+          }
+
+          // 3. Save functional test if any test fields were filled in
+          if (hasFunctionalTestData()) {
+            const payload = collectFunctionalTestPayload();
+            const id = `${payload.test_date}_${Date.now()}`;
+            await db.doc(userProfilePath("patrick", "tests", id)).set(
+              { ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() },
+              { merge: true }
+            );
+          }
+
+          window.clearDraft();
           setBtn("p-save-log", false, "SAVED ✓");
           setTimeout(() => setBtn("p-save-log", false, "SAVE DAILY LOG"), 1200);
         } catch(e) {
@@ -2811,6 +3042,176 @@ Conceptual Foundation and Mechanistic Framework
           </div>`).join("");
       };
 
+      // ── DRAFT SAVE / RESTORE ──────────────────────────────────────────────
+      // Persists the Pilot form to localStorage keyed by today's date.
+      // Restores automatically on load if the draft is from today.
+      // Cleared when the user successfully saves to Firestore.
+
+      const DRAFT_KEY = () => `protocol_draft_patrick_${localDateStr()}`;
+
+      function serializeEpisodeList(containerId) {
+        const wrap = document.getElementById(containerId);
+        if (!wrap) return [];
+        return [...wrap.querySelectorAll(".event-item")].map(item => ({
+          desc: item.querySelector("textarea")?.value || "",
+          durationMin: item.querySelector("input.duration")?.value || "",
+          trigger: item.querySelector("select.trigger")?.value || "",
+          detail: item.querySelector("input.detail")?.value || ""
+        }));
+      }
+
+      function restoreEpisodeList(containerId, items, kind) {
+        const wrap = document.getElementById(containerId);
+        if (!wrap || !Array.isArray(items)) return;
+        wrap.innerHTML = "";
+        items.forEach(item => {
+          const el = newEpisodeItem(kind);
+          const ta = el.querySelector("textarea"); if (ta) ta.value = item.desc || "";
+          const dur = el.querySelector("input.duration"); if (dur) dur.value = item.durationMin || "";
+          const sel = el.querySelector("select.trigger"); if (sel) sel.value = item.trigger || "";
+          const det = el.querySelector("input.detail"); if (det) det.value = item.detail || "";
+          wrap.appendChild(el);
+        });
+      }
+
+      window.saveDraft = function() {
+        try {
+          const form = document.getElementById("patrick-form");
+          if (!form) return;
+          const draft = { _date: localDateStr(), fields: {}, episodes: {} };
+
+          // Capture all named inputs/selects/textareas
+          form.querySelectorAll("input, select, textarea").forEach(el => {
+            if (!el.id) return;
+            if (el.type === "checkbox") draft.fields[el.id] = el.checked;
+            else if (el.type === "hidden") draft.fields[el.id] = el.value;
+            else draft.fields[el.id] = el.value;
+          });
+
+          // Capture dynamic event lists
+          draft.episodes.adverse = serializeEpisodeList("p-adverse-events");
+          draft.episodes.positive = serializeEpisodeList("p-positive-events");
+
+          localStorage.setItem(DRAFT_KEY(), JSON.stringify(draft));
+        } catch(e) { /* localStorage unavailable — silently skip */ }
+      };
+
+      window.clearDraft = function() {
+        try { localStorage.removeItem(DRAFT_KEY()); } catch(e) {}
+      };
+
+      const STALE_DRAFT_PREFIX = "protocol_draft_patrick_";
+
+      function applyDraft(draft) {
+        const form = document.getElementById("patrick-form");
+        if (!form) return;
+        Object.entries(draft.fields || {}).forEach(([id, value]) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          if (el.type === "checkbox") el.checked = !!value;
+          else el.value = value;
+        });
+        form.querySelectorAll('input[type="range"]').forEach(r => window.updateSlider(r));
+        window.updateSlider('p-energy-capacity', 'p-energy-capacity-value');
+        const nmtLevel = parseInt(document.getElementById("p-nmt-level")?.value || "0", 10);
+        const nmtLabel = document.getElementById("p-nmt-label")?.value || "none";
+        window.setNeuromuscularTraining(nmtLevel, nmtLabel);
+        if (draft.episodes?.adverse) restoreEpisodeList("p-adverse-events", draft.episodes.adverse, "adverse");
+        if (draft.episodes?.positive) restoreEpisodeList("p-positive-events", draft.episodes.positive, "positive");
+        const pharm = document.getElementById('p-conf-pharm');
+        const panel = document.getElementById('p-conf-pharm-panel');
+        if (pharm && panel) panel.style.display = pharm.checked ? 'block' : 'none';
+        if (typeof window.toggleSafetyBox === 'function') window.toggleSafetyBox();
+      }
+
+      function findAnyDraft() {
+        try {
+          // First check today's draft
+          const todayRaw = localStorage.getItem(DRAFT_KEY());
+          if (todayRaw) {
+            const d = JSON.parse(todayRaw);
+            if (d && d._date === localDateStr()) return { draft: d, stale: false };
+          }
+          // Scan for any other protocol draft (stale from another day)
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key || !key.startsWith(STALE_DRAFT_PREFIX)) continue;
+            try {
+              const d = JSON.parse(localStorage.getItem(key));
+              if (d && d._date && d._date !== localDateStr()) return { draft: d, stale: true, key };
+            } catch(e) {}
+          }
+        } catch(e) {}
+        return null;
+      }
+
+      function showDraftBanner(draft, stale, staleKey) {
+        const existing = document.getElementById("draft-banner");
+        if (existing) existing.remove();
+
+        const banner = document.createElement("div");
+        banner.id = "draft-banner";
+        banner.style.cssText = `
+          position: fixed; left: 12px; right: 12px; bottom: 72px; z-index: 9998;
+          background: #1c2b1e; border: 1px solid var(--accent-color);
+          border-radius: 14px; padding: 14px 16px; display: flex;
+          flex-direction: column; gap: 10px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+        `;
+
+        const msg = stale
+          ? `You have an unsaved draft from <strong>${draft._date}</strong>. Restore it?`
+          : `Draft from today restored.`;
+
+        banner.innerHTML = `
+          <div style="font-size:0.88rem; color:#d4f5d8; line-height:1.4;">${msg}</div>
+          <div style="display:flex; gap:10px;">
+            <button id="draft-restore-btn" style="flex:1; padding:9px; border-radius:10px; border:0; background:var(--accent-color); color:#000; font-weight:700; cursor:pointer;">
+              Restore
+            </button>
+            <button id="draft-discard-btn" style="flex:1; padding:9px; border-radius:10px; border:1px solid #444; background:transparent; color:#aaa; font-weight:600; cursor:pointer;">
+              Discard
+            </button>
+          </div>
+        `;
+
+        document.body.appendChild(banner);
+
+        document.getElementById("draft-restore-btn").addEventListener("click", () => {
+          try { applyDraft(draft); } catch(e) { console.warn("Draft apply failed:", e); }
+          if (stale && staleKey) { try { localStorage.removeItem(staleKey); } catch(e) {} }
+          banner.remove();
+        });
+
+        document.getElementById("draft-discard-btn").addEventListener("click", () => {
+          if (stale && staleKey) { try { localStorage.removeItem(staleKey); } catch(e) {} }
+          else { window.clearDraft(); }
+          banner.remove();
+        });
+      }
+
+      function loadDraft() {
+        try {
+          const found = findAnyDraft();
+          if (!found) return;
+          const { draft, stale, key } = found;
+          if (!stale) {
+            // Today's draft — restore silently, no prompt needed
+            applyDraft(draft);
+          } else {
+            // Yesterday's (or older) draft — show prompt
+            showDraftBanner(draft, true, key);
+          }
+        } catch(e) { console.warn("Draft restore failed:", e); }
+      }
+
+      // Auto-save on any input change (debounced 800ms)
+      let _draftTimer = null;
+      function scheduleDraftSave() {
+        clearTimeout(_draftTimer);
+        _draftTimer = setTimeout(window.saveDraft, 800);
+      }
+
       document.addEventListener("DOMContentLoaded", () => {
         Array.from(document.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
         if (document.getElementById('p-energy-capacity') && document.getElementById('p-energy-capacity-value')) {
@@ -2824,6 +3225,17 @@ Conceptual Foundation and Mechanistic Framework
           pharm.addEventListener('change', sync);
           sync();
         }
+
+        // Attach auto-save listeners to pilot form
+        const form = document.getElementById("patrick-form");
+        if (form) {
+          form.addEventListener("input", scheduleDraftSave);
+          form.addEventListener("change", scheduleDraftSave);
+        }
+
+        // Restore draft after a short delay to let dynamic elements initialize
+        setTimeout(loadDraft, 120);
+
         ensureAuthUI();
       });
     }
