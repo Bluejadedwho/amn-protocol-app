@@ -578,6 +578,64 @@
       opacity: 0.7;
     }
     .phase-tracker-reset:hover { opacity: 1; }
+    .phase-tracker-info-btn {
+      background: none;
+      border: 1px solid #444;
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 4px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .phase-tracker-info-btn:hover { border-color: #666; color: #fff; }
+    /* Roadmap Modal */
+    #roadmap-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #roadmap-modal .roadmap-card {
+      background: #1C1C1E;
+      border: 1px solid #333;
+      border-radius: 16px;
+      max-width: 600px;
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    #roadmap-modal .roadmap-card::-webkit-scrollbar { display: none; }
+    #roadmap-modal h2 { font-size: 1.2rem; margin: 0 0 16px; color: #fff; }
+    #roadmap-modal h3 { font-size: 1rem; margin: 18px 0 8px; font-weight: 700; }
+    #roadmap-modal h3.rm-p1 { color: var(--accent-color); }
+    #roadmap-modal h3.rm-p2 { color: var(--accent-blue); }
+    #roadmap-modal h3.rm-p3 { color: var(--lab-purple); }
+    #roadmap-modal p, #roadmap-modal li { font-size: 0.85rem; color: #ccc; line-height: 1.55; }
+    #roadmap-modal ul { padding-left: 18px; margin: 6px 0; }
+    #roadmap-modal li { margin-bottom: 4px; }
+    #roadmap-modal .rm-close-btn {
+      display: block;
+      width: 100%;
+      margin-top: 20px;
+      padding: 12px;
+      background: rgba(48, 209, 88, 0.12);
+      border: 1px solid rgba(48, 209, 88, 0.3);
+      color: var(--accent-color);
+      font-weight: 700;
+      font-size: 0.9rem;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    #roadmap-modal .rm-section { border-top: 1px solid #333; padding-top: 14px; }
   
     #trends-charts-pane canvas{ width:100% !important; height:220px !important; display:block; }
   
@@ -1048,6 +1106,56 @@ body.modal-open {
         try { return localStorage.getItem(LS_KEY) || ''; } catch(e) { return ''; }
       }
 
+      function setStartDateLocal(dateStr) {
+        try { localStorage.setItem(LS_KEY, dateStr); } catch(e) {}
+      }
+
+      function removeStartDateLocal() {
+        try { localStorage.removeItem(LS_KEY); } catch(e) {}
+      }
+
+      // Firestore sync helpers (called after Firebase is ready)
+      function saveToFirestore(dateStr) {
+        try {
+          if (window.CURRENT_UID && typeof firebase !== 'undefined' && firebase.firestore) {
+            firebase.firestore().collection('users').doc(window.CURRENT_UID)
+              .collection('settings').doc('protocol')
+              .set({ startDate: dateStr, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+          }
+        } catch(e) { console.warn('Phase tracker Firestore save failed:', e); }
+      }
+
+      function removeFromFirestore() {
+        try {
+          if (window.CURRENT_UID && typeof firebase !== 'undefined' && firebase.firestore) {
+            firebase.firestore().collection('users').doc(window.CURRENT_UID)
+              .collection('settings').doc('protocol')
+              .update({ startDate: firebase.firestore.FieldValue.delete(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          }
+        } catch(e) { console.warn('Phase tracker Firestore remove failed:', e); }
+      }
+
+      // Pull from Firestore on login — Firestore wins if localStorage is empty
+      window.__phaseTrackerSyncFromFirestore = async function() {
+        try {
+          if (!window.CURRENT_UID || typeof firebase === 'undefined') return;
+          const doc = await firebase.firestore().collection('users').doc(window.CURRENT_UID)
+            .collection('settings').doc('protocol').get();
+          if (doc.exists && doc.data()?.startDate) {
+            const remoteDate = doc.data().startDate;
+            const localDate = getStartDate();
+            if (!localDate) {
+              setStartDateLocal(remoteDate);
+              render();
+            } else if (localDate !== remoteDate) {
+              saveToFirestore(localDate);
+            }
+          } else if (getStartDate()) {
+            saveToFirestore(getStartDate());
+          }
+        } catch(e) { console.warn('Phase tracker Firestore sync failed:', e); }
+      };
+
       function daysBetween(startStr) {
         const start = new Date(startStr + 'T00:00:00');
         const now = new Date();
@@ -1147,14 +1255,25 @@ body.modal-open {
       window.setProtocolStartDate = function() {
         const input = byId('phase-tracker-date-input');
         if (!input || !input.value) { alert('Please select a start date.'); return; }
-        try { localStorage.setItem(LS_KEY, input.value); } catch(e) {}
+        setStartDateLocal(input.value);
+        saveToFirestore(input.value);
         render();
       };
 
       window.resetProtocolStartDate = function() {
         if (!confirm('Reset your protocol start date? This only resets the tracker, not your logged data.')) return;
-        try { localStorage.removeItem(LS_KEY); } catch(e) {}
+        removeStartDateLocal();
+        removeFromFirestore();
         render();
+      };
+
+      window.showRoadmapModal = function() {
+        const m = byId('roadmap-modal');
+        if (m) m.style.display = 'flex';
+      };
+      window.hideRoadmapModal = function() {
+        const m = byId('roadmap-modal');
+        if (m) m.style.display = 'none';
       };
 
       // Re-render when pilot view is shown
@@ -1441,7 +1560,61 @@ Conceptual Foundation and Mechanistic Framework
     <span id="pt-start-label">Started: —</span>
     <span id="pt-end-label">Ends: —</span>
   </div>
-  <button class="phase-tracker-reset" id="phase-tracker-reset-btn" type="button" onclick="window.resetProtocolStartDate()">Reset start date</button>
+  <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+    <button class="phase-tracker-info-btn" type="button" onclick="window.showRoadmapModal()">View 90-Day Roadmap</button>
+    <button class="phase-tracker-reset" id="phase-tracker-reset-btn" type="button" onclick="window.resetProtocolStartDate()" style="margin-top:0;">Reset start date</button>
+  </div>
+</div>
+</div>
+
+<!-- 90-Day Roadmap Modal -->
+<div id="roadmap-modal" onclick="if(event.target===this)window.hideRoadmapModal()">
+<div class="roadmap-card">
+<h2>The 90-Day AMN Protocol Roadmap</h2>
+<p>A structured 90-day observation protocol for tracking tolerability, detecting early biomarker signals, and building the evidence base for long-term treatment decisions in Adrenomyeloneuropathy.</p>
+
+<div class="rm-section">
+<h3 class="rm-p1">Phase 1: Tolerability &amp; Baseline Lock (Days 1&#8211;30)</h3>
+<p><strong>Goal:</strong> Confirm the supplement stack is well-tolerated and establish a clean, repeatable baseline across all tracked domains.</p>
+<ul>
+<li><strong>Daily logging:</strong> Record energy, cognition, gait, pain, mood, sleep quality, and any adverse or positive events every day.</li>
+<li><strong>Vitals:</strong> Track weight, blood pressure, heart rate, and temperature as available.</li>
+<li><strong>Supplement adherence:</strong> Log each supplement taken (dose, timing). Mark any missed doses or changes.</li>
+<li><strong>Adverse event capture:</strong> Flag anything new or unusual, even if minor. Early detection is the priority.</li>
+<li><strong>Baseline labs:</strong> If possible, draw baseline bloodwork (VLCFA, cortisol, inflammatory markers, standard metabolic panel) during this window.</li>
+<li><strong>Functional tests:</strong> Complete at least one timed functional test (e.g., 25-foot walk, grip strength, tandem stance) to anchor physical performance baseline.</li>
+</ul>
+<p><strong>Exit criteria:</strong> 30 days of consistent logging. No unresolved safety concerns. Baseline data locked.</p>
+</div>
+
+<div class="rm-section">
+<h3 class="rm-p2">Phase 2: Signal Detection (Days 31&#8211;60)</h3>
+<p><strong>Goal:</strong> With baseline established, begin watching for any early treatment signals&#8212;positive or negative&#8212;across subjective and objective domains.</p>
+<ul>
+<li><strong>Continue daily logging:</strong> Same domains. Consistency matters&#8212;the value is in the trend line, not any single day.</li>
+<li><strong>Pattern review:</strong> At Day 45 and Day 60, review the data for emerging trends. Is energy trending up? Gait stability improving or declining? Pain shifting?</li>
+<li><strong>Supplement adjustments:</strong> If Phase 1 was clean, consider any planned dose adjustments or additions per the protocol plan. Log changes carefully.</li>
+<li><strong>Repeat functional tests:</strong> Run the same timed tests performed in Phase 1 at least once during this window for comparison.</li>
+<li><strong>Mid-protocol labs:</strong> If feasible, repeat key bloodwork (especially VLCFA) around Day 45&#8211;60 to look for early metabolic signal.</li>
+</ul>
+<p><strong>Exit criteria:</strong> 60 days of consistent logging. Initial signal assessment documented. Any concerning trends flagged for review.</p>
+</div>
+
+<div class="rm-section">
+<h3 class="rm-p3">Phase 3: Confirmation &amp; Passenger Decision (Days 61&#8211;90)</h3>
+<p><strong>Goal:</strong> Confirm or refute early signals. Build enough evidence to make an informed go/no-go decision on continuing, modifying, or stopping the protocol.</p>
+<ul>
+<li><strong>Continue daily logging:</strong> Push through to 90 days. The full dataset is the deliverable.</li>
+<li><strong>Deep trend analysis:</strong> Compare Phase 3 averages against Phase 1 baseline. Look for statistically meaningful shifts in energy, cognition, gait, and pain.</li>
+<li><strong>Final functional tests:</strong> Complete the same timed tests one more time. Three data points (Phase 1, 2, 3) create a trend line.</li>
+<li><strong>End-of-protocol labs:</strong> Draw final bloodwork. Compare against baseline for objective biomarker movement.</li>
+<li><strong>Export &amp; review:</strong> Generate the full 90-day clinical export. Prepare a summary for your medical team if applicable.</li>
+<li><strong>Decision point:</strong> Based on the full 90-day evidence: Continue the current protocol? Modify dosing? Add or remove supplements? Stop and reassess? The data speaks.</li>
+</ul>
+<p><strong>Exit criteria:</strong> 90 days complete. Full dataset exported. Decision documented.</p>
+</div>
+
+<button class="rm-close-btn" type="button" onclick="window.hideRoadmapModal()">Close</button>
 </div>
 </div>
 
@@ -2073,6 +2246,10 @@ Conceptual Foundation and Mechanistic Framework
       auth.onAuthStateChanged((user) => {
         window.CURRENT_UID = user?.uid || null;
         showAuthOverlay(!window.CURRENT_UID);
+        // Sync phase tracker start date from Firestore on login
+        if (user && typeof window.__phaseTrackerSyncFromFirestore === 'function') {
+          window.__phaseTrackerSyncFromFirestore();
+        }
       });
 
       function userProfilePath(profile, ...rest) {
