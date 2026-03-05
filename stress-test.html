@@ -252,6 +252,64 @@
 
   /* hidden stress-chart canvases rendered off-screen for jsPDF test */
   #pdf-render-area { position: absolute; left: -9999px; top: 0; width: 600px; }
+
+  /* --- REPORT PANEL --- */
+  .report-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .report-card.visible { display: block; }
+  .report-card h2 { margin-bottom: 16px; }
+  .report-section { margin-bottom: 20px; }
+  .report-section h3 { margin-bottom: 10px; }
+  .report-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .report-stat {
+    background: #0a0a0a;
+    border: 1px solid #222;
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .report-stat .rs-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
+  .report-stat .rs-val { font-size: 1.1rem; font-weight: 700; }
+  .report-stat .rs-val.green { color: var(--green); }
+  .report-stat .rs-val.red   { color: var(--red); }
+  .report-stat .rs-val.blue  { color: var(--blue); }
+  .report-stat .rs-val.yellow { color: var(--yellow); }
+  .report-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .report-table th {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.4px;
+  }
+  .report-table td { padding: 8px 10px; border-bottom: 1px solid #222; }
+  .report-table tr:last-child td { border-bottom: none; }
+  .pass { color: var(--green); font-weight: 700; }
+  .fail { color: var(--red); font-weight: 700; }
+  .report-meta { font-size: 0.75rem; color: var(--muted); margin-top: 8px; line-height: 1.8; }
+  .report-close-row { display: flex; justify-content: flex-end; margin-top: 14px; }
+  .btn-close-report {
+    background: #333;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 0.82rem;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -387,7 +445,7 @@
     <div class="btn-row">
       <button class="btn btn-run" id="btn-run" onclick="runStressTest()">RUN STRESS TEST</button>
       <button class="btn btn-stop" id="btn-stop" disabled onclick="stopTest()">STOP</button>
-      <button class="btn btn-dl" id="btn-dl" disabled onclick="downloadReport()">DOWNLOAD REPORT</button>
+      <button class="btn btn-dl" id="btn-dl" disabled onclick="viewReport()">VIEW REPORT</button>
       <button class="btn btn-clear" onclick="clearAll()">CLEAR</button>
     </div>
   </div>
@@ -427,6 +485,44 @@
       <div style="font-size:0.78rem; color:var(--muted);" id="log-count">0 entries</div>
     </div>
     <div id="log-output"></div>
+  </div>
+
+  <!-- REPORT PANEL -->
+  <div class="report-card" id="report-panel">
+    <h2>Test Report</h2>
+
+    <div class="report-section">
+      <h3>Summary</h3>
+      <div class="report-summary-grid" id="report-summary"></div>
+    </div>
+
+    <div class="report-section">
+      <h3>Module Breakdown</h3>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Module</th>
+            <th>Ops</th>
+            <th>Errors</th>
+            <th>Avg Latency</th>
+            <th>P95 Latency</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody id="report-modules"></tbody>
+      </table>
+    </div>
+
+    <div class="report-section" id="report-mem-section" style="display:none;">
+      <h3>Memory</h3>
+      <div class="report-summary-grid" id="report-mem"></div>
+    </div>
+
+    <div class="report-meta" id="report-meta"></div>
+
+    <div class="report-close-row">
+      <button class="btn-close-report" onclick="closeReport()">Close</button>
+    </div>
   </div>
 
   <div class="footer">
@@ -1168,6 +1264,7 @@ async function runStressTest() {
   document.getElementById('btn-run').disabled  = false;
   document.getElementById('btn-stop').disabled = true;
   document.getElementById('btn-dl').disabled   = false;
+  viewReport();
   setStatus(state.totalErrors === 0 ? 'Passed' : 'Completed with errors',
             state.totalErrors === 0 ? '#30D158' : '#FFD60A');
 }
@@ -1245,17 +1342,62 @@ function buildReport(results, totalMs) {
   };
 }
 
-function downloadReport() {
+function viewReport() {
   if (!state.report) return;
-  const json  = JSON.stringify(state.report, null, 2);
-  const blob  = new Blob([json], { type: 'application/json' });
-  const url   = URL.createObjectURL(blob);
-  const a     = document.createElement('a');
-  a.href      = url;
-  a.download  = `amn-stress-test-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  log('Report downloaded as JSON', 'ok');
+  const r = state.report;
+
+  // Summary row
+  const passed = r.meta.totalErrors === 0;
+  document.getElementById('report-summary').innerHTML = `
+    <div class="report-stat"><div class="rs-label">Result</div><div class="rs-val ${passed ? 'green' : 'yellow'}">${passed ? 'PASSED' : 'ERRORS'}</div></div>
+    <div class="report-stat"><div class="rs-label">Total Ops</div><div class="rs-val blue">${r.meta.totalOps.toLocaleString()}</div></div>
+    <div class="report-stat"><div class="rs-label">Errors</div><div class="rs-val ${r.meta.totalErrors > 0 ? 'red' : 'green'}">${r.meta.totalErrors}</div></div>
+    <div class="report-stat"><div class="rs-label">Duration</div><div class="rs-val">${(r.meta.totalDurationMs / 1000).toFixed(2)}s</div></div>
+    <div class="report-stat"><div class="rs-label">Avg Latency</div><div class="rs-val">${r.meta.avgLatencyMs ?? 'N/A'}ms</div></div>
+  `;
+
+  // Module table
+  const modNames = { localStorage: 'localStorage', chartJs: 'Chart.js', jsPdf: 'jsPDF', uiInteractions: 'UI Interactions' };
+  let rows = '';
+  for (const [key, label] of Object.entries(modNames)) {
+    const m = r.modules[key];
+    if (!m) continue;
+    const ok = m.errors === 0;
+    rows += `<tr>
+      <td>${label}</td>
+      <td>${(m.ops || 0).toLocaleString()}</td>
+      <td>${m.errors || 0}</td>
+      <td>${m.avgLatencyMs ?? 'N/A'}ms</td>
+      <td>${m.p95LatencyMs ?? 'N/A'}ms</td>
+      <td class="${ok ? 'pass' : 'fail'}">${ok ? 'Pass' : 'Fail'}</td>
+    </tr>`;
+  }
+  document.getElementById('report-modules').innerHTML = rows;
+
+  // Memory
+  if (r.meta.memorySnapshot) {
+    const mem = r.meta.memorySnapshot;
+    document.getElementById('report-mem').innerHTML = `
+      <div class="report-stat"><div class="rs-label">Used Heap</div><div class="rs-val">${mem.usedJSHeapSizeMB} MB</div></div>
+      <div class="report-stat"><div class="rs-label">Total Heap</div><div class="rs-val">${mem.totalJSHeapSizeMB} MB</div></div>
+      <div class="report-stat"><div class="rs-label">Heap Limit</div><div class="rs-val">${mem.limitMB} MB</div></div>
+    `;
+    document.getElementById('report-mem-section').style.display = '';
+  }
+
+  // Meta
+  document.getElementById('report-meta').innerHTML =
+    `Generated: ${new Date(r.meta.generatedAt).toLocaleString()}<br>` +
+    `Device: ${r.meta.userAgent}`;
+
+  const panel = document.getElementById('report-panel');
+  panel.classList.add('visible');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  log('Report displayed on page', 'ok');
+}
+
+function closeReport() {
+  document.getElementById('report-panel').classList.remove('visible');
 }
 
 // ============================================================
@@ -1281,6 +1423,7 @@ function clearAll() {
   state.opsHistory = [];
   state.latencyHistory = [];
   state.report = null;
+  document.getElementById('report-panel').classList.remove('visible');
   updateMetrics();
   setStatus('Idle');
   document.getElementById('badge-time').textContent = '—';
