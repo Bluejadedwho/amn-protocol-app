@@ -153,8 +153,8 @@
   </p>
 
   <div class="safety-note">
-    WRITES TO FIRESTORE — All synthetic data is tagged with <strong>_synthetic: true</strong> so it is
-    completely separate from your real data. Use "Clear Synthetic Data" to remove only synthetic entries.
+    WRITES TO FIRESTORE — Synthetic data goes to a <strong>separate collection</strong> (synthetic_logs),
+    completely isolated from your real data in logs/. Use "Clear Synthetic Data" anytime to wipe synthetic entries.
     Your real protocol logs are never touched.
   </div>
 
@@ -490,7 +490,7 @@ async function runLoader() {
     payload.clientUpdatedAt = new Date().toISOString();
 
     try {
-      const docPath = `users/${currentUid}/profiles/${encodeURIComponent(profile)}/logs/${encodeURIComponent(dateStr)}`;
+      const docPath = `users/${currentUid}/profiles/${encodeURIComponent(profile)}/synthetic_logs/${encodeURIComponent(dateStr)}`;
       const docRef = db.doc(docPath);
       batch.set(docRef, payload, { merge: true });
       batchCount++;
@@ -538,7 +538,7 @@ async function runLoader() {
 // ============================================================
 async function clearSynthetic() {
   if (!currentUid) { alert('Please sign in first.'); return; }
-  if (!confirm('This will remove all synthetic test data from Firestore.\nYour real data (without _synthetic flag) is preserved.\n\nContinue?')) return;
+  if (!confirm('This will remove all synthetic test data from Firestore.\nYour real data in logs/ is completely separate and untouched.\n\nContinue?')) return;
 
   document.getElementById('btn-go').disabled = true;
   document.getElementById('btn-clear').disabled = true;
@@ -546,13 +546,13 @@ async function clearSynthetic() {
   document.getElementById('result').style.display = 'none';
 
   const profile = document.getElementById('cfg-profile').value;
-  const logsRef = db.collection(`users/${currentUid}/profiles/${encodeURIComponent(profile)}/logs`);
+  const logsRef = db.collection(`users/${currentUid}/profiles/${encodeURIComponent(profile)}/synthetic_logs`);
 
   log('Scanning Firestore for synthetic entries...', 'info');
 
   try {
-    // Query for all docs with _synthetic == true
-    const snapshot = await logsRef.where('_synthetic', '==', true).get();
+    // Get all docs in synthetic_logs (entire collection is synthetic)
+    const snapshot = await logsRef.get();
 
     if (snapshot.empty) {
       log('No synthetic entries found in Firestore.', 'info');
