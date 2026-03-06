@@ -971,6 +971,77 @@ body.modal-open {
         } catch(e) { console.warn("Could not fetch medical context for export:", e); return null; }
     };
 
+    // ── Medical Context Draft (localStorage) ──────────────────────────
+    const MC_DRAFT_KEY = 'medical_context_draft';
+    const MC_FIELDS = ['mc-phenotype','mc-diagnosis-history','mc-medications','mc-unique-notes','mc-family-context'];
+
+    function saveMcDraft() {
+        try {
+            const draft = {};
+            MC_FIELDS.forEach(id => { draft[id] = byId(id)?.value || ''; });
+            localStorage.setItem(MC_DRAFT_KEY, JSON.stringify(draft));
+        } catch(e) {}
+    }
+
+    function loadMcDraft() {
+        try {
+            const raw = localStorage.getItem(MC_DRAFT_KEY);
+            if (!raw) return false;
+            const draft = JSON.parse(raw);
+            let hasContent = false;
+            MC_FIELDS.forEach(id => {
+                if (draft[id]) { const el = byId(id); if (el) { el.value = draft[id]; hasContent = true; } }
+            });
+            return hasContent;
+        } catch(e) { return false; }
+    }
+
+    function clearMcDraft() {
+        try { localStorage.removeItem(MC_DRAFT_KEY); } catch(e) {}
+    }
+
+    // Attach auto-draft listeners when modal opens
+    window._mcDraftListenersAttached = false;
+    function attachMcDraftListeners() {
+        if (window._mcDraftListenersAttached) return;
+        let timer = null;
+        MC_FIELDS.forEach(id => {
+            const el = byId(id);
+            if (el) el.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(saveMcDraft, 800); });
+        });
+        window._mcDraftListenersAttached = true;
+    }
+
+    // Override saveMedicalContext to clear draft on success
+    const _origSaveMc = window.saveMedicalContext;
+    window.saveMedicalContext = async function() {
+        await _origSaveMc();
+        clearMcDraft();
+    };
+
+    // Override loadMedicalContext to check draft first
+    const _origLoadMc = window.loadMedicalContext;
+    window.loadMedicalContext = async function() {
+        await _origLoadMc();
+        // If there's a local draft with unsaved changes, overlay it and notify
+        const hadDraft = loadMcDraft();
+        if (hadDraft) {
+            const notice = byId('mc-draft-notice');
+            if (!notice) {
+                const n = document.createElement('div');
+                n.id = 'mc-draft-notice';
+                n.style.cssText = 'background:#2a1f00; border:1px solid #FFD60A; border-radius:8px; padding:8px 12px; margin-bottom:12px; font-size:0.82rem; color:#FFD60A; display:flex; align-items:center; justify-content:space-between;';
+                n.innerHTML = 'Unsaved draft restored. <button onclick="clearMcDraft();this.parentElement.remove();window.loadMedicalContext();" style="padding:4px 10px;border-radius:6px;border:1px solid #555;background:transparent;color:#aaa;font-size:0.78rem;cursor:pointer;">Discard draft</button>';
+                const body = byId('medical-context-modal')?.querySelector('.modal-body');
+                if (body) body.insertBefore(n, body.firstChild);
+            }
+        } else {
+            const notice = byId('mc-draft-notice');
+            if (notice) notice.remove();
+        }
+        attachMcDraftListeners();
+    };
+
     // Export Helpers
     function toISODate(d){
       const y = d.getFullYear();
@@ -2498,7 +2569,7 @@ Persistent background information about your condition. Written once, updated as
       function readAdverseEvents() { return readEpisodeItems("p-adverse-events", "adverse-events"); }
 
       function collectPilotPayload() {
-        const date = localDateStr();
+        const date = window.__RESTORED_DRAFT_DATE || localDateStr();
         const morningBP = parseBP(val("p-morning-bp"));
         const eveningBP = parseBP(val("p-evening-bp"));
         return {
@@ -3460,6 +3531,11 @@ Persistent background information about your condition. Written once, updated as
           }
 
           window.clearDraft();
+          // Clear restored draft date and banner after successful save
+          if (window.__RESTORED_DRAFT_DATE) {
+            window.__RESTORED_DRAFT_DATE = null;
+            removeSavingForDateBanner();
+          }
           setBtn("p-save-log", false, "SAVED ✓");
           setTimeout(() => setBtn("p-save-log", false, "SAVE DAILY LOG"), 1200);
         } catch(e) {
@@ -3801,15 +3877,54 @@ Persistent background information about your condition. Written once, updated as
         document.getElementById("draft-restore-btn").addEventListener("click", () => {
           try { applyDraft(draft); } catch(e) { console.warn("Draft apply failed:", e); }
           if (stale && staleKey) { try { localStorage.removeItem(staleKey); } catch(e) {} }
+          // Track the original draft date so save writes to the correct day
+          if (stale && draft._date) {
+            window.__RESTORED_DRAFT_DATE = draft._date;
+            showSavingForDateBanner(draft._date);
+          }
           banner.remove();
         });
 
         document.getElementById("draft-discard-btn").addEventListener("click", () => {
           if (stale && staleKey) { try { localStorage.removeItem(staleKey); } catch(e) {} }
           else { window.clearDraft(); }
+          window.__RESTORED_DRAFT_DATE = null;
+          removeSavingForDateBanner();
           banner.remove();
         });
       }
+
+      function showSavingForDateBanner(dateStr) {
+        removeSavingForDateBanner();
+        const b = document.createElement("div");
+        b.id = "saving-for-date-banner";
+        b.style.cssText = `
+          background: #2a1f00; border: 1px solid #FFD60A; border-radius: 10px;
+          padding: 10px 14px; margin-bottom: 14px; display: flex;
+          align-items: center; justify-content: space-between; gap: 10px;
+        `;
+        b.innerHTML = `
+          <div style="font-size:0.85rem; color:#FFD60A; line-height:1.4;">
+            Restored draft — saving for <strong>${dateStr}</strong>
+          </div>
+          <button onclick="window.clearRestoredDraft()" style="padding:6px 12px; border-radius:8px; border:1px solid #555; background:transparent; color:#aaa; font-size:0.78rem; cursor:pointer; white-space:nowrap;">
+            Clear &amp; use today
+          </button>
+        `;
+        const form = document.getElementById("patrick-form");
+        if (form) form.insertBefore(b, form.firstChild);
+      }
+
+      function removeSavingForDateBanner() {
+        const b = document.getElementById("saving-for-date-banner");
+        if (b) b.remove();
+      }
+
+      window.clearRestoredDraft = function() {
+        window.__RESTORED_DRAFT_DATE = null;
+        removeSavingForDateBanner();
+        if (typeof window.resetPilotForm === 'function') window.resetPilotForm();
+      };
 
       function loadDraft() {
         try {
