@@ -893,7 +893,7 @@ body.modal-open {
     };
 
     window.closeAllModals = function() {
-        ['overview-modal', 'export-modal', 'dev-modal'].forEach(id => {
+        ['overview-modal', 'export-modal', 'dev-modal', 'medical-context-modal'].forEach(id => {
             const m = byId(id);
             if(m) m.style.display = 'none';
         });
@@ -909,6 +909,66 @@ body.modal-open {
         window.closeAllModals();
         const m = byId('dev-modal');
         if(m) m.style.display = 'flex';
+    };
+
+    window.openMedicalContext = function() {
+        window.closeAllModals();
+        const m = byId('medical-context-modal');
+        if(m) m.style.display = 'flex';
+        window.loadMedicalContext();
+    };
+
+    window.loadMedicalContext = async function() {
+        try {
+            const uid = window.CURRENT_UID;
+            if (!uid) return;
+            const docRef = db.doc(`users/${uid}/profiles/patrick/medical_context`);
+            const snap = await docRef.get();
+            if (snap.exists) {
+                const d = snap.data();
+                const fields = ['mc-phenotype','mc-diagnosis-history','mc-medications','mc-unique-notes','mc-family-context'];
+                fields.forEach(id => {
+                    const el = byId(id);
+                    const key = id.replace('mc-','').replace(/-/g,'_');
+                    if (el && d[key]) el.value = d[key];
+                });
+            }
+        } catch(e) { console.warn("Could not load medical context:", e); }
+    };
+
+    window.saveMedicalContext = async function() {
+        const uid = window.CURRENT_UID;
+        if (!uid) { alert("Must be logged in to save."); return; }
+        const btn = byId('mc-save-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'SAVING...'; }
+        try {
+            const payload = {
+                phenotype: (byId('mc-phenotype')?.value || '').trim(),
+                diagnosis_history: (byId('mc-diagnosis-history')?.value || '').trim(),
+                medications: (byId('mc-medications')?.value || '').trim(),
+                unique_notes: (byId('mc-unique-notes')?.value || '').trim(),
+                family_context: (byId('mc-family-context')?.value || '').trim(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                clientUpdatedAt: new Date().toISOString()
+            };
+            const docRef = db.doc(`users/${uid}/profiles/patrick/medical_context`);
+            await docRef.set(payload, { merge: true });
+            if (btn) { btn.textContent = 'SAVED ✓'; setTimeout(() => { btn.disabled = false; btn.textContent = 'SAVE MEDICAL CONTEXT'; }, 1500); }
+        } catch(e) {
+            console.error("Save medical context error:", e);
+            alert("Failed to save: " + (e?.message || e));
+            if (btn) { btn.disabled = false; btn.textContent = 'SAVE MEDICAL CONTEXT'; }
+        }
+    };
+
+    window.fetchMedicalContextForExport = async function() {
+        try {
+            const uid = window.CURRENT_UID;
+            if (!uid) return null;
+            const docRef = db.doc(`users/${uid}/profiles/patrick/medical_context`);
+            const snap = await docRef.get();
+            return snap.exists ? snap.data() : null;
+        } catch(e) { console.warn("Could not fetch medical context for export:", e); return null; }
     };
 
     // Export Helpers
@@ -1018,7 +1078,8 @@ body.modal-open {
           alert("Popup blocked. Please allow popups for this site to export PDF.");
           return;
         }
-        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob, printWindow: printWin });
+        const includeMedicalContext = byId('export-include-medical-context')?.checked || false;
+        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob, printWindow: printWin, includeMedicalContext });
         window.closeExportModal();
       } catch(e){
         console.error(e);
@@ -1396,6 +1457,11 @@ body.modal-open {
 </select>
 </div>
 <div class="helper" style="margin-top:8px; font-size:0.85rem; color:#888;">Defaults to the full 120-day protocol window.</div>
+<label class="checkbox-row" style="margin-top:12px; margin-bottom:4px;">
+<span style="font-size:0.85rem; color:var(--text-secondary);">Include Medical Context &amp; Background</span>
+<input id="export-include-medical-context" type="checkbox"/>
+</label>
+<div class="helper" style="font-size:0.78rem; color:#666; margin-bottom:12px;">Adds your persistent medical history, phenotype, and unique observations to the PDF.</div>
 <button class="lab-save-btn" id="export-run-btn" onclick="window.runExportFromModal()" type="button">Generate PDF</button>
 </div>
 </div>
@@ -1481,6 +1547,52 @@ Conceptual Foundation and Mechanistic Framework
 <p>The Pilot is the primary subject (myself), who implements the full protocol first and confirms tolerability and safety metrics over time. The Passenger is my daughter, for whom any future use would be prophylactic and contingent on demonstrated safety in the Pilot phase. No crossover occurs without stability confirmation.</p>
 <p>This system exists to apply structured, translation-focused reasoning in an area where large-scale human research remains limited.</p>
 <p>It is structured, controlled, and documented.</p>
+</div>
+</div>
+</div>
+
+<div aria-modal="true" class="app-modal" id="medical-context-modal" role="dialog">
+<div class="modal-card" style="max-height:90vh; overflow-y:auto;">
+<div class="modal-header">
+<div class="modal-title">Medical Context</div>
+<button class="modal-close" onclick="window.closeAllModals()" type="button">Close</button>
+</div>
+<div class="modal-body">
+<p style="color:var(--text-secondary); font-size:0.85rem; line-height:1.5; margin-bottom:16px;">
+Persistent background information about your condition. Written once, updated as needed. Not included in standard PDF exports unless you choose to include it.
+</p>
+
+<div class="card" style="margin-bottom:14px;">
+<h3>Phenotype & Presentation</h3>
+<div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Your specific AMN phenotype, what you do/don't have (e.g., no neuropathy, spastic paraparesis only, etc.)</div>
+<textarea id="mc-phenotype" placeholder="Example: AMN without cerebral involvement. Pure spastic paraparesis. No peripheral neuropathy on EMG. Self-catheterize for neurogenic bladder — no urgency." rows="4" style="width:100%;"></textarea>
+</div>
+
+<div class="card" style="margin-bottom:14px;">
+<h3>Diagnosis & Treatment History</h3>
+<div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Key timeline: when diagnosed, what you've tried, what worked or didn't.</div>
+<textarea id="mc-diagnosis-history" placeholder="Example: Diagnosed 2019 via VLCFA panel. Tried Lorenzo's Oil for 6 months — discontinued due to GI issues. Resolved nocturnal polyuria through sodium management (not DDAVP). On 4-supplement protocol since March 2026." rows="4" style="width:100%;"></textarea>
+</div>
+
+<div class="card" style="margin-bottom:14px;">
+<h3>Current Medications & Supplements</h3>
+<div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Everything you take beyond the tracked protocol supplements.</div>
+<textarea id="mc-medications" placeholder="Example: Baclofen 10mg TID for spasticity. Magnesium glycinate 400mg nightly. No other Rx medications." rows="4" style="width:100%;"></textarea>
+</div>
+
+<div class="card" style="margin-bottom:14px;">
+<h3>Unique Observations & Context</h3>
+<div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Anything clinically relevant that's specific to you — salt sensitivity, placebo response patterns, autonomic quirks, etc.</div>
+<textarea id="mc-unique-notes" placeholder="Example: Strong placebo responder — typically feel significantly better for 2-3 weeks when starting any new intervention. Very emotionally invested in protocol success (daughter is a carrier). Resolved excessive thirst and nocturia by increasing sodium intake independent of medical advice." rows="5" style="width:100%;"></textarea>
+</div>
+
+<div class="card" style="margin-bottom:14px;">
+<h3>Family & Genetic Context</h3>
+<div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Relevant family history, carrier status, genetic details.</div>
+<textarea id="mc-family-context" placeholder="Example: Daughter confirmed carrier via genetic testing. Mother was carrier. No other known affected males in family." rows="3" style="width:100%;"></textarea>
+</div>
+
+<button class="save-btn" id="mc-save-btn" onclick="window.saveMedicalContext()" type="button" style="width:100%; margin-top:8px;">SAVE MEDICAL CONTEXT</button>
 </div>
 </div>
 </div>
@@ -1636,6 +1748,8 @@ Conceptual Foundation and Mechanistic Framework
 <button class="rm-close-btn" type="button" onclick="window.hideRoadmapModal()">Close</button>
 </div>
 </div>
+
+<button class="mini-btn" onclick="window.openMedicalContext()" style="margin-bottom:16px; width:100%; background:var(--card-bg); border:1px solid #333; color:var(--text-secondary); font-size:0.85rem;" type="button">MEDICAL CONTEXT &amp; BACKGROUND</button>
 
 <form id="patrick-form">
 <details style="margin-bottom: 20px; margin-top: 0;">
@@ -2938,6 +3052,35 @@ Conceptual Foundation and Mechanistic Framework
             </div>
           </div>`;
 
+          // Medical Context (optional)
+          let medicalContextHtml = "";
+          if (opts?.includeMedicalContext) {
+            const mc = await window.fetchMedicalContextForExport();
+            if (mc) {
+              const mcSections = [
+                ["Phenotype & Presentation", mc.phenotype],
+                ["Diagnosis & Treatment History", mc.diagnosis_history],
+                ["Current Medications & Supplements", mc.medications],
+                ["Unique Observations & Context", mc.unique_notes],
+                ["Family & Genetic Context", mc.family_context]
+              ].filter(([, val]) => val && val.trim());
+              if (mcSections.length) {
+                medicalContextHtml = `
+                <div style="background:#f7f7fa; border:2px solid #BF5AF2; border-radius:10px; padding:18px; margin-bottom:28px; page-break-inside:avoid;">
+                  <div style="font-size:17px; font-weight:800; color:#BF5AF2; margin-bottom:14px; text-transform:uppercase; letter-spacing:0.5px;">
+                    Medical Context &amp; Background
+                  </div>
+                  ${mcSections.map(([title, content]) => `
+                  <div style="margin-bottom:14px;">
+                    <div style="font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">${escapeHTML(title)}</div>
+                    <div style="font-size:13px; color:#333; line-height:1.6; white-space:pre-wrap;">${escapeHTML(content)}</div>
+                  </div>`).join("")}
+                  <div style="margin-top:8px; font-size:11px; color:#bbb;">Last updated: ${mc.clientUpdatedAt ? new Date(mc.clientUpdatedAt).toLocaleDateString() : "N/A"}</div>
+                </div>`;
+              }
+            }
+          }
+
           let html = `
             <div class="report-header">
               <p class="report-credit">Researched and Prepared by Patrick Shipp Nutrition, RNCP | www.patrickshipp.com</p>
@@ -2946,6 +3089,7 @@ Conceptual Foundation and Mechanistic Framework
               <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
               <p><strong>Period:</strong> ${opts?.startDate||chronoLogs[0]?.date||""} → ${opts?.endDate||chronoLogs[n-1]?.date||""} &nbsp;|&nbsp; <strong>${n}</strong> day${n!==1?"s":""} logged</p>
             </div>
+            ${medicalContextHtml}
             ${summaryHtml}`;
 
           logs.forEach(log => {
@@ -3250,7 +3394,8 @@ Conceptual Foundation and Mechanistic Framework
           endDate: args.end || args.endDate || null,
           dir: args.dir || "desc",
           patientName: args.patientName || "",
-          patientDob: args.patientDob || ""
+          patientDob: args.patientDob || "",
+          includeMedicalContext: args.includeMedicalContext || false
         };
         const isPassenger = (label || "").toLowerCase() === "passenger" || patientId !== "patrick";
         if (isPassenger) {
