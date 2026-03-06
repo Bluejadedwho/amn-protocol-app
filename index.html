@@ -2512,42 +2512,13 @@ Conceptual Foundation and Mechanistic Framework
         const q = db.collection(userProfilePath(patientId, "logs"))
           .where("date", ">=", startDate).where("date", "<=", endDate).orderBy("date", dir);
         const snapshot = await q.get();
-        const realLogs = snapshot.docs.map((d) => d.data());
-        // Also fetch synthetic_logs for the same range
-        try {
-          const sq = db.collection(userProfilePath(patientId, "synthetic_logs"))
-            .where("date", ">=", startDate).where("date", "<=", endDate).orderBy("date", dir);
-          const ss = await sq.get();
-          if (!ss.empty) {
-            const syntheticLogs = ss.docs.map((d) => d.data());
-            // Merge: real data wins on date conflicts
-            const realDates = new Set(realLogs.map(l => l.date));
-            const merged = [...realLogs, ...syntheticLogs.filter(l => !realDates.has(l.date))];
-            merged.sort((a, b) => dir === "desc" ? String(b.date||"").localeCompare(String(a.date||"")) : String(a.date||"").localeCompare(String(b.date||"")));
-            return merged;
-          }
-        } catch(e) { /* synthetic_logs may not exist yet */ }
-        return realLogs;
+        return snapshot.docs.map((d) => d.data());
       }
 
       async function fetchPatientLogs(patientId, days = 30) {
         const q = db.collection(userProfilePath(patientId, "logs")).orderBy("date", "desc").limit(days);
         const snapshot = await q.get();
-        const realLogs = snapshot.docs.map((d) => d.data());
-        // Also fetch synthetic_logs
-        try {
-          const sq = db.collection(userProfilePath(patientId, "synthetic_logs")).orderBy("date", "desc").limit(days);
-          const ss = await sq.get();
-          if (!ss.empty) {
-            const syntheticLogs = ss.docs.map((d) => d.data());
-            // Merge: real data wins on date conflicts, then take top N by date
-            const realDates = new Set(realLogs.map(l => l.date));
-            const merged = [...realLogs, ...syntheticLogs.filter(l => !realDates.has(l.date))];
-            merged.sort((a, b) => String(b.date||"").localeCompare(String(a.date||"")));
-            return merged.slice(0, days);
-          }
-        } catch(e) { /* synthetic_logs may not exist yet */ }
-        return realLogs;
+        return snapshot.docs.map((d) => d.data());
       }
 
       function _safeTxt(v) { return String(v ?? "").replace(/\s+/g, " ").trim(); }
