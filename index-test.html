@@ -1123,7 +1123,7 @@ body.modal-open {
         try {
           if (window.CURRENT_UID && typeof firebase !== 'undefined' && firebase.firestore) {
             firebase.firestore().collection('users').doc(window.CURRENT_UID)
-              .collection('settings').doc('protocol')
+              .collection('settings').doc('protocol_test')
               .set({ startDate: dateStr, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
           }
         } catch(e) { console.warn('Phase tracker Firestore save failed:', e); }
@@ -1133,7 +1133,7 @@ body.modal-open {
         try {
           if (window.CURRENT_UID && typeof firebase !== 'undefined' && firebase.firestore) {
             firebase.firestore().collection('users').doc(window.CURRENT_UID)
-              .collection('settings').doc('protocol')
+              .collection('settings').doc('protocol_test')
               .update({ startDate: firebase.firestore.FieldValue.delete(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
           }
         } catch(e) { console.warn('Phase tracker Firestore remove failed:', e); }
@@ -1144,7 +1144,7 @@ body.modal-open {
         try {
           if (!window.CURRENT_UID || typeof firebase === 'undefined') return;
           const doc = await firebase.firestore().collection('users').doc(window.CURRENT_UID)
-            .collection('settings').doc('protocol').get();
+            .collection('settings').doc('protocol_test').get();
           if (doc.exists && doc.data()?.startDate) {
             const remoteDate = doc.data().startDate;
             const localDate = getStartDate();
@@ -1308,7 +1308,10 @@ body.modal-open {
 </style>
 </head>
 <body>
-<div style="background:#FF453A;color:#fff;text-align:center;padding:8px;font-weight:800;font-size:0.85rem;letter-spacing:0.5px;font-family:'Inter',sans-serif;">TEST MODE — Reads/writes synthetic_logs only — Not your real data</div>
+<div id="test-mode-banner" style="background:#FF453A;color:#fff;text-align:center;padding:10px 16px;font-weight:800;font-size:0.85rem;letter-spacing:0.5px;font-family:'Inter',sans-serif;position:sticky;top:0;z-index:99999;display:flex;align-items:center;justify-content:center;gap:12px;">
+  <span>⚠ TEST MODE — All data stored separately from your real profile ⚠</span>
+  <a href="90-day-test.html" style="background:#fff;color:#FF453A;padding:6px 14px;border-radius:8px;font-weight:800;font-size:0.78rem;text-decoration:none;text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;">Load 90-Day Data</a>
+</div>
 <div id="report-view"></div>
 
 <!-- FIX #4: Auth overlay now uses a proper HTML form for iOS autofill reliability -->
@@ -2700,7 +2703,7 @@ Conceptual Foundation and Mechanistic Framework
 
           // FIX #2: Fetch functional tests collection and merge into logs by date
           try {
-            const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/tests`);
+            const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/synthetic_tests`);
             const testsSnap = await testsRef.get();
             const testsByDate = {};
             testsSnap.forEach(doc => {
@@ -3309,7 +3312,7 @@ Conceptual Foundation and Mechanistic Framework
           if (hasFunctionalTestData()) {
             const payload = collectFunctionalTestPayload();
             const id = `${payload.test_date}_${Date.now()}`;
-            await db.doc(userProfilePath("patrick", "tests", id)).set(
+            await db.doc(userProfilePath("patrick", "synthetic_tests", id)).set(
               { ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() },
               { merge: true }
             );
@@ -3351,7 +3354,7 @@ Conceptual Foundation and Mechanistic Framework
         try {
           const payload = collectFunctionalTestPayload();
           const id = `${payload.test_date}_${Date.now()}`;
-          const ref = db.doc(userProfilePath("patrick", "tests", id));
+          const ref = db.doc(userProfilePath("patrick", "synthetic_tests", id));
           await ref.set({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() }, { merge: true });
           btns.forEach(b => { try { b.textContent = "SAVED ✓"; } catch(e){} });
           setTimeout(() => btns.forEach(b => { try { b.disabled = false; b.textContent = "SAVE FUNCTIONAL TEST"; } catch(e){} }), 1400);
