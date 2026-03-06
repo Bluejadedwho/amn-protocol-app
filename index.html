@@ -809,7 +809,7 @@ body.modal-open {
 /* FIX #4: iOS Safari print — never print from scroll containers */
 @media print {
   body * { visibility: hidden; }
-  body { background: #fff; margin: 0; padding: 0; overflow: visible !important; }
+  body { background: #fff; margin: 0; padding: 0; overflow: visible !important; min-height: 0 !important; display: block !important; }
   #app-container { display: none !important; }
   #report-view, #report-view * { visibility: visible; }
   #report-view {
@@ -3099,7 +3099,7 @@ Conceptual Foundation and Mechanistic Framework
   <style>${styleText}</style>
   <style>
     /* FIX: iOS Safari print — never use scroll containers or vh units */
-    body { overflow: visible !important; background: #fff !important; }
+    body { overflow: visible !important; background: #fff !important; margin: 0 !important; padding: 0 !important; min-height: 0 !important; display: block !important; }
     #report-view {
       display: block !important;
       position: static !important;
@@ -3217,7 +3217,7 @@ Conceptual Foundation and Mechanistic Framework
   <title>Passenger Report</title>
   <style>${styleText}</style>
   <style>
-    body { overflow: visible !important; background: #fff !important; }
+    body { overflow: visible !important; background: #fff !important; margin: 0 !important; padding: 0 !important; min-height: 0 !important; display: block !important; }
     #report-view { display:block !important; position:static !important; height:auto !important; overflow:visible !important; width:100% !important; padding:20px !important; }
   </style>
 </head>
