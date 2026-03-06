@@ -1308,10 +1308,6 @@ body.modal-open {
 </style>
 </head>
 <body>
-<div id="test-mode-banner" style="position:sticky;top:0;z-index:99999;background:#FF453A;color:#fff;text-align:center;padding:10px 16px;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;">
-  ⚠️ TEST MODE — Using synthetic_logs collection
-  <a href="90-day-test.html" style="background:#fff;color:#FF453A;border-radius:6px;padding:4px 12px;text-decoration:none;font-weight:700;font-size:13px;white-space:nowrap;">Load 90-Day Data</a>
-</div>
 <div id="report-view"></div>
 
 <!-- FIX #4: Auth overlay now uses a proper HTML form for iOS autofill reliability -->
@@ -2496,7 +2492,7 @@ Conceptual Foundation and Mechanistic Framework
           const uid = window.CURRENT_UID;
           if (!uid) throw new Error("Not authenticated");
           const dateStr = payload.date || localDateStr();
-          const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/synthetic_logs/${encodeURIComponent(dateStr)}`);
+          const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
           const finalPayload = { ...payload, date: dateStr, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), clientUpdatedAt: new Date().toISOString() };
           await docRef.set(finalPayload, { merge: true });
         } catch (err) {
@@ -2513,14 +2509,14 @@ Conceptual Foundation and Mechanistic Framework
       window.saveUserLog = saveUserLog;
 
       async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
-        const q = db.collection(userProfilePath(patientId, "synthetic_logs"))
+        const q = db.collection(userProfilePath(patientId, "logs"))
           .where("date", ">=", startDate).where("date", "<=", endDate).orderBy("date", dir);
         const snapshot = await q.get();
         return snapshot.docs.map((d) => d.data());
       }
 
       async function fetchPatientLogs(patientId, days = 30) {
-        const q = db.collection(userProfilePath(patientId, "synthetic_logs")).orderBy("date", "desc").limit(days);
+        const q = db.collection(userProfilePath(patientId, "logs")).orderBy("date", "desc").limit(days);
         const snapshot = await q.get();
         return snapshot.docs.map((d) => d.data());
       }
@@ -2695,7 +2691,7 @@ Conceptual Foundation and Mechanistic Framework
         };
 
         try {
-          const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/synthetic_logs`);
+          const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
           const snapshot = await logsRef.orderBy("date", "desc").get();
           if (snapshot.empty) { alert("No data found to export."); return; }
           let logs = [];
@@ -3149,7 +3145,7 @@ Conceptual Foundation and Mechanistic Framework
           return String(val) + suffix;
         };
         try {
-          const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/synthetic_logs`);
+          const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
           const snapshot = await logsRef.orderBy("date", opts?.dir || "desc").get();
           let logs = snapshot.docs.map(d => d.data());
           const startDate = opts?.startDate || null;
